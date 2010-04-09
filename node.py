@@ -57,15 +57,21 @@ class Instance(object):
         self._name = name
         self._vcpus = vcpus
         self._memory_mb = memory_mb
-        self._mac  = "00:11:22:33:44:55"
+        self._mac  = self.generate_mac()
 
         xml = self.setup()
         self._conn.createXML(xml, 0)
 
+    def generate_mac(self):
+        mac = [0x00, 0x16, 0x3e, random.randint(0x00, 0x7f), \
+           random.randint(0x00, 0xff), random.randint(0x00, 0xff)]
+        return ':'.join(map(lambda x: "%02x" % x, mac))
+
+
     def setup(self):
         """ create libvirt.xml and copy files into instance path """
         self._basepath = settings.instances_path + '/' + self._name
-
+        # FIXME - Use Python template module
         libvirt_xml = open('libvirt.xml.template').read() \
             .replace('NAME', self._name) \
             .replace('VCPUS', str(self._vcpus)) \
