@@ -66,4 +66,6 @@ Installation
 ============
 
   apt-get install python-libvirt libvirt-bin kvm rabbitmq-server
+  apt-get install iscsitarget
 
+iptables -t nat -A PREROUTING -s 0.0.0.0/0 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination 10.0.0.2:8773
