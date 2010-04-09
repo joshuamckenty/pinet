@@ -8,6 +8,7 @@ DEPENDENCIES
 
 RabbitMQ: messaging queue, used for all communication between components
 OpenLDAP: users, groups (maybe cut)
+Tornado:  scalable non blocking web server for api requests
 
 COMPONENTS
 ==========
@@ -65,5 +66,9 @@ Wow
 Installation
 ============
 
-  apt-get install python-libvirt libvirt-bin kvm rabbitmq-server
-
+  sudo apt-get install python-libvirt libvirt-bin kvm rabbitmq-server python-dev python-pycurl python-simplejson
+  wget http://www.tornadoweb.org/static/tornado-0.2.tar.gz
+  tar xvzf tornado-0.2.tar.gz
+  cd tornado-0.2
+  python setup.py build
+  sudo python setup.py install
