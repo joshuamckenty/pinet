@@ -51,7 +51,8 @@ class APIRequestHandler(tornado.web.RequestHandler):
         #except ValueError, e:
         #    _log.warning()
         
-        # TODO: Wrap response in AWS XML format    
+        # TODO: Wrap response in AWS XML format  
+        self.set_header('Content-Type', 'text/xml')  
         self.write(response)
             
 
@@ -62,11 +63,11 @@ application = tornado.web.Application([
 
 class APIServerDaemon(Daemon):
     def start(self):
-        print 'Starting daemon...'
+        print 'Starting daemon on port %s' % settings.CC_PORT
         super(APIServerDaemon, self).start()
 
     def restart(self):
-        print 'Restarting daemon...'
+        print 'Restarting daemon on port %s' % settings.CC_PORT
         super(APIServerDaemon, self).restart()
 
     def stop(self):
