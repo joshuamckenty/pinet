@@ -1,76 +1,122 @@
-import libvirt
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
+import logging
 import os
 import random
 import shutil
+import StringIO
 import sys
 import time
+from xml.etree import ElementTree
 
+import libvirt
+
+import exception
+import fakevirt
 import partition2disk
 import settings
-
 import storage
+from utils import runthis
+
+import calllib
+
+
 
 class Node(object):
     """ The node is in charge of running instances.  """
 
     def __init__(self, options=None):
         """ load configuration options for this node and connect to libvirt """
-        auth = [[libvirt.VIR_CRED_AUTHNAME, libvirt.VIR_CRED_NOECHOPROMPT], 'root', None]
         self.options = options
-        self._conn = libvirt.openAuth('qemu:///system', auth, 0)
-        if self._conn == None:
-            print 'Failed to open connection to the hypervisor'
-            sys.exit(1)
+        self._conn = self._get_connection(options)
 
+    def noop(self):
+        return "PONG"
+
+    def _get_connection(self, options=None):
+        # TODO(termie): maybe lazy load after initial check for permissions
+        # TODO(termie): check whether we can be disconnected
+        if options and options.use_fake:
+            conn = fakevirt.FakeVirtConnection(options)
+        else:
+            auth = [[libvirt.VIR_CRED_AUTHNAME, libvirt.VIR_CRED_NOECHOPROMPT], 
+                    'root',
+                    None]
+            conn = libvirt.openAuth('qemu:///system', auth, 0)
+            if conn == None:
+                logging.error('Failed to open connection to the hypervisor')
+                sys.exit(1)
+        return conn
+    
+    @exception.wrap_exception
     def describe_instances(self):
         """ return a list of instances on this node """
-        return [self._conn.lookupByID(i).name() for i in self._conn.listDomainsID()]
+        return [self._conn.lookupByID(i).name()
+                for i in self._conn.listDomainsID()]
 
+    @exception.wrap_exception
     def run_instance(self, instance_id):
         """ launch a new instance with specified options """
-        if not self.options.really:
-          return
-        Instance(self._conn, instance_id)
-
+        Instance(self._conn, instance_id, options=self.options)
+    
+    @exception.wrap_exception
     def terminate_instance(self, instance_id):
         """ terminate an instance on this machine """
-        if not self.options.really:
-          return
         self._conn.lookupByName(instance_id).destroy()
 
+    @exception.wrap_exception
     def get_console_output(self, instance_id):
         """ send the console output for an instance """
         return open(settings.instances_path + '/' + instance_id + '/console.log').read()
 
+    @exception.wrap_exception
     def reboot_instance(self, instance_id):
         """ reboot an instance on this server
         KVM doesn't support reboot, so we terminate and restart """
-        if not self.options.really:
-          return
         self._conn.lookupByName(instance_id).destroy()
         xml = open(settings.instances_path + '/' + instance_id + '/libvirt.xml').read()
         self._conn.createXML(xml, 0)
 
-    def attach_volume(self, instance_id, volume_id, device):
+    @exception.wrap_exception
+    def attach_volume(self, instance_id = None, volume_id = None, dev = None):
         """ attach a volume to an instance """
+        # FIXME - ASSERT the volume_id is valid, etc.
+        self._init_aoe() 
         # Use aoetools via system calls
         # find out where the volume is mounted (ip, shelf and blade)
+        aoe = calllib.call_sync("storage",  '{"method": "convert_volume_to_aoe", "args" : {"volume_id": "%s"}}' % (volume_id))
+        if aoe is None or len(aoe) < 3:
+            return "fail"
+        shelf_id = aoe[1]
+        blade_id = aoe[3]
         # mount it to a random mount point
-        pass
+        mountpoint = "%s/%s" % (settings.volume_mountpoint, volume_id)
+        try:
+            os.mkdir(mountpoint) 
+        except:
+            pass
+        runthis("Mounting AoE mount %s", "sudo mount /dev/etherd/e%s.%s %s -t ext3" % (shelf_id, blade_id, mountpoint ))
 
+    def _init_aoe(self):
+        runthis("Doin an AoE discover, returns %s", "sudo aoe-discover")
+        runthis("Doin an AoE stat, returns %s", "sudo aoe-stat")
+    
+    @exception.wrap_exception
     def detach_volume(self, instance_id, volume_id):
         """ detach a volume from an instance """
 
 
 class Instance(object):
 
-    def __init__(self, conn, name, vcpus=1, memory_mb=1024):
+    def __init__(self, conn, name, vcpus=1, memory_mb=1024, options=None):
         """ spawn an instance with a given name """
         self._conn = conn
         self._name = name
         self._vcpus = vcpus
         self._memory_mb = memory_mb
         self._mac  = self.generate_mac()
+        self._use_fake = False
+        if options and options.use_fake:
+            self._use_fake = True
 
         xml = self.setup()
         self._conn.createXML(xml, 0)
@@ -94,14 +140,15 @@ class Instance(object):
             .replace('PRIVMACADDR', self._mac) \
             .replace('BRIDGEDEV', settings.bridge)
 
-        os.makedirs(self._basepath)
-        f = open(self._basepath+'/libvirt.xml', 'w')
-        f.write(libvirt_xml)
-        f.close()
+        if not self._use_fake:
+            os.makedirs(self._basepath)
+            f = open(self._basepath+'/libvirt.xml', 'w')
+            f.write(libvirt_xml)
+            f.close()
 
-        shutil.copyfile(settings.aki, self._basepath+'/kernel')
-        shutil.copyfile(settings.ari, self._basepath+'/ramdisk')
-        partition2disk.convert(settings.ami, self._basepath+'/disk')
+            shutil.copyfile(settings.aki, self._basepath+'/kernel')
+            shutil.copyfile(settings.ari, self._basepath+'/ramdisk')
+            partition2disk.convert(settings.ami, self._basepath+'/disk')
 
         return libvirt_xml
 

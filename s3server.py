@@ -11,15 +11,15 @@ from daemon import Daemon
 
 class S3ServerDaemon(Daemon):
     def start(self):
-        print 'Starting daemon...'
+        print 'Starting S3 daemon on port %s...' % settings.S3_PORT
         super(S3ServerDaemon, self).start()
 
     def restart(self):
-        print 'Restarting daemon...'
+        print 'Retarting S3 daemon on port %s...' % settings.S3_PORT
         super(S3ServerDaemon, self).restart()
 
     def stop(self):
-        print 'Stopping daemon...'
+        print 'Stopping S3 daemon...'
         super(S3ServerDaemon, self).stop()
 
     def run(self):
