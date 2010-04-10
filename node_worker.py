@@ -1,40 +1,59 @@
-# vim: tabstop=4 shiftwidth=4
-import os
-import sys
-import node
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.split(__file__)[0], 'contrib')))
+import node
 
+import contrib
 from carrot import connection
 from carrot import messaging 
 
-n = node.Node()
 
-conn = connection.BrokerConnection(hostname="localhost", port=5672,
-                                   userid="guest", password="guest",
-                                   virtual_host="/")
+NODE_TOPIC='node'
 
-def router(message_data, message):
-    print "Got message: %s" % message_data
 
-    try:
-        msg_id = message_data.pop('_msg_id')
-    except Exception:
-        logging.exception("ouch")
+class NodeRouter(object):
+    def __init__(self, consumer):
+        self.consumer = consumer
+
+    def __call__(self, message_data, message):
+        logging.debug('received %s', message_data)
+
+        try:
+            msg_id = message_data.pop('_msg_id')
+        except Exception:
+            logging.exception("no msg_id found")
+            message.ack()
+            return
+
+        method = message_data.get('method')
+        args = message_data.get('args', {})
+
+        node_func = getattr(n, method)
+        node_args = dict((str(k), v) for k, v in args.iteritems())
+        
+        rval = node_func(**node_args)
+
+        publisher = messaging.Publisher(connection=conn,
+                                        queue=msg_id,
+                                        exchange=msg_id)
+        logging.debug('send %s', rval)
+        publisher.send({'result': rval})
+        publisher.close()
         message.ack()
-        return
 
-    print "foobar"
-    rval = getattr(n, message_data.get('method'))(**dict([(str(k), v) for k, v in message_data.get('args', {}).iteritems()]))
-    print "Trying to send: %s" % rval
 
-    publisher = messaging.Publisher(connection=conn, queue=msg_id, exchange=msg_id)
-    publisher.send({'result': rval})
-    publisher.close()
-    message.ack()
+if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.DEBUG)
+    # TODO(termie): make these into singletons?
+    n = node.Node()
+    conn = connection.BrokerConnection(hostname="localhost", port=5672,
+                                       userid="guest", password="guest",
+                                       virtual_host="/")
+    consumer = messaging.Consumer(connection=conn,
+                                  queue=NODE_TOPIC,
+                                  exchange=NODE_TOPIC)
 
-consumer = messaging.Consumer(connection=conn, queue="node", exchange="node")
-consumer.register_callback(router)
-consumer.wait()
+    router = NodeRouter(consumer)
 
+    consumer.register_callback(router)
+    consumer.wait()
