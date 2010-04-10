@@ -1,3 +1,10 @@
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+CONTRIB_PATH = os.path.abspath(os.path.dirname(__file__))
+
+paths = [CONTRIB_PATH, os.path.join(CONTRIB_PATH, 'pymox')]
+
+for p in paths:
+  if p not in sys.path:
+    sys.path.insert(0, p)
