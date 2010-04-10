@@ -8,6 +8,7 @@ DEPENDENCIES
 
 RabbitMQ: messaging queue, used for all communication between components
 OpenLDAP: users, groups (maybe cut)
+Redis: data store
 
 COMPONENTS
 ==========
@@ -23,7 +24,7 @@ MILESTONES
 Alive
 -----
 
-  [ ] can spawn instances via python api from a single image
+  [x] can spawn instances via python api from a single image
   [ ] can ssh into instance spawned instances (network system mode)
 
 Growing
@@ -47,19 +48,19 @@ Works
 Secure
 ------
 
-  [ ] can list, upload and register images
-  [ ] euca-describe-images works
+  [ ] x509 certificate generation
+  [ ] can list, upload and register images using real apis
   [ ] users exist and have ec2 credentials
   [ ] api calls are validated and ran as a user
-  [ ] x509 certificate generation
-  [ ] security groups works
+  [ ] keypairs work
 
 Wow
 ----
 
   [ ] works with dashboard
   [ ] network with subnets/vlans works
-  [ ] can allocate and attach public IPs   
+  [ ] can allocate and attach public IPs
+  [ ] security groups works
   [ ] instances can access their user-data, meta-data
 
 Installation
