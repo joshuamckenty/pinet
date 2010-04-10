@@ -16,9 +16,10 @@ import calllib
 class Node(object):
     """ The node is in charge of running instances.  """
 
-    def __init__(self):
+    def __init__(self, options=None):
         """ load configuration options for this node and connect to libvirt """
         auth = [[libvirt.VIR_CRED_AUTHNAME, libvirt.VIR_CRED_NOECHOPROMPT], 'root', None]
+        self.options = options
         self._conn = libvirt.openAuth('qemu:///system', auth, 0)
         if self._conn == None:
             print 'Failed to open connection to the hypervisor'
@@ -30,10 +31,14 @@ class Node(object):
 
     def run_instance(self, instance_id):
         """ launch a new instance with specified options """
+        if not self.options.really:
+          return
         Instance(self._conn, instance_id)
 
     def terminate_instance(self, instance_id):
         """ terminate an instance on this machine """
+        if not self.options.really:
+          return
         self._conn.lookupByName(instance_id).destroy()
 
     def get_console_output(self, instance_id):
@@ -43,6 +48,8 @@ class Node(object):
     def reboot_instance(self, instance_id):
         """ reboot an instance on this server
         KVM doesn't support reboot, so we terminate and restart """
+        if not self.options.really:
+          return
         self._conn.lookupByName(instance_id).destroy()
         xml = open(settings.instances_path + '/' + instance_id + '/libvirt.xml').read()
         self._conn.createXML(xml, 0)

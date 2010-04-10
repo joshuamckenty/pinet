@@ -1,36 +1,44 @@
-# vim: tabstop=4 shiftwidth=4
-import os
-import sys
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
+import logging
 import uuid
+import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.split(__file__)[0], 'contrib')))
-
+import contrib # adds contrib to the path
 import anyjson
 
 from carrot import connection
 from carrot import messaging
 
+
+logging.getLogger().setLevel(logging.DEBUG)
+
 conn = connection.BrokerConnection(hostname="localhost", port=5672,
                                    userid="guest", password="guest",
                                    virtual_host="/")
 
-msg_id = uuid.uuid4().hex
-msg = anyjson.deserialize(sys.argv[2])
-msg.update({'_msg_id': msg_id})
-print msg
-
-
-def response(message_data, message):
-    print "response", message_data
+def generic_response(message_data, message):
+    logging.debug('response %s', message_data)
     message.ack()
     sys.exit(0)
 
-consumer = messaging.Consumer(connection=conn, queue=msg_id, exchange=msg_id)
-consumer.register_callback(response)
+def send_message(topic, message):
+    msg_id = uuid.uuid4().hex
+    message.update({'_msg_id': msg_id})
+    logging.debug('message %s', message)
 
-publisher = messaging.Publisher(connection=conn, queue=sys.argv[1], exchange=sys.argv[1])
-publisher.send(msg)
-publisher.close()
+    consumer = messaging.Consumer(connection=conn,
+                                  queue=msg_id,
+                                  exchange=msg_id)
+    consumer.register_callback(generic_response)
 
-consumer.wait()
+    publisher = messaging.Publisher(connection=conn,
+                                    queue=topic,
+                                    exchange=topic)
+    publisher.send(message)
+    publisher.close()
 
+    consumer.wait()
+    
+    
+if __name__ == "__main__":
+    send_message(sys.argv[1], anyjson.deserialize(sys.argv[2]))
