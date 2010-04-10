@@ -16,7 +16,7 @@ class RootRequestHandler(tornado.web.RequestHandler):
         self.write('listening')
         
 class APIRequestHandler(tornado.web.RequestHandler):
-    def get(self):
+    def get(self, section):
         
         args = self.request.arguments
         
@@ -58,7 +58,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
 
 application = tornado.web.Application([
     (r'/', RootRequestHandler),
-    (r'/services/Configuration/', APIRequestHandler),
+    (r'/services/([A-Za-z0-9]+)/', APIRequestHandler),
 ])
 
 class APIServerDaemon(Daemon):
