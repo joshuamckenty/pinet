@@ -2,15 +2,15 @@
 import os
 import sys
 import node
+import storage
 import logging
-import subprocess
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.split(__file__)[0], 'contrib')))
 
 from carrot import connection
 from carrot import messaging 
 
-n = node.Node()
+bs = storage.BlockStore()
 
 conn = connection.BrokerConnection(hostname="localhost", port=5672,
                                    userid="guest", password="guest",
@@ -27,15 +27,16 @@ def router(message_data, message):
         return
 
     print "foobar"
-    rval = getattr(n, message_data.get('method'))(**dict([(str(k), v) for k, v in message_data.get('args', {}).iteritems()]))
+
+    message.ack()
+    rval = getattr(bs, message_data.get('method'))(**dict([(str(k), v) for k, v in message_data.get('args', {}).iteritems()]))
     print "Trying to send: %s" % rval
 
     publisher = messaging.Publisher(connection=conn, queue=msg_id, exchange=msg_id)
     publisher.send({'result': rval})
     publisher.close()
-    message.ack()
 
-consumer = messaging.Consumer(connection=conn, queue="node", exchange="node")
+consumer = messaging.Consumer(connection=conn, queue="storage", exchange="storage")
 consumer.register_callback(router)
 consumer.wait()
 

@@ -9,6 +9,9 @@ import partition2disk
 import settings
 
 import storage
+from utils import runthis
+
+import calllib
 
 class Node(object):
     """ The node is in charge of running instances.  """
@@ -44,12 +47,27 @@ class Node(object):
         xml = open(settings.instances_path + '/' + instance_id + '/libvirt.xml').read()
         self._conn.createXML(xml, 0)
 
-    def attach_volume(self, instance_id, volume_id, device):
+    def attach_volume(self, instance_id = None, volume_id = None, dev = None):
         """ attach a volume to an instance """
+        # FIXME - ASSERT the volume_id is valid, etc.
+        self._init_aoe() 
         # Use aoetools via system calls
         # find out where the volume is mounted (ip, shelf and blade)
+        caller = calllib.synccall()
+        aoe = caller.call_sync("storage",  '{"method": "convert_volume_to_aoe", "args" : {"volume_id": "%s"}}' % (volume_id))
+        shelf_id = aoe[1]
+        blade_id = aoe[3]
         # mount it to a random mount point
-        pass
+        mountpoint = "%s/%s" % (settings.volume_mountpoint, volume_id)
+        try:
+            os.mkdir(mountpoint) 
+        except:
+            pass
+        runthis("Mounting AoE mount", "sudo mount %s /dev/etherd/e%s.%s -t ext3" % (mountpoint, shelf_id, blade_id ))
+
+    def _init_aoe(self):
+        runthis("Doin an AoE discover, returns %s", "sudo aoe-discover")
+        runthis("Doin an AoE stat, returns %s", "sudo aoe-stat")
 
     def detach_volume(self, instance_id, volume_id):
         """ detach a volume from an instance """
