@@ -24,7 +24,6 @@ class S3ServerDaemon(Daemon):
         app = tornado.s3server.S3Application(settings.S3_PATH, 0)
         server = tornado.httpserver.HTTPServer(app)
         server.listen(settings.S3_PORT) 
-        print settings.S3_PORT
         tornado.ioloop.IOLoop.instance().start()
 
 def usage():

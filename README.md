@@ -66,7 +66,10 @@ Wow
 Installation
 ============
 
-  sudo apt-get install python-libvirt libvirt-bin kvm rabbitmq-server python-dev python-pycurl python-simplejson
+  apt-get install python-libvirt libvirt-bin kvm rabbitmq-server python-dev python-pycurl python-simplejson
+  apt-get install iscsitarget
+
+  iptables -t nat -A PREROUTING -s 0.0.0.0/0 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination 10.0.0.2:8773
   wget http://www.tornadoweb.org/static/tornado-0.2.tar.gz
   tar xvzf tornado-0.2.tar.gz
   cd tornado-0.2
