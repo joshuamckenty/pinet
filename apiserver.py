@@ -62,11 +62,11 @@ application = tornado.web.Application([
 
 class APIServerDaemon(Daemon):
     def start(self):
-        print 'Starting daemon...'
+        print 'Starting daemon on port %s' % settings.CC_PORT
         super(APIServerDaemon, self).start()
 
     def restart(self):
-        print 'Restarting daemon...'
+        print 'Restarting daemon on port %s' % settings.CC_PORT
         super(APIServerDaemon, self).restart()
 
     def stop(self):
