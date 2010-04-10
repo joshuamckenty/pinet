@@ -1,4 +1,6 @@
 #!/usr/bin/python
+import logging
+import os
 import sys
 import tornado.httpserver
 import tornado.ioloop
@@ -30,7 +32,10 @@ def usage():
     print 'usage: %s start|stop|restart' % sys.argv[0]
 
 if __name__ == "__main__":
-    daemon = S3ServerDaemon('/tmp/s3server.pid')
+    # TODO: Log timestamp and formatting.
+    logging.basicConfig(level=logging.DEBUG, filename=os.path.join(settings.LOG_PATH, 's3server.log'), filemode='a')
+    daemon = S3ServerDaemon(os.path.join(settings.PID_PATH, 's3server.pid'))
+    
     if len(sys.argv) == 2:
         if sys.argv[1] == 'start':
             daemon.start()

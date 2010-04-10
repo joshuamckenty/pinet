@@ -74,6 +74,7 @@ class Instance(object):
         return ':'.join(map(lambda x: "%02x" % x, mac))
 
 
+    # FIXME - we need to be able to do this command async
     def setup(self):
         """ create libvirt.xml and copy files into instance path """
         self._basepath = settings.instances_path + '/' + self._name
