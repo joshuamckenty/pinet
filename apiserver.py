@@ -7,7 +7,7 @@ import tornado.ioloop
 import tornado.web
 import settings
 from daemon import Daemon
-from api import invoke_method
+from api import invoke_request
 
 _log = logging.getLogger()
 
@@ -42,12 +42,10 @@ class APIRequestHandler(tornado.web.RequestHandler):
         _log.info('action: %s' % action)
 
         for key, value in args.items():
-            s = 'arg: %s\t\tval: %s' % (key, value)
-            self.write(s)
-            _log.info(s)
+            _log.info('arg: %s\t\tval: %s' % (key, value))
 
         #try:
-        response = invoke_method(action, **args)
+        response = invoke_request(action, **args)
         #except ValueError, e:
         #    _log.warning()
         
