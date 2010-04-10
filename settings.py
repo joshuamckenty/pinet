@@ -10,10 +10,11 @@ aoe_eth_dev = 'eth0'
 storage_dev = '/dev/sdb1'
 volume_group = 'pinet-volumes'
 
-CC_PORT = 8773
-
-S3_PORT = 3333
+LOG_PATH = '/var/pinet/logs'
+PID_PATH = '/var/pinet/run'
 S3_PATH = '/var/pinet/s3/'
+S3_PORT = 3333
+CC_PORT = 8773
 
 try:
     from local_settings import *

@@ -8,6 +8,8 @@ import time
 import partition2disk
 import settings
 
+import storage
+
 class Node(object):
     """ The node is in charge of running instances.  """
 
@@ -44,6 +46,10 @@ class Node(object):
 
     def attach_volume(self, instance_id, volume_id, device):
         """ attach a volume to an instance """
+        # Use aoetools via system calls
+        # find out where the volume is mounted (ip, shelf and blade)
+        # mount it to a random mount point
+        pass
 
     def detach_volume(self, instance_id, volume_id):
         """ detach a volume from an instance """
@@ -68,6 +74,7 @@ class Instance(object):
         return ':'.join(map(lambda x: "%02x" % x, mac))
 
 
+    # FIXME - we need to be able to do this command async
     def setup(self):
         """ create libvirt.xml and copy files into instance path """
         self._basepath = settings.instances_path + '/' + self._name
