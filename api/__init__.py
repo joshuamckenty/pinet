@@ -4,7 +4,7 @@ from xml.dom import minidom
 
 _log = logging.getLogger()
 
-def invoke_method(action, **kwargs):
+def invoke_request(action, **kwargs):
     # TODO: Generate a unique request ID.
     request_id = '558c80e8-bd18-49ff-8479-7bc176e12415'
     
