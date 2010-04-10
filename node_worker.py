@@ -43,9 +43,25 @@ class NodeRouter(object):
 
 
 if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.DEBUG)
+    import optparse
+
+    parser = optparse.OptionParser()
+    parser.add_option("--not_really", dest="really",
+                      help="don't actually start any instances",
+                      default=True,
+                      action="store_false")
+    parser.add_option('-v', dest='verbose',
+                      help='verbose logging',
+                      default=False,
+                      action='store_true')
+
+    (options, args) = parser.parse_args()
+    if options.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+        
+
     # TODO(termie): make these into singletons?
-    n = node.Node()
+    n = node.Node(options)
     conn = connection.BrokerConnection(hostname="localhost", port=5672,
                                        userid="guest", password="guest",
                                        virtual_host="/")
