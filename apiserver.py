@@ -51,7 +51,8 @@ class APIRequestHandler(tornado.web.RequestHandler):
         #except ValueError, e:
         #    _log.warning()
         
-        # TODO: Wrap response in AWS XML format    
+        # TODO: Wrap response in AWS XML format  
+        self.set_header('Content-Type', 'text/xml')  
         self.write(response)
             
 
