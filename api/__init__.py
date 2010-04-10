@@ -5,11 +5,15 @@ from xml.dom import minidom
 _log = logging.getLogger()
 
 def invoke_method(action, **kwargs):
+    # TODO: Generate a unique request ID.
+    request_id = '558c80e8-bd18-49ff-8479-7bc176e12415'
+    
     # TODO: Add api validation.
     # validate(action, **kwargs)
     
-    # TODO: Enqueue request.
+    # TODO: Enqueue request and poll for response.
     # response_data = call(action, **kwargs)
+    
     response_data = \
     [
         {
@@ -40,17 +44,17 @@ def invoke_method(action, **kwargs):
         }
     ]
     
-    return render_response(action, response_data)
+    return render_response(action, request_id, response_data)
     
 
-def render_response(action, response_data):
+def render_response(action, request_id, response_data):
     xml = minidom.Document()
     
     response_el = xml.createElement(action + 'Response')
     response_el.setAttribute('xmlns', 'http://ec2.amazonaws.com/doc/2009-11-30/')
     
     request_id_el = xml.createElement('requestId')
-    request_id_el.appendChild(xml.createTextNode('558c80e8-bd18-49ff-8479-7bc176e12415'))
+    request_id_el.appendChild(xml.createTextNode(request_id))
     
     list_el = xml.createElement('imagesSet')
     
