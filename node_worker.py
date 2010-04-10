@@ -47,10 +47,10 @@ if __name__ == '__main__':
     import optparse
 
     parser = optparse.OptionParser()
-    parser.add_option("--not_really", dest="really",
+    parser.add_option("--use_fake", dest="use_fake",
                       help="don't actually start any instances",
-                      default=True,
-                      action="store_false")
+                      default=False,
+                      action="store_true")
     parser.add_option('-v', dest='verbose',
                       help='verbose logging',
                       default=False,
