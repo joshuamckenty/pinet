@@ -7,8 +7,7 @@ import tornado.ioloop
 import tornado.web
 import settings
 from daemon import Daemon
-from contrib.carrot import connection
-from contrib.carrot import messaging
+from api import invoke_method
 
 _log = logging.getLogger()
 
@@ -28,25 +27,33 @@ class APIRequestHandler(tornado.web.RequestHandler):
             signature = args.pop('Signature')
             version = args.pop('Version')
             timestamp = args.pop('Timestamp')
-            action = args.pop('Action')
         except KeyError:
             raise tornado.web.HTTPError(400)
-        
+
+        try:
+            action = args.pop('Action')[0]
+        except Exception:
+            raise tornado.web.HTTPError(400)
+            
         # TODO: Access key authorization
         # if request not authorized:
         #    raise tornado.web.HTTPError(403)
-        
+
         _log.info('action: %s' % action)
 
         for key, value in args.items():
             s = 'arg: %s\t\tval: %s' % (key, value)
             self.write(s)
             _log.info(s)
+
+        #try:
+        response = invoke_method(action, **args)
+        #except ValueError, e:
+        #    _log.warning()
+        
+        # TODO: Wrap response in AWS XML format    
+        self.write(response)
             
-        if action[0] == 'DescribeImages':
-            #header: Content-Type: application/xml; charset=UTF-8
-            #[Image:emi-CD1310B7, Image:emi-2DB60D30, Image:eri-5CB612F8, Image:eki-218811E8, Image:emi-5F64130F, Image:emi-6D76134E]
-            self.write('[]')
 
 application = tornado.web.Application([
     (r'/', RootRequestHandler),
@@ -93,6 +100,7 @@ if __name__ == "__main__":
     else:
         usage()
         sys.exit(2)
+
 
 
 
