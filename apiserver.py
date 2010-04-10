@@ -1,31 +1,77 @@
 #!/usr/bin/python
+import logging
+import os
 import sys
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 import settings
 from daemon import Daemon
+from api import invoke_method
 
+_log = logging.getLogger()
+
+class RootRequestHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write('listening')
+        
 class APIRequestHandler(tornado.web.RequestHandler):
     def get(self):
-        self.write("Hello, world")
+        
+        args = self.request.arguments
+        
+        try:
+            access_key = args.pop('AWSAccessKeyId')
+            signature_method = args.pop('SignatureMethod')
+            signature_version = args.pop('SignatureVersion')
+            signature = args.pop('Signature')
+            version = args.pop('Version')
+            timestamp = args.pop('Timestamp')
+        except KeyError:
+            raise tornado.web.HTTPError(400)
+
+        try:
+            action = args.pop('Action')[0]
+        except Exception:
+            raise tornado.web.HTTPError(400)
+            
+        # TODO: Access key authorization
+        # if request not authorized:
+        #    raise tornado.web.HTTPError(403)
+
+        _log.info('action: %s' % action)
+
+        for key, value in args.items():
+            s = 'arg: %s\t\tval: %s' % (key, value)
+            self.write(s)
+            _log.info(s)
+
+        #try:
+        response = invoke_method(action, **args)
+        #except ValueError, e:
+        #    _log.warning()
+        
+        # TODO: Wrap response in AWS XML format    
+        self.write(response)
+            
 
 application = tornado.web.Application([
-    (r"/", APIRequestHandler),
+    (r'/', RootRequestHandler),
+    (r'/services/Configuration/', APIRequestHandler),
 ])
 
-class APIDaemon(Daemon):
+class APIServerDaemon(Daemon):
     def start(self):
         print 'Starting daemon...'
-        super(APIDaemon, self).start()
+        super(APIServerDaemon, self).start()
 
     def restart(self):
         print 'Restarting daemon...'
-        super(APIDaemon, self).restart()
+        super(APIServerDaemon, self).restart()
 
     def stop(self):
         print 'Stopping daemon...'
-        super(APIDaemon, self).stop()
+        super(APIServerDaemon, self).stop()
 
     def run(self):
         http_server = tornado.httpserver.HTTPServer(application)
@@ -36,7 +82,10 @@ def usage():
     print 'usage: %s start|stop|restart' % sys.argv[0]
 
 if __name__ == "__main__":
-    daemon = APIDaemon('/tmp/apiserver.pid')
+    # TODO: Log timestamp and formatting.
+    logging.basicConfig(level=logging.DEBUG, filename=os.path.join(settings.LOG_PATH, 'apiserver.log'), filemode='a')
+    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid'))
+    
     if len(sys.argv) == 2:
         if sys.argv[1] == 'start':
             daemon.start()
@@ -51,6 +100,7 @@ if __name__ == "__main__":
     else:
         usage()
         sys.exit(2)
+
 
 
 
