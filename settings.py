@@ -9,7 +9,7 @@ aoe_eth_dev = 'br0'
 
 storage_dev = '/dev/sdb1'
 volume_group = 'pinet-volumes'
-volume_mountpoint = '/var/pinet/volumes/'
+volume_mountpoint = '/var/pinet/volumes'
 
 LOG_PATH = '/var/pinet/logs'
 PID_PATH = '/var/pinet/run'

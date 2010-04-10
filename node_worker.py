@@ -11,13 +11,14 @@ from carrot import messaging
 
 NODE_TOPIC='node'
 
+class NodeConsumer(messaging.Consumer):
+    routing_key = 'node'
+    exchange = 'pinet'
+    queue = 'node'
+    exchange_type = "topic"
 
-class NodeRouter(object):
-    def __init__(self, consumer):
-        self.consumer = consumer
-
-    def __call__(self, message_data, message):
-        logging.debug('received %s', message_data)
+    def receive(self, message_data, message):
+        logging.debug('received %s' % (message_data))
 
         try:
             msg_id = message_data.pop('_msg_id')
@@ -35,8 +36,10 @@ class NodeRouter(object):
         rval = node_func(**node_args)
 
         publisher = messaging.Publisher(connection=conn,
-                                        queue=msg_id,
-                                        exchange=msg_id)
+                                        exchange=msg_id,
+                                        auto_delete=True,
+                                        exchange_type="direct",
+                                        routing_key=msg_id)
         logging.debug('send %s', rval)
         publisher.send({'result': rval})
         publisher.close()
@@ -66,11 +69,7 @@ if __name__ == '__main__':
     conn = connection.BrokerConnection(hostname="localhost", port=5672,
                                        userid="guest", password="guest",
                                        virtual_host="/")
-    consumer = messaging.Consumer(connection=conn,
-                                  queue=NODE_TOPIC,
-                                  exchange=NODE_TOPIC)
-
-    router = NodeRouter(consumer)
-
-    consumer.register_callback(router)
+    logging.debug('Topic is node')
+    consumer = NodeConsumer(connection=conn)
+    logging.debug('About to wait for consumer with callback')
     consumer.wait()

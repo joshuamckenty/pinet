@@ -10,6 +10,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.split(__file__)[0], 'con
 from carrot import connection
 from carrot import messaging 
 
+logging.getLogger().setLevel(logging.DEBUG)
+
 bs = storage.BlockStore()
 
 conn = connection.BrokerConnection(hostname="localhost", port=5672,
@@ -17,7 +19,7 @@ conn = connection.BrokerConnection(hostname="localhost", port=5672,
                                    virtual_host="/")
 
 def router(message_data, message):
-    print "Got message: %s" % message_data
+    logging.debug('response %s', message_data)
 
     try:
         msg_id = message_data.pop('_msg_id')
@@ -26,17 +28,17 @@ def router(message_data, message):
         message.ack()
         return
 
-    print "foobar"
+    logging.debug('foobar')
 
     message.ack()
     rval = getattr(bs, message_data.get('method'))(**dict([(str(k), v) for k, v in message_data.get('args', {}).iteritems()]))
-    print "Trying to send: %s" % rval
+    logging.debug("Trying to send: %s" % rval)
 
-    publisher = messaging.Publisher(connection=conn, queue=msg_id, exchange=msg_id)
+    publisher = messaging.Publisher(connection=conn, queue=msg_id, exchange=msg_id, auto_delete = True, exchange_type="direct", routing_key=msg_id)
     publisher.send({'result': rval})
     publisher.close()
 
-consumer = messaging.Consumer(connection=conn, queue="storage", exchange="storage")
+consumer = messaging.Consumer(connection=conn, queue="storage", exchange="pinet", exchange_type="topic", routing_key="storage")
 consumer.register_callback(router)
 consumer.wait()
 

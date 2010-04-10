@@ -25,6 +25,9 @@ class Node(object):
             print 'Failed to open connection to the hypervisor'
             sys.exit(1)
 
+    def noop(self):
+        return "PONG"
+
     def describe_instances(self):
         """ return a list of instances on this node """
         return [self._conn.lookupByID(i).name() for i in self._conn.listDomainsID()]
@@ -60,8 +63,9 @@ class Node(object):
         self._init_aoe() 
         # Use aoetools via system calls
         # find out where the volume is mounted (ip, shelf and blade)
-        caller = calllib.synccall()
-        aoe = caller.call_sync("storage",  '{"method": "convert_volume_to_aoe", "args" : {"volume_id": "%s"}}' % (volume_id))
+        aoe = calllib.call_sync("storage",  '{"method": "convert_volume_to_aoe", "args" : {"volume_id": "%s"}}' % (volume_id))
+        if aoe is None or len(aoe) < 3:
+            return "fail"
         shelf_id = aoe[1]
         blade_id = aoe[3]
         # mount it to a random mount point
@@ -70,7 +74,7 @@ class Node(object):
             os.mkdir(mountpoint) 
         except:
             pass
-        runthis("Mounting AoE mount", "sudo mount %s /dev/etherd/e%s.%s -t ext3" % (mountpoint, shelf_id, blade_id ))
+        runthis("Mounting AoE mount %s", "sudo mount /dev/etherd/e%s.%s %s -t ext3" % (shelf_id, blade_id, mountpoint ))
 
     def _init_aoe(self):
         runthis("Doin an AoE discover, returns %s", "sudo aoe-discover")
