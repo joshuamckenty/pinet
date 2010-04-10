@@ -9,7 +9,7 @@ class LdapUserException(Exception):
   def __str__(self):
     return self.message
 
-class LdapUserManager:
+class Manager:
 
   def __init__(self, config={}):
     self.config = {
