@@ -96,6 +96,7 @@ def render_response(action, request_id, response_data):
     xml.appendChild(response_el)
     
     response = xml.toxml()
+    xml.unlink()
     _log.debug(response)
     return response
     
