@@ -14,6 +14,7 @@ import sys
 import settings
 import signer
 import random
+import uuid
 
 _log = logging.getLogger()
 
@@ -24,9 +25,6 @@ class LdapUserException(Exception):
     def __str__(self):
         return self.message
 
-def random_string(self, length=8, chars=string.letters + string.digits):
-    return ''.join([random.choice(chars) for i in range(length)])
-
 class UserManager:
     def __init__(self, config={}):
         self.config = {
@@ -34,7 +32,6 @@ class UserManager:
             'user': 'admin',
             'ldap_suffix': ',dc=example,dc=com',
             'ldap_url': 'ldap://localhost',
-            'key_length': 12,
             'access_field': 'st',
             'secret_field': 'street',
         }
@@ -63,8 +60,8 @@ class UserManager:
             return conn.get_secret_from_access(access_key)
 
     def create(self, name, access=None, secret=None):
-        if access == None: access = random_string(self.config['key_length'])
-        if secret == None: secret = random_string(self.config['key_length'])
+        if access == None: access = str(uuid.uuid4())
+        if secret == None: secret = str(uuid.uuid4())
         with LDAPWrapper(self.config) as conn:
             conn.create_user(name, access, secret)
 
@@ -97,14 +94,14 @@ class LDAPWrapper(object):
         try:
             dn = 'cn=%s%s' % (name, self.config['ldap_suffix'])
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE)
-        except ldap.NO_SUCH_OBJECT:
+        except Exception:
             return None
         return res[0]
 
     def user_exists(self, name):
         return self.find_user_by_name(name) != None
         
-    def create_user(self, name, secret_key, access_key):
+    def create_user(self, name, access_key, secret_key):
         if self.user_exists(name):
             raise LdapUserException("LDAP user " + name + " already exists")
         # sn is also required for organizationalPerson
@@ -122,7 +119,7 @@ class LDAPWrapper(object):
             dn = self.config['ldap_suffix'][1:]
             query = '(' + self.config['access_field'] + '=' + access + ')'
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query, [self.config['secret_field']])
-        except ldap.NO_SUCH_OBJECT:
+        except Exception:
             return None
         if not res:
             return None
