@@ -8,6 +8,7 @@ import tornado.web
 import settings
 from daemon import Daemon
 from api import invoke_request
+import contrib # adds contrib to the path
 
 _log = logging.getLogger()
 
@@ -50,9 +51,18 @@ class APIRequestHandler(tornado.web.RequestHandler):
         #    _log.warning()
         
         # TODO: Wrap response in AWS XML format  
-        self.set_header('Content-Type', 'text/xml')  
+        self.set_header('Content-Type', 'text/xml')
         self.write(response)
-            
+
+    def post(self, section):
+        self._error('unhandled', "args: %s" % str(self.request.arguments))
+
+    def _error(self, code, message):
+        self._status_code = 400
+        self.set_header('Content-Type', 'text/xml')
+        self.write('<?xml version="1.0"?>')
+        self.write('<Response><Errors><Error><Code>%s</Code><Message>%s</Message></Error></Errors><RequestID>?</RequestID></Response>' % (code, message))
+        
 
 application = tornado.web.Application([
     (r'/', RootRequestHandler),
