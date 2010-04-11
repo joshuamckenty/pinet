@@ -9,6 +9,7 @@ import tornado.web
 import settings
 from daemon import Daemon
 from api import invoke_request
+from users import UserManager
 import contrib # adds contrib to the path
 import call
 
@@ -22,14 +23,18 @@ class APIRequestHandler(tornado.web.RequestHandler):
     def get(self, section):
         
         args = self.request.arguments
-        
+        params = {} # copy of args to pass to authentication
+        for key, value in args.items():
+            params[key] = value[0]
+        del params['Signature']
+
         try:
-            access_key = args.pop('AWSAccessKeyId')
-            signature_method = args.pop('SignatureMethod')
-            signature_version = args.pop('SignatureVersion')
-            signature = args.pop('Signature')
-            version = args.pop('Version')
-            timestamp = args.pop('Timestamp')
+            access_key = args.pop('AWSAccessKeyId')[0]
+            signature_method = args.pop('SignatureMethod')[0]
+            signature_version = args.pop('SignatureVersion')[0]
+            signature = args.pop('Signature')[0]
+            version = args.pop('Version')[0]
+            timestamp = args.pop('Timestamp')[0]
         except KeyError:
             raise tornado.web.HTTPError(400)
 
@@ -39,9 +44,17 @@ class APIRequestHandler(tornado.web.RequestHandler):
             raise tornado.web.HTTPError(400)
             
         # TODO: Access key authorization
-        # if request not authorized:
-        #    raise tornado.web.HTTPError(403)
-
+        """
+        _log.info('access_key: %s' % params['AWSAccessKeyId'])
+        manager = UserManager()
+        _log.info('host: %s' % self.request.host)
+        if not manager.authenticate(params,
+                                    signature,
+                                    'GET',
+                                    self.request.host,
+                                    self.request.path):
+            raise tornado.web.HTTPError(403)
+        """
         _log.info('action: %s' % action)
 
         for key, value in args.items():
