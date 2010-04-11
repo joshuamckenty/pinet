@@ -6,6 +6,8 @@ import shutil
 import StringIO
 import sys
 import time
+import contrib
+import anyjson
 from xml.etree import ElementTree
 
 try:
@@ -37,7 +39,13 @@ class Node(object):
 
     def report_state(self):
         logging.debug("Reporting State")
-        rval = calllib.call_sync("cloud",  '{"method": "update_state", "args" : {"topic": "instances", "value": "%s"}}' % (self.describe_instances()))
+        instances = []
+        for instance in self.describe_instances():
+            instances.append({"item": 
+                   {"reservation_id": "foo", "ownerId" : "tim", "groupSet" : {"item" : {"groupId": "default"}},
+                    "instancesSet" : {"item": {"instanceId" : instance, "imageId" : "emi-foo", "instanceState" : {"code": 0, "name" : "pending"}}} }  })
+        instances = anyjson.serialize({"reservationSet" : instances})
+        rval = calllib.call_sync("cloud",  '{"method": "update_state", "args" : {"topic": "instances", "value": %s}}' % (instances))
 
     def _get_connection(self, options=None):
         # TODO(termie): maybe lazy load after initial check for permissions
