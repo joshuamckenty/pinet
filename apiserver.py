@@ -62,6 +62,8 @@ class APIRequestHandler(tornado.web.RequestHandler):
 
         #try:
         response = invoke_request(action, **args)
+        print response
+        _log.warning(response)
         #except ValueError, e:
         #    _log.warning()
         
@@ -116,7 +118,7 @@ if __name__ == "__main__":
     # TODO: Log timestamp and formatting.
     logfile = os.path.join(settings.LOG_PATH, 'apiserver.log')
     logging.basicConfig(level=logging.DEBUG, filename=logfile, filemode='a')
-    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid'), stdout=logfile, stderr=logfile)
+    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid')) #, stdout=logfile, stderr=logfile)
     
     if len(sys.argv) == 2:
         if sys.argv[1] == 'start':

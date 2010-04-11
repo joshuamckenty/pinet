@@ -36,7 +36,7 @@ if __name__ == '__main__':
     conn = utils.get_rabbit_conn()
     consumer = calllib.AdapterConsumer(connection=conn, topic=NODE_TOPIC, proxy=bs)
     io_inst = ioloop.IOLoop.instance()
-    scheduler = ioloop.PeriodicCallback(lambda: bs.report_state(), 10 * 1000 , io_loop=io_inst)
+    scheduler = ioloop.PeriodicCallback(lambda: bs.report_state(), 2 * 1000 , io_loop=io_inst)
     injected = consumer.attachToTornado(io_inst)
     scheduler.start()
     io_inst.start()

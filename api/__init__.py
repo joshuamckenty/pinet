@@ -8,6 +8,9 @@ import settings
 
 # THIS IS EVIL
 import contrib
+import cloud
+import calllib
+
 import anyjson
 from xml.dom import minidom
 
@@ -21,8 +24,21 @@ def invoke_request(action, **kwargs):
     # validate(action, **kwargs)
     
     # TODO: Enqueue request and poll for response.
-    # response_data = call(action, **kwargs)
+    response_data = globals()[action](request_id, **kwargs)
+    return response_data
+    # getattr(self, action)(kwargs)
+
+def DescribeVolumes(request_id, **kwargs):
+    action = "DescribeVolumes"
+    volumes = calllib.call_sync("cloud",  '{"method": "list_volumes"}')
+
+    # volumes = { 'volumeSet': volumes }
+    xml = render_response(action, request_id, volumes)
+    _log.debug("DescribeVolumes is returning %s" % (xml))
+    return xml
     
+def DescribeImages(request_id, **kwargs):
+    action = "DescribeImages"
     conn = boto.s3.connection.S3Connection (
         aws_secret_access_key="fixme",
         aws_access_key_id="fixme",

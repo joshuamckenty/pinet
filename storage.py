@@ -12,6 +12,7 @@ from subprocess import Popen, PIPE
 import random
 from utils import runthis
 import calllib
+import anyjson
 
 
 class BlockStore(object):
@@ -34,7 +35,27 @@ class BlockStore(object):
         pass
 
     def list_volumes(self):
-        return "['%s']" % ("', '".join(self.loop_volumes()))
+        """<item>
+          <volumeId>vol-4282672b</volumeId>
+          <size>800</size>
+          <status>in-use</status>
+          <createTime>2008-05-07T11:51:50.000Z</createTime>
+          <attachmentSet>
+            <item>
+              <volumeId>vol-4282672b</volumeId>
+              <instanceId>i-6058a509</instanceId>
+              <size>800</size>
+              <status>attached</status>
+              <attachTime>2008-05-07T12:51:50.000Z</attachTime>
+            </item>
+          </attachmentSet>
+        </item>"""
+        set = []
+        for vol in self.loop_volumes():
+            set.append({"item": {"volumeId": vol, "size" : "5000", "availabilityZone" : "pinet", "status" : "available", "createTime" : "1", "attachmentSet" : []}})
+        volumeSet = anyjson.serialize({"volumeSet" : set})
+        logging.debug(volumeSet)
+        return volumeSet
 
     def loop_volumes(self):
         for pv in Popen(["sudo", "lvs", "--noheadings"], stdout=PIPE).communicate()[0].split("\n"):
@@ -46,8 +67,9 @@ class BlockStore(object):
         return vol._get_aoe_numbers()
 
     def report_state(self):
+        # SHOULD BE CAST, NOT CALL with BLOCKING
         logging.debug("Reporting State")
-        rval = calllib.call_sync("cloud",  '{"method": "update_state", "args" : {"topic": "images", "value": "%s"}}' % (self.list_volumes()))
+        rval = calllib.call_sync("cloud",  '{"method": "update_state", "args" : {"topic": "volumes", "value": %s}}' % (self.list_volumes()))
 
 
 
