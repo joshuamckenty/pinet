@@ -1,18 +1,19 @@
 #!/usr/bin/env python
-# vim: tabstop=4 shiftwidth=4 softtabstop
-"""
-Storage Worker proxies AMQP calls into the storage library.
-"""
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
+import subprocess
 
-import calllib
 import node
-import storage
-import utils
+import cloud
 
+import contrib
+from carrot import connection
+from carrot import messaging 
+import calllib
+import utils
 from tornado import ioloop
 
-NODE_TOPIC='storage'
+CLOUD_TOPIC='cloud'
 
 
 if __name__ == '__main__':
@@ -20,7 +21,7 @@ if __name__ == '__main__':
 
     parser = optparse.OptionParser()
     parser.add_option("--use_fake", dest="use_fake",
-                      help="don't actually create volumes",
+                      help="don't actually start any instances",
                       default=False,
                       action="store_true")
     parser.add_option('-v', dest='verbose',
@@ -32,11 +33,9 @@ if __name__ == '__main__':
     if options.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
         
-    bs = storage.BlockStore(options)
+    cloud_controller = cloud.CloudController(options)
     conn = utils.get_rabbit_conn()
-    consumer = calllib.AdapterConsumer(connection=conn, topic=NODE_TOPIC, proxy=bs)
+    consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=cloud_controller)
     io_inst = ioloop.IOLoop.instance()
-    scheduler = ioloop.PeriodicCallback(lambda: bs.report_state(), 10 * 1000 , io_loop=io_inst)
     injected = consumer.attachToTornado(io_inst)
-    scheduler.start()
     io_inst.start()

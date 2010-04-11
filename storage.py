@@ -5,11 +5,13 @@ Currently uses iSCSI.
 
 import libvirt
 import os
+import logging
 import settings
 import subprocess
 from subprocess import Popen, PIPE
 import random
 from utils import runthis
+import calllib
 
 
 class BlockStore(object):
@@ -32,6 +34,9 @@ class BlockStore(object):
         pass
 
     def list_volumes(self):
+        return "['%s']" % ("', '".join(self.loop_volumes()))
+
+    def loop_volumes(self):
         for pv in Popen(["sudo", "lvs", "--noheadings"], stdout=PIPE).communicate()[0].split("\n"):
             if len(pv.split(" ")) > 1:
                 yield pv.split(" ")[2]
@@ -39,6 +44,10 @@ class BlockStore(object):
     def convert_volume_to_aoe(self, volume_id):
         vol = Volume(volume_id = volume_id)
         return vol._get_aoe_numbers()
+
+    def report_state(self):
+        logging.debug("Reporting State")
+        rval = calllib.call_sync("cloud",  '{"method": "update_state", "args" : {"topic": "images", "value": "%s"}}' % (self.list_volumes()))
 
 
 

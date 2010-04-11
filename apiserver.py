@@ -77,21 +77,23 @@ application = tornado.web.Application([
 ])
 
 class APIServerDaemon(Daemon):
-    def start(self):
-        print 'Starting API daemon on port %s' % settings.CC_PORT
-        super(APIServerDaemon, self).start()
+#    def start(self):
+#        print 'Starting API daemon on port %s' % settings.CC_PORT
+#        logging.debug('Starting API daemon on port %s' % settings.CC_PORT)
+#        super(APIServerDaemon, self).start()
 
-    def restart(self):
-        print 'Restarting API daemon on port %s' % settings.CC_PORT
-        super(APIServerDaemon, self).restart()
+#    def restart(self):
+#        print 'Restarting API daemon on port %s' % settings.CC_PORT
+#        super(APIServerDaemon, self).restart()
 
-    def stop(self):
-        print 'Stopping API daemon...'
-        super(APIServerDaemon, self).stop()
+#    def stop(self):
+#        print 'Stopping API daemon...'
+#        super(APIServerDaemon, self).stop()
 
     def run(self):
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(settings.CC_PORT)
+        logging.debug('Started HTTP server on %s' % (settings.CC_PORT))
         tornado.ioloop.IOLoop.instance().start()
 
 def usage():
@@ -99,8 +101,9 @@ def usage():
 
 if __name__ == "__main__":
     # TODO: Log timestamp and formatting.
-    logging.basicConfig(level=logging.DEBUG, filename=os.path.join(settings.LOG_PATH, 'apiserver.log'), filemode='a')
-    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid'))
+    logfile = os.path.join(settings.LOG_PATH, 'apiserver.log')
+    logging.basicConfig(level=logging.DEBUG, filename=logfile, filemode='a')
+    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid'), stdout=logfile, stderr=logfile)
     
     if len(sys.argv) == 2:
         if sys.argv[1] == 'start':

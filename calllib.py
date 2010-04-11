@@ -11,6 +11,7 @@ import anyjson
 
 from carrot import connection
 from carrot import messaging
+from tornado import ioloop
 
 import utils
 conn = utils.get_rabbit_conn()
@@ -49,6 +50,11 @@ class AdapterConsumer(TopicConsumer):
         msg_reply(msg_id, rval)
         message.ack()
 
+    def attachToTornado(self, io_inst):
+        injected = ioloop.PeriodicCallback(
+            lambda: self.fetch(enable_callbacks=True), 0, io_loop=io_inst)
+        injected.start()
+        return injected
 
 class TopicPublisher(messaging.Publisher):
     exchange_type = "topic" 

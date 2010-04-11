@@ -1,14 +1,14 @@
 import logging
+import os
+import sys
+
 import boto
 import boto.s3
 import settings
 
 # THIS IS EVIL
-import os
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.split(__file__)[0], '..', 'contrib')))
+import contrib
 import anyjson
-
 from xml.dom import minidom
 
 _log = logging.getLogger()
