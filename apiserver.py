@@ -61,7 +61,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             _log.info('arg: %s\t\tval: %s' % (key, value))
 
         #try:
-        response = invoke_request(action, **args)
+        response = invoke_request(section, action, **args)
         #except ValueError, e:
         #    _log.warning()
         

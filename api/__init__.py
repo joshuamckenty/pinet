@@ -9,20 +9,34 @@ import settings
 # THIS IS EVIL
 import contrib
 import anyjson
+
 from xml.dom import minidom
+from calllib import call_sync
 
 _log = logging.getLogger()
 
-def invoke_request(action, **kwargs):
+def invoke_request(section, action, **kwargs):
     # TODO: Generate a unique request ID.
     request_id = '558c80e8-bd18-49ff-8479-7bc176e12415'
     
     # TODO: Add api validation.
     # validate(action, **kwargs)
     
-    # TODO: Enqueue request and poll for response.
-    # response_data = call(action, **kwargs)
+    # Build request json.
+    request = anyjson.serialize({
+        'action': action,
+        'args': kwargs
+    })
+    _log.debug('Enqueuing: topic = %s, msg = %s' % (section, request))
     
+    
+    # TODO: call_sync wants message param in json format only to
+    #       immediately deserialize it again in the body of call_sync?
+
+    # Enqueue request and poll for response.
+    response_data = call_sync(section, request)
+    
+    """
     conn = boto.s3.connection.S3Connection (
         aws_secret_access_key="fixme",
         aws_access_key_id="fixme",
@@ -39,8 +53,9 @@ def invoke_request(action, **kwargs):
         k = boto.s3.key.Key(b)
         k.key = 'info.json'
         images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
+    """    
 
-    return render_response(action, request_id, images)
+    return render_response(action, request_id, response_data)
     
     """
     Expected format for DescribeImages:
