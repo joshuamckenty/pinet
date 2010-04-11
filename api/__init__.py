@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import re
 
 import boto
 import boto.s3
@@ -8,12 +9,17 @@ import settings
 
 # THIS IS EVIL
 import contrib
+import cloud
+import calllib
+
 import anyjson
 
 from xml.dom import minidom
 from calllib import call_sync
 
 _log = logging.getLogger()
+
+camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
 
 def invoke_request(section, action, **kwargs):
     # TODO: Generate a unique request ID.
@@ -22,9 +28,10 @@ def invoke_request(section, action, **kwargs):
     # TODO: Add api validation.
     # validate(action, **kwargs)
     
+<<<<<<< HEAD
     # Build request json.
     request = anyjson.serialize({
-        'action': action,
+        'action': camelcase_to_underscoreaction,
         'args': kwargs
     })
     _log.debug('Enqueuing: topic = %s, msg = %s' % (section, request))
@@ -37,6 +44,24 @@ def invoke_request(section, action, **kwargs):
     response_data = call_sync(section, request)
     
     """
+=======
+    # TODO: Enqueue request and poll for response.
+    response_data = globals()[action](request_id, **kwargs)
+    return response_data
+    # getattr(self, action)(kwargs)
+
+def DescribeVolumes(request_id, **kwargs):
+    action = "DescribeVolumes"
+    volumes = calllib.call_sync("cloud",  '{"method": "list_volumes"}')
+
+    # volumes = { 'volumeSet': volumes }
+    xml = render_response(action, request_id, volumes)
+    _log.debug("DescribeVolumes is returning %s" % (xml))
+    return xml
+    
+def DescribeImages(request_id, **kwargs):
+    action = "DescribeImages"
+>>>>>>> 44a5c642230dd8b6fe047487c7ef4d68244a7517
     conn = boto.s3.connection.S3Connection (
         aws_secret_access_key="fixme",
         aws_access_key_id="fixme",
