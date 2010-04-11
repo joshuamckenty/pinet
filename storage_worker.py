@@ -1,16 +1,14 @@
-# vim: tabstop=4 shiftwidth=4
-import os
-import sys
+# vim: tabstop=4 shiftwidth=4 softtabstop
+"""
+Storage Worker proxies AMQP calls into the storage library.
+"""
+import logging
+
+import calllib
 import node
 import storage
-import logging
 import utils
-import calllib
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.split(__file__)[0], 'contrib')))
-
-from carrot import connection
-from carrot import messaging 
 
 NODE_TOPIC='storage'
 
@@ -32,11 +30,7 @@ if __name__ == '__main__':
     if options.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
         
-
-    # TODO(termie): make these into singletons?
     bs = storage.BlockStore(options)
     conn = utils.get_rabbit_conn()
-
-    consumer = calllib.PinetLibraryConsumer(connection=conn, module=NODE_TOPIC, lib=bs)
-    logging.debug('About to wait for consumer with callback')
+    consumer = calllib.AdapterConsumer(connection=conn, topic=NODE_TOPIC, proxy=bs)
     consumer.wait()

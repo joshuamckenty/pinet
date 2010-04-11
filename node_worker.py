@@ -30,10 +30,7 @@ if __name__ == '__main__':
     if options.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
         
-
-    # TODO(termie): make these into singletons?
     n = node.Node(options)
     conn = utils.get_rabbit_conn()
-    consumer = calllib.PinetLibraryConsumer(connection=conn, module=NODE_TOPIC, lib=n)
-    logging.debug('About to wait for consumer with callback')
+    consumer = calllib.AdapterConsumer(connection=conn, topic=NODE_TOPIC, proxy=n)
     consumer.wait()

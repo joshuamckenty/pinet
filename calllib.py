@@ -1,4 +1,4 @@
-# vim: tabstop=4 shiftwidth=4
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
 import os
 import sys
 import uuid
@@ -6,8 +6,7 @@ import time
 import logging
 import settings
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.split(__file__)[0], 'contrib')))
-
+import contrib
 import anyjson
 
 from carrot import connection
@@ -16,19 +15,19 @@ from carrot import messaging
 import utils
 conn = utils.get_rabbit_conn()
 
-class PinetControlConsumer(messaging.Consumer):
+class TopicConsumer(messaging.Consumer):
     exchange_type = "topic" 
-    def __init__(self, connection=None, module="broadcast"):
-        self.queue = module
-        self.routing_key = module
+    def __init__(self, connection=None, topic="broadcast"):
+        self.queue = topic
+        self.routing_key = topic
         self.exchange = settings.CONTROL_EXCHANGE
-        super(PinetControlConsumer, self).__init__(connection=connection)
+        super(TopicConsumer, self).__init__(connection=connection)
 
-class PinetLibraryConsumer(PinetControlConsumer):
-    def __init__(self, connection=None, module="broadcast", lib=None):
-        logging.debug('Initing the Library Consumer for %s' % (module))
-        self.lib = lib
-        super(PinetLibraryConsumer, self).__init__(connection=connection, module=module)
+class AdapterConsumer(TopicConsumer):
+    def __init__(self, connection=None, topic="broadcast", proxy=None):
+        logging.debug('Initing the Adapter Consumer for %s' % (topic))
+        self.proxy = proxy
+        super(AdapterConsumer, self).__init__(connection=connection, topic=topic)
  
     def receive(self, message_data, message):
         logging.debug('received %s' % (message_data))
@@ -43,7 +42,7 @@ class PinetLibraryConsumer(PinetControlConsumer):
         method = message_data.get('method')
         args = message_data.get('args', {})
 
-        node_func = getattr(self.lib, method)
+        node_func = getattr(self.proxy, method)
         node_args = dict((str(k), v) for k, v in args.iteritems())
         
         rval = node_func(**node_args)
@@ -51,49 +50,49 @@ class PinetLibraryConsumer(PinetControlConsumer):
         message.ack()
 
 
-class PinetControlPublisher(messaging.Publisher):
+class TopicPublisher(messaging.Publisher):
     exchange_type = "topic" 
-    def __init__(self, connection=None, module="broadcast"):
-        self.routing_key = module
+    def __init__(self, connection=None, topic="broadcast"):
+        self.routing_key = topic
         self.exchange = settings.CONTROL_EXCHANGE
-        super(PinetControlPublisher, self).__init__(connection=connection)
+        super(TopicPublisher, self).__init__(connection=connection)
         
-class PinetDirectConsumer(messaging.Consumer):
+class DirectConsumer(messaging.Consumer):
     exchange_type = "direct" 
     def __init__(self, connection=None, msg_id=None):
         self.queue = msg_id
         self.routing_key = msg_id
         self.exchange = msg_id
         self.auto_delete = True
-        super(PinetDirectConsumer, self).__init__(connection=connection)
+        super(DirectConsumer, self).__init__(connection=connection)
 
-class PinetDirectPublisher(messaging.Publisher):
+class DirectPublisher(messaging.Publisher):
     exchange_type = "direct"
     def __init__(self, connection=None, msg_id=None):
         self.routing_key = msg_id
         self.exchange = msg_id
         self.auto_delete = True
-        super(PinetDirectPublisher, self).__init__(connection=connection)
+        super(DirectPublisher, self).__init__(connection=connection)
 
-def msg_reply(msg_id, rval):
-    publisher = PinetDirectPublisher(connection=conn, msg_id=msg_id)
-    publisher.send({'result': rval})
+def msg_reply(msg_id, reply):
+    publisher = DirectPublisher(connection=conn, msg_id=msg_id)
+    publisher.send({'result': reply})
     publisher.close()
 
-def call_sync(module, msg):
+def call_sync(topic, msg):
     logging.debug("Making synchronous (blocking) call...")
     msg_id = uuid.uuid4().hex
     msg = anyjson.deserialize(msg)
     msg.update({'_msg_id': msg_id})
     logging.debug("MSG_ID is %s" % (msg_id))
 
-    consumer = PinetDirectConsumer(connection=conn, msg_id=msg_id)
-    publisher = PinetControlPublisher(connection=conn, module=module)
+    consumer = DirectConsumer(connection=conn, msg_id=msg_id)
+    publisher = TopicPublisher(connection=conn, topic=topic)
     publisher.send(msg)
     publisher.close()
-    data = None
-    while data is None:
-        for msg in consumer.iterqueue(limit=1):
-            data = msg.decode()
+    reply = None
+    while reply is None:
+        reply = consumer.fetch()
         time.sleep(1)
+    data = reply.decode()
     return data['result']
