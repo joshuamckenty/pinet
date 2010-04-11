@@ -28,14 +28,12 @@ def invoke_request(section, action, **kwargs):
     # TODO: Add api validation.
     # validate(action, **kwargs)
     
-<<<<<<< HEAD
     # Build request json.
     request = anyjson.serialize({
-        'action': camelcase_to_underscoreaction,
+        'action': camelcase_to_underscore(action),
         'args': kwargs
     })
     _log.debug('Enqueuing: topic = %s, msg = %s' % (section, request))
-    
     
     # TODO: call_sync wants message param in json format only to
     #       immediately deserialize it again in the body of call_sync?
@@ -43,9 +41,9 @@ def invoke_request(section, action, **kwargs):
     # Enqueue request and poll for response.
     response_data = call_sync(section, request)
     
+    return render_response(action, request_id, response_data)
+    
     """
-=======
-    # TODO: Enqueue request and poll for response.
     response_data = globals()[action](request_id, **kwargs)
     return response_data
     # getattr(self, action)(kwargs)
@@ -67,10 +65,9 @@ def DescribeInstances(request_id, **kwargs):
     _log.debug("DescribeInstances is returning %s" % (xml))
     return xml
 
-    
 def DescribeImages(request_id, **kwargs):
     action = "DescribeImages"
->>>>>>> 44a5c642230dd8b6fe047487c7ef4d68244a7517
+
     conn = boto.s3.connection.S3Connection (
         aws_secret_access_key="fixme",
         aws_access_key_id="fixme",
@@ -89,8 +86,6 @@ def DescribeImages(request_id, **kwargs):
         images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
     """    
 
-    return render_response(action, request_id, response_data)
-    
     """
     Expected format for DescribeImages:
     
@@ -127,9 +122,6 @@ def DescribeImages(request_id, **kwargs):
         ]
     }
     """
-    
-    return render_response(action, request_id, response_data)
-    
 
 def render_response(action, request_id, response_data):
     xml = minidom.Document()
