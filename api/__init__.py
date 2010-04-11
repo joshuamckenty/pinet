@@ -19,9 +19,16 @@ from calllib import call_sync
 
 _log = logging.getLogger()
 
-camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
+#camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
 
-def invoke_request(section, action, **kwargs):
+ACTION_MAP = {
+    'Configuration': {
+        'DescribeImages': ('cloud', 'describe_images'),
+        'DescribeInstances': ('cloud', 'describe_instances'),
+    },
+}
+
+def handle_request(section, action, **kwargs):
     # TODO: Generate a unique request ID.
     request_id = '558c80e8-bd18-49ff-8479-7bc176e12415'
     
@@ -29,101 +36,28 @@ def invoke_request(section, action, **kwargs):
     # validate(action, **kwargs)
     
     # Build request json.
-    request = anyjson.serialize({
-        'action': camelcase_to_underscore(action),
-        'args': kwargs
-    })
-    _log.debug('Enqueuing: topic = %s, msg = %s' % (section, request))
-    
-    # TODO: call_sync wants message param in json format only to
-    #       immediately deserialize it again in the body of call_sync?
+    try:
+        controller, method = translate_request(section, action)
+        _log.debug('Translated API request: controller = %s, method = %s' % (controller, method))
+    except:
+        _error = 'Unsupported API request: section = %s, action = %s' % (section, action)
+        _log.warning(_error)
+        # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
+        raise Exception(_error)
 
-    # Enqueue request and poll for response.
-    response_data = call_sync(section, request)
-    
-    return render_response(action, request_id, response_data)
-    
-    """
-    response_data = globals()[action](request_id, **kwargs)
-    return response_data
-    # getattr(self, action)(kwargs)
+    return invoke_request(request_id, controller, action, method, **kwargs)
 
-def DescribeVolumes(request_id, **kwargs):
-    action = "DescribeVolumes"
-    volumes = calllib.call_sync("cloud",  '{"method": "list_volumes"}')
-
-    # volumes = { 'volumeSet': volumes }
-    xml = render_response(action, request_id, volumes)
-    _log.debug("DescribeVolumes is returning %s" % (xml))
+def translate_request(section, action):
+    return ACTION_MAP[section][action]
+    
+def invoke_request(request_id, controller, action, method, **kwargs):
+    # TODO: make this aware of controller
+    response_body = globals()[method](request_id, **kwargs)
+    xml = render_response(request_id, action, response_body)
+    _log.debug('%s.%s returned %s' % (controller, method, xml))
     return xml
 
-def DescribeInstances(request_id, **kwargs):
-    action = "DescribeInstances"
-    instances = calllib.call_sync("cloud",  '{"method": "list_instances"}')
-
-    xml = render_response(action, request_id, instances)
-    _log.debug("DescribeInstances is returning %s" % (xml))
-    return xml
-
-def DescribeImages(request_id, **kwargs):
-    action = "DescribeImages"
-
-    conn = boto.s3.connection.S3Connection (
-        aws_secret_access_key="fixme",
-        aws_access_key_id="fixme",
-        is_secure=False,
-        calling_format=boto.s3.connection.OrdinaryCallingFormat(),
-        debug=0,
-        port=settings.S3_PORT,
-        host='localhost',
-    )
-
-    images = { 'imagesSet': [] }
-
-    for b in conn.get_all_buckets():
-        k = boto.s3.key.Key(b)
-        k.key = 'info.json'
-        images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
-    """    
-
-    """
-    Expected format for DescribeImages:
-    
-    response_data = \
-    {
-        'imagesSet':
-        [
-            {
-                'imageOwnerId': 'admin',
-                'isPublic': 'true',
-                'imageId': 'emi-CD1310B7',
-                'imageState': 'available',
-                'kernelId': 'eki-218811E8',
-                'architecture': 'x86_64',
-                'imageLocation': 'test/test1.manifest.xml',
-                'rootDeviceType': 'instance-store',
-                'ramdiskId': 'eri-5CB612F8',
-                'rootDeviceName': '/dev/sda1',
-                'imageType': 'machine'
-            },
-            {
-                'imageOwnerId': 'admin',
-                'isPublic': 'true',
-                'imageId': 'emi-AB1560D9',
-                'imageState': 'available',
-                'kernelId': 'eki-218811E8',
-                'architecture': 'x86_64',
-                'imageLocation': 'test/test1.manifest.xml',
-                'rootDeviceType': 'instance-store',
-                'ramdiskId': 'eri-5CB612F8',
-                'rootDeviceName': '/dev/sda1',
-                'imageType': 'machine'
-            }
-        ]
-    }
-    """
-
-def render_response(action, request_id, response_data):
+def render_response(request_id, action, response_data):
     xml = minidom.Document()
     
     response_el = xml.createElement(action + 'Response')
@@ -160,22 +94,28 @@ def render_data(xml, el_name, data):
         
     return data_el
 
-"""
-<DescribeImagesResponse xmlns="http://ec2.amazonaws.com/doc/2009-11-30/"><requestId>558c80e8-bd18-49ff-8479-7bc176e12415</requestId>
-<imagesSet>
-    <item>
-        <imageOwnerId>admin</imageOwnerId>
-        <isPublic>true</isPublic>
-        <imageId>emi-CD1310B7</imageId>
-        <imageState>available</imageState>
-        <kernelId>eki-218811E8</kernelId>
-        <architecture>x86_64</architecture>
-        <imageLocation>test/test1.manifest.xml</imageLocation>
-        <rootDeviceType>instance-store</rootDeviceType>
-        <ramdiskId>eri-5CB612F8</ramdiskId>
-        <rootDeviceName>/dev/sda1</rootDeviceName>
-        <imageType>machine</imageType>
-    </item>
-</imagesSet>
-</DescribeImagesResponse>
-"""
+def describe_volumes(request_id, **kwargs):
+    return calllib.call_sync("cloud",  '{"method": "list_volumes"}')
+
+def describe_instances(request_id, **kwargs):
+    return calllib.call_sync("cloud",  '{"method": "list_instances"}')
+
+def describe_images(request_id, **kwargs):
+    conn = boto.s3.connection.S3Connection (
+        aws_secret_access_key="fixme",
+        aws_access_key_id="fixme",
+        is_secure=False,
+        calling_format=boto.s3.connection.OrdinaryCallingFormat(),
+        debug=0,
+        port=settings.S3_PORT,
+        host='localhost',
+    )
+
+    images = { 'imagesSet': [] }
+
+    for b in conn.get_all_buckets():
+        k = boto.s3.key.Key(b)
+        k.key = 'info.json'
+        images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
+        
+    return images

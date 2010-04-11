@@ -8,7 +8,7 @@ import tornado.ioloop
 import tornado.web
 import settings
 from daemon import Daemon
-from api import invoke_request
+from api import handle_request
 from users import UserManager
 import contrib # adds contrib to the path
 import call
@@ -61,7 +61,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             _log.info('arg: %s\t\tval: %s' % (key, value))
 
         #try:
-        response = invoke_request(section, action, **args)
+        response = handle_request(section, action, **args)
         print response
         _log.debug(response)
         #except ValueError, e:
