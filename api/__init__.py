@@ -1,4 +1,13 @@
 import logging
+import boto
+import boto.s3
+import settings
+
+# THIS IS EVIL
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.split(__file__)[0], '..', 'contrib')))
+import anyjson
 
 from xml.dom import minidom
 
@@ -14,37 +23,24 @@ def invoke_request(action, **kwargs):
     # TODO: Enqueue request and poll for response.
     # response_data = call(action, **kwargs)
     
-    response_data = \
-    [
-        {
-            'imageId': 'emi-CD1310B7',
-            'imageOwnerId': 'admin',
-            'isPublic': 'true',
-            'imageState': 'available',
-            'kernelId': 'eki-218811E8',
-            'architecture': 'x86_64',
-            'imageLocation': 'test/test1.manifest.xml',
-            'rootDeviceType': 'instance-store',
-            'ramdiskId': 'eri-5CB612F8',
-            'rootDeviceName': '/dev/sda1',
-            'imageType': 'machine'
-        },
-        {
-            'imageId': 'emi-BB7610C2',
-            'imageOwnerId': 'admin',
-            'isPublic': 'true',
-            'imageState': 'available',
-            'kernelId': 'eki-218811E8',
-            'architecture': 'x86_64',
-            'imageLocation': 'test/test1.manifest.xml',
-            'rootDeviceType': 'instance-store',
-            'ramdiskId': 'eri-5CB612F8',
-            'rootDeviceName': '/dev/sda1',
-            'imageType': 'machine'
-        }
-    ]
-    
-    return render_response(action, request_id, response_data)
+    conn = boto.s3.connection.S3Connection (
+        aws_secret_access_key="fixme",
+        aws_access_key_id="fixme",
+        is_secure=False,
+        calling_format=boto.s3.connection.OrdinaryCallingFormat(),
+        debug=0,
+        port=settings.S3_PORT,
+        host='localhost',
+    )
+
+    images = []
+
+    for b in conn.get_all_buckets():
+        k = boto.s3.key.Key(b)
+        k.key = 'info.json'
+        images.append(anyjson.deserialize(k.get_contents_as_string()))
+
+    return render_response(action, request_id, images)
     
 
 def render_response(action, request_id, response_data):
@@ -77,7 +73,7 @@ def render_item(xml, el_name, item):
         if data is dict:
             data_el.appendChild(render_item(xml, key, data))
         elif data != None:
-            data_el.appendChild(xml.createTextNode(data))
+            data_el.appendChild(xml.createTextNode(str(data)))
         
         item_el.appendChild(data_el)
     

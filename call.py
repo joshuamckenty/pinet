@@ -12,28 +12,28 @@ from carrot import messaging
 
 logging.getLogger().setLevel(logging.DEBUG)
 
-conn = connection.BrokerConnection(hostname="localhost", port=5672,
-                                   userid="guest", password="guest",
-                                   virtual_host="/")
+import utils
+conn = utils.get_rabbit_conn()
 
 def generic_response(message_data, message):
     logging.debug('response %s', message_data)
     message.ack()
     sys.exit(0)
 
-def send_message(topic, message):
+def send_message(topic, message, wait=True):
     msg_id = uuid.uuid4().hex
     message.update({'_msg_id': msg_id})
     logging.debug('topic is %s', topic)
     logging.debug('message %s', message)
 
-    consumer = messaging.Consumer(connection=conn,
-                                  queue=msg_id,
-                                  exchange=msg_id,
-                                  auto_delete=True,
-                                  exchange_type="direct",
-                                  routing_key=msg_id)
-    consumer.register_callback(generic_response)
+    if wait:
+        consumer = messaging.Consumer(connection=conn,
+                                      queue=msg_id,
+                                      exchange=msg_id,
+                                      auto_delete=True,
+                                      exchange_type="direct",
+                                      routing_key=msg_id)
+        consumer.register_callback(generic_response)
 
     publisher = messaging.Publisher(connection=conn,
                                     exchange="pinet",
@@ -42,7 +42,8 @@ def send_message(topic, message):
     publisher.send(message)
     publisher.close()
 
-    consumer.wait()
+    if wait:
+        consumer.wait()
     
     
 if __name__ == "__main__":

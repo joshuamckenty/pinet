@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import logging
+import random
 import os
 import sys
 import tornado.httpserver
@@ -9,6 +10,8 @@ import settings
 from daemon import Daemon
 from api import invoke_request
 from users import UserManager
+import contrib # adds contrib to the path
+import call
 
 _log = logging.getLogger()
 
@@ -62,9 +65,23 @@ class APIRequestHandler(tornado.web.RequestHandler):
         #    _log.warning()
         
         # TODO: Wrap response in AWS XML format  
-        self.set_header('Content-Type', 'text/xml')  
+        self.set_header('Content-Type', 'text/xml')
         self.write(response)
-            
+
+    def post(self, section):
+        reservation_id = 'r-%06d' % random.randint(0,1000000)
+        for num in range(int(self.request.arguments['MaxCount'][0])):
+            instance_id = 'i-%06d' % random.randint(0,1000000)
+            call.send_message('node', {"method": "run_instance", "args" : {"instance_id": instance_id}}, wait=False)
+
+        self._error('unhandled', "args: %s" % str(self.request.arguments))
+
+    def _error(self, code, message):
+        self._status_code = 400
+        self.set_header('Content-Type', 'text/xml')
+        self.write('<?xml version="1.0"?>')
+        self.write('<Response><Errors><Error><Code>%s</Code><Message>%s</Message></Error></Errors><RequestID>?</RequestID></Response>' % (code, message))
+        
 
 application = tornado.web.Application([
     (r'/', RootRequestHandler),

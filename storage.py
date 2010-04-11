@@ -15,7 +15,7 @@ from utils import runthis
 class BlockStore(object):
     """ The BlockStore is in charge of iSCSI volumes and exports."""
 
-    def __init__(self):
+    def __init__(self, options):
         """ Connect to queues and listen for requests for actions. """
         pass
 

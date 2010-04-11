@@ -1,6 +1,5 @@
 import boto
 from boto.ec2.regioninfo import RegionInfo
-from euca7ools.eucaadmin import Euca
 
 CLC_IP = '127.0.0.1'
 #CLC_IP = '172.24.193.2'
