@@ -17,7 +17,11 @@ import settings
 import storage
 from utils import runthis
 
+
 import calllib
+
+import contrib
+from tornado import ioloop
 
 
 
@@ -27,6 +31,7 @@ class Node(object):
     def __init__(self, options=None):
         """ load configuration options for this node and connect to libvirt """
         self.options = options
+        self._instances = {}
         self._conn = self._get_connection(options)
 
     def noop(self):
@@ -50,23 +55,31 @@ class Node(object):
     @exception.wrap_exception
     def describe_instances(self):
         """ return a list of instances on this node """
-        return [self._conn.lookupByID(i).name()
-                for i in self._conn.listDomainsID()]
+        return [x.describe() for x in self._instances.values()]
 
     @exception.wrap_exception
     def run_instance(self, instance_id):
         """ launch a new instance with specified options """
-        Instance(self._conn, instance_id, options=self.options)
+        if instance_id in self._instances:
+            raise exception.Error('attempting to use existing instance_id: %s' % instance_id)
+        
+        new_inst = Instance(self._conn, name=instance_id, options=self.options)
+        new_inst.spawn()
+        self._instances[instance_id] = new_inst
     
     @exception.wrap_exception
-    def terminate_instance(self, instance_id):
+    def terminate_instance(self, instance_id, callback=None):
         """ terminate an instance on this machine """
-        self._conn.lookupByName(instance_id).destroy()
+        if instance_id not in self._instances:
+            raise exception.Error(
+                    'trying to terminate unknown instance: %s' % instance_id)
 
-    @exception.wrap_exception
-    def get_console_output(self, instance_id):
-        """ send the console output for an instance """
-        return open(settings.instances_path + '/' + instance_id + '/console.log').read()
+        # TODO(termie): deferreds would be wunderbar here
+        def _callback():
+            self._instances.pop(instance_id)
+            if callback:
+                callback()
+        self._instances[instance_id].destroy(callback=_callback)
 
     @exception.wrap_exception
     def reboot_instance(self, instance_id):
@@ -75,6 +88,11 @@ class Node(object):
         self._conn.lookupByName(instance_id).destroy()
         xml = open(settings.instances_path + '/' + instance_id + '/libvirt.xml').read()
         self._conn.createXML(xml, 0)
+
+    @exception.wrap_exception
+    def get_console_output(self, instance_id):
+        """ send the console output for an instance """
+        return open(settings.instances_path + '/' + instance_id + '/console.log').read()
 
     @exception.wrap_exception
     def attach_volume(self, instance_id = None, volume_id = None, dev = None):
@@ -106,6 +124,13 @@ class Node(object):
 
 
 class Instance(object):
+    NOSTATE = 0x00
+    RUNNING = 0x01
+    BLOCKED = 0x02
+    PAUSED = 0x03
+    SHUTDOWN = 0x04
+    SHUTOFF = 0x05
+    CRASHED = 0x06
 
     def __init__(self, conn, name, vcpus=1, memory_mb=1024, options=None):
         """ spawn an instance with a given name """
@@ -118,14 +143,82 @@ class Instance(object):
         if options and options.use_fake:
             self._use_fake = True
 
-        xml = self.setup()
-        self._conn.createXML(xml, 0)
+        self._state = Instance.NOSTATE
+
+    def is_pending(self):
+        return self._state == Instance.NOSTATE
+
+    def is_destroyed(self):
+        return self._state == Instance.SHUTOFF
+
+    def is_running(self):
+        return self._state == Instance.RUNNING
+
+    def describe(self):
+        return self._name
+
+    def info(self):
+        virt_dom = self._conn.lookupByName(self._name)
+        (state, max_mem, mem, num_cpu, cpu_time) = virt_dom.info()
+        return {'state': state,
+                'max_mem': max_mem,
+                'mem': mem,
+                'num_cpu': num_cpu,
+                'cpu_time': cpu_time}
+
+    def destroy(self, callback=None):
+        if self.is_destroyed():
+            raise exception.Error('trying to destroy already destroyed'
+                                  ' instance: %s' % self._name)
+
+        self._state = Instance.SHUTDOWN
+        
+        virt_dom = self._conn.lookupByName(self._name)
+        virt_dom.destroy()
+        
+        timer = ioloop.PeriodicCallback(callback=None, callback_time=1000)
+        def _wait_for_shutdown():
+            try:
+                info = self.info()
+                if info['state'] == Instance.SHUTDOWN:
+                    self._state = Instance.SHUTDOWN
+                    timer.stop()
+            except Exception:
+                self._state = Instance.SHUTDOWN
+                timer.stop()
+            callback()
+        timer.callback = _wait_for_shutdown
+        timer.start()
+        
+
+
+
+    def reboot(self):
+        if not self.is_running():
+            raise exception.Error('trying to reboot a non-running instance: %s (state: %s)' % (self._name, self._state))
+        
+        self._conn.lookupByName(self._name).destroy()
+
+        self._state = Instance.PENDING
+        self._conn.createXML(self._xml, 0)
+        # TODO(termie): this should actually register a callback to check
+        #               for successful boot
+        self._state = Instance.RUNNING
+
+    def spawn(self):
+        if not self.is_pending():
+            raise exception.Error('trying to spawn a running or terminated instance: %s (state: %s)' % (self._name, self._state))
+
+        self._xml = self.setup()
+        self._conn.createXML(self._xml, 0)
+        # TODO(termie): this should actually register a callback to check
+        #               for successful boot
+        self._state = Instance.RUNNING
 
     def generate_mac(self):
         mac = [0x00, 0x16, 0x3e, random.randint(0x00, 0x7f), \
            random.randint(0x00, 0xff), random.randint(0x00, 0xff)]
         return ':'.join(map(lambda x: "%02x" % x, mac))
-
 
     # FIXME - we need to be able to do this command async
     def setup(self):
@@ -139,7 +232,7 @@ class Instance(object):
             .replace('BASEPATH', self._basepath) \
             .replace('PRIVMACADDR', self._mac) \
             .replace('BRIDGEDEV', settings.bridge)
-
+        
         if not self._use_fake:
             os.makedirs(self._basepath)
             f = open(self._basepath+'/libvirt.xml', 'w')
