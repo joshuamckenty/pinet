@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import logging
+import logging # TODO: Log timestamp and formatting.
 import random
 import os
 import sys
@@ -44,9 +44,8 @@ class APIRequestHandler(tornado.web.RequestHandler):
             raise tornado.web.HTTPError(400)
             
         # TODO: Access key authorization
-        """
+
         _log.info('access_key: %s' % params['AWSAccessKeyId'])
-        manager = UserManager()
         _log.info('host: %s' % self.request.host)
         if not manager.authenticate(params,
                                     signature,
@@ -54,7 +53,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
                                     self.request.host,
                                     self.request.path):
             raise tornado.web.HTTPError(403)
-        """
+
         _log.info('action: %s' % action)
 
         for key, value in args.items():
@@ -111,30 +110,40 @@ class APIServerDaemon(Daemon):
         logging.debug('Started HTTP server on %s' % (settings.CC_PORT))
         tornado.ioloop.IOLoop.instance().start()
 
-def usage():
-    print 'usage: %s start|stop|restart' % sys.argv[0]
-
 if __name__ == "__main__":
-    # TODO: Log timestamp and formatting.
+    import optparse
+
+    parser = optparse.OptionParser(usage='usage: %prog [options] start|stop|restart')
+    parser.add_option("--use_fake", dest="use_fake",
+                      help="don't actually use ldap",
+                      default=False,
+                      action="store_true")
+    parser.add_option('-v', dest='verbose',
+                      help='verbose logging',
+                      default=False,
+                      action='store_true')
+                      
+    (options, args) = parser.parse_args()
+    
+    if len(args) != 1:
+        parser.error("missing command")
+    
+    if options.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+                      
     logfile = os.path.join(settings.LOG_PATH, 'apiserver.log')
     logging.basicConfig(level=logging.DEBUG, filename=logfile, filemode='a')
-    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid')) #, stdout=logfile, stderr=logfile)
-    
-    if len(sys.argv) == 2:
-        if sys.argv[1] == 'start':
-            daemon.start()
-        elif sys.argv[1] == 'stop':
-            daemon.stop()
-        elif sys.argv[1] == 'restart':
-            daemon.restart()
+    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid'), stdout=logfile, stderr=logfile)
+        
+    if args[0] == 'start':
+        if options and options.use_fake:
+            manager = UserManager({'use_fake': True})
         else:
-            usage()
-            sys.exit(2)
-        sys.exit(0)
+            manager = UserManager()
+        daemon.start()
+    elif args[0] == 'stop':
+        daemon.stop()
+    elif args[0] == 'restart':
+        daemon.restart()
     else:
-        usage()
-        sys.exit(2)
-
-
-
-
+        parser.error("unknown command")
