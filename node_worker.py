@@ -8,43 +8,10 @@ import node
 import contrib
 from carrot import connection
 from carrot import messaging 
-
+import calllib
+import utils
 
 NODE_TOPIC='node'
-
-class NodeConsumer(messaging.Consumer):
-    routing_key = 'node'
-    exchange = 'pinet'
-    queue = 'node'
-    exchange_type = "topic"
-
-    def receive(self, message_data, message):
-        logging.debug('received %s' % (message_data))
-
-        try:
-            msg_id = message_data.pop('_msg_id')
-        except Exception:
-            logging.exception("no msg_id found")
-            message.ack()
-            return
-
-        method = message_data.get('method')
-        args = message_data.get('args', {})
-
-        node_func = getattr(n, method)
-        node_args = dict((str(k), v) for k, v in args.iteritems())
-        
-        rval = node_func(**node_args)
-
-        publisher = messaging.Publisher(connection=conn,
-                                        exchange=msg_id,
-                                        auto_delete=True,
-                                        exchange_type="direct",
-                                        routing_key=msg_id)
-        logging.debug('send %s', rval)
-        publisher.send({'result': rval})
-        publisher.close()
-        message.ack()
 
 
 if __name__ == '__main__':
@@ -67,10 +34,7 @@ if __name__ == '__main__':
 
     # TODO(termie): make these into singletons?
     n = node.Node(options)
-    conn = connection.BrokerConnection(hostname="localhost", port=5672,
-                                       userid="guest", password="guest",
-                                       virtual_host="/")
-    logging.debug('Topic is node')
-    consumer = NodeConsumer(connection=conn)
+    conn = utils.get_rabbit_conn()
+    consumer = calllib.PinetLibraryConsumer(connection=conn, module=NODE_TOPIC, lib=n)
     logging.debug('About to wait for consumer with callback')
     consumer.wait()
