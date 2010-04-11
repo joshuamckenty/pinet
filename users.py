@@ -39,15 +39,18 @@ class UserManager:
             'secret_field': 'street',
         }
         self.config.update(config)
+        if self.config.has_key('use_fake') and self.config['use_fake']:
+            self.create('fake', 'fake', 'fake')
 
     def authenticate(self, params, signature, verb='GET', server_string='127.0.0.1:8773', path='/'):
         # TODO: Check for valid timestamp
         access_key = params['AWSAccessKeyId']
         with LDAPWrapper(self.config) as conn:
             secret_key = conn.get_secret_from_access(access_key)
-        
-        expected_signature = signer.Signer(secret_key).generate(params, verb, server_string, path)
-        return signature == expected_signature
+
+        if secret_key:
+            expected_signature = signer.Signer(secret_key).generate(params, verb, server_string, path)
+            return signature == expected_signature
         
     def keys(self, name):
         """ return access & secret for a username """
@@ -59,11 +62,11 @@ class UserManager:
         with LDAPWrapper(self.config) as conn:
             return conn.get_secret_from_access(access_key)
 
-    def create(self, name):
+    def create(self, name, access=None, secret=None):
+        if access == None: access = random_string(self.config['key_length'])
+        if secret == None: secret = random_string(self.config['key_length'])
         with LDAPWrapper(self.config) as conn:
-            conn.create_user(name,
-                             random_string(self.config['key_length']),
-                             random_string(self.config['key_length']))
+            conn.create_user(name, access, secret)
 
     def delete(self, name):
         with LDAPWrapper(self.config) as conn:
@@ -155,6 +158,7 @@ if __name__ == "__main__":
     # 
     # 
     # sys.exit(0)
+    
     logging.basicConfig(level=logging.DEBUG,
     filename=os.path.join(settings.LOG_PATH, 'users.log'), filemode='a')
     manager = UserManager()

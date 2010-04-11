@@ -132,13 +132,12 @@ if __name__ == "__main__":
     logfile = os.path.join(settings.LOG_PATH, 'apiserver.log')
     logging.basicConfig(level=logging.DEBUG, filename=logfile, filemode='a')
     daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid'), stdout=logfile, stderr=logfile)
-    
-    if options and options.use_fake:
-        manager = UserManager({'use_fake': True})
-    else:
-        manager = UserManager()
-    
+        
     if args[0] == 'start':
+        if options and options.use_fake:
+            manager = UserManager({'use_fake': True})
+        else:
+            manager = UserManager()
         daemon.start()
     elif args[0] == 'stop':
         daemon.stop()
@@ -146,8 +145,3 @@ if __name__ == "__main__":
         daemon.restart()
     else:
         parser.error("unknown command")
-
-
-
-
-
