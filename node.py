@@ -27,6 +27,7 @@ import calllib
 
 import contrib
 from tornado import ioloop
+from twisted.internet import defer
 
 
 
@@ -38,19 +39,6 @@ class Node(object):
         self.options = options
         self._instances = {}
         self._conn = self._get_connection(options)
-
-    def noop(self):
-        return "PONG"
-
-    def report_state(self):
-        logging.debug("Reporting State")
-        instances = []
-        for instance in self.describe_instances():
-            instances.append({"item": 
-                   {"reservation_id": "foo", "ownerId" : "tim", "groupSet" : {"item" : {"groupId": "default"}},
-                    "instancesSet" : {"item": {"instanceId" : instance, "imageId" : "emi-foo", "instanceState" : {"code": 0, "name" : "pending"}}} }  })
-        instances = anyjson.serialize({"reservationSet" : instances})
-        rval = calllib.call_sync("cloud",  '{"method": "update_state", "args" : {"topic": "instances", "value": %s}}' % (instances))
 
     def _get_connection(self, options=None):
         # TODO(termie): maybe lazy load after initial check for permissions
@@ -66,6 +54,30 @@ class Node(object):
                 logging.error('Failed to open connection to the hypervisor')
                 sys.exit(1)
         return conn
+
+    def report_state(self):
+        logging.debug("Reporting State")
+        instances = []
+        for instance in self.describe_instances():
+            instances.append(
+                {"item": 
+                   {"reservation_id": "foo",
+                    "ownerId" : "tim",
+                    "groupSet" : {"item" : {"groupId": "default"}},
+                    "instancesSet" : {
+                        "item": {"instanceId" : instance,
+                                 "imageId" : "emi-foo",
+                                 "instanceState" : {"code": 0,
+                                                    "name" : "pending"}
+                                 }
+                        }
+                    }
+                })
+        instances = anyjson.serialize({"reservationSet" : instances})
+        rval = calllib.call_sync("cloud",  '{"method": "update_state", "args" : {"topic": "instances", "value": %s}}' % (instances))
+
+    def noop(self):
+        return "PONG"
     
     @exception.wrap_exception
     def describe_instances(self):
@@ -76,8 +88,9 @@ class Node(object):
     def run_instance(self, instance_id):
         """ launch a new instance with specified options """
         if instance_id in self._instances:
-            raise exception.Error('attempting to use existing instance_id: %s' % instance_id)
-        
+            raise exception.Error(
+                    'attempting to use existing instance_id: %s' % instance_id)
+
         new_inst = Instance(self._conn, name=instance_id, options=self.options)
         new_inst.spawn()
         self._instances[instance_id] = new_inst
