@@ -22,13 +22,13 @@ _log = logging.getLogger()
 #camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
 
 ACTION_MAP = {
-    'Configuration': {
-        'DescribeImages': ('cloud', 'describe_images'),
-        'DescribeInstances': ('cloud', 'describe_instances'),
+    'Cloud': {
+        'DescribeImages': ('cloud_controller', 'describe_images'),
+        'DescribeInstances': ('cloud_controller', 'describe_instances'),
     },
 }
 
-def handle_request(section, action, **kwargs):
+def handle_request(section, action, cloud_controller, **kwargs):
     # TODO: Generate a unique request ID.
     request_id = '558c80e8-bd18-49ff-8479-7bc176e12415'
     
@@ -37,8 +37,9 @@ def handle_request(section, action, **kwargs):
     
     # Build request json.
     try:
-        controller, method = translate_request(section, action)
+        controller_name, method = translate_request(section, action)
         _log.debug('Translated API request: controller = %s, method = %s' % (controller, method))
+        controller = locals()[controller_name]
     except:
         _error = 'Unsupported API request: section = %s, action = %s' % (section, action)
         _log.warning(_error)
@@ -51,8 +52,7 @@ def translate_request(section, action):
     return ACTION_MAP[section][action]
     
 def invoke_request(request_id, controller, action, method, **kwargs):
-    # TODO: make this aware of controller
-    response_body = globals()[method](request_id, **kwargs)
+    response_body = getattr(controller, method)(request_id, **kwargs)
     xml = render_response(request_id, action, response_body)
     _log.debug('%s.%s returned %s' % (controller, method, xml))
     return xml

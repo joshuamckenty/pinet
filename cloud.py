@@ -1,6 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
-
+CLOUD_TOPIC='cloud'
 
 class CloudController(object):
     def __init__(self, options):

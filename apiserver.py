@@ -12,6 +12,13 @@ from api import handle_request
 from users import UserManager
 import contrib # adds contrib to the path
 import call
+import calllib
+import utils
+
+import cloud
+from cloud import CLOUD_TOPIC
+
+cloud_controller = None # Will create later
 
 _log = logging.getLogger()
 
@@ -60,7 +67,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             _log.info('arg: %s\t\tval: %s' % (key, value))
 
         #try:
-        response = handle_request(section, action, **args)
+        response = handle_request(section, action, cloud_controller, **args)
         print response
         _log.debug(response)
         #except ValueError, e:
@@ -91,25 +98,13 @@ application = tornado.web.Application([
 ])
 
 class APIServerDaemon(Daemon):
-#    def start(self):
-#        print 'Starting API daemon on port %s' % settings.CC_PORT
-#        logging.debug('Starting API daemon on port %s' % settings.CC_PORT)
-#        super(APIServerDaemon, self).start()
-
-#    def restart(self):
-#        print 'Restarting API daemon on port %s' % settings.CC_PORT
-#        super(APIServerDaemon, self).restart()
-
-#    def stop(self):
-#        print 'Stopping API daemon...'
-#        super(APIServerDaemon, self).stop()
-
     def run(self):
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(settings.CC_PORT)
         logging.debug('Started HTTP server on %s' % (settings.CC_PORT))
         tornado.ioloop.IOLoop.instance().start()
-
+        
+        
 if __name__ == "__main__":
     import optparse
 
@@ -133,13 +128,18 @@ if __name__ == "__main__":
                       
     logfile = os.path.join(settings.LOG_PATH, 'apiserver.log')
     logging.basicConfig(level=logging.DEBUG, filename=logfile, filemode='a')
-    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid')) #, stdout=logfile, stderr=logfile)
+    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid'))
         
     if args[0] == 'start':
         if options and options.use_fake:
             manager = UserManager({'use_fake': True})
         else:
             manager = UserManager()
+        cloud_controller = cloud.CloudController(options)
+        conn = utils.get_rabbit_conn()
+        consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=cloud_controller)
+        io_inst = tornado.ioloop.IOLoop.instance()
+        injected = consumer.attachToTornado(io_inst)
         daemon.start()
     elif args[0] == 'stop':
         daemon.stop()
