@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import logging
+import random
 import os
 import sys
 import tornado.httpserver
@@ -9,6 +10,7 @@ import settings
 from daemon import Daemon
 from api import invoke_request
 import contrib # adds contrib to the path
+import call
 
 _log = logging.getLogger()
 
@@ -55,6 +57,11 @@ class APIRequestHandler(tornado.web.RequestHandler):
         self.write(response)
 
     def post(self, section):
+        reservation_id = 'r-%06d' % random.randint(0,1000000)
+        for num in range(int(self.request.arguments['MaxCount'][0])):
+            instance_id = 'i-%06d' % random.randint(0,1000000)
+            call.send_message('node', {"method": "run_instance", "args" : {"instance_id": instance_id}}, wait=False)
+
         self._error('unhandled', "args: %s" % str(self.request.arguments))
 
     def _error(self, code, message):

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # vim: tabstop=4 shiftwidth=4 softtabstop
 """
 Storage Worker proxies AMQP calls into the storage library.
