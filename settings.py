@@ -17,6 +17,15 @@ S3_PATH = '/var/pinet/s3/'
 S3_PORT = 3333
 CC_PORT = 8773
 
+RABBIT_PORT = 5672
+RABBIT_HOST = "localhost"
+RABBIT_USER = "guest"
+RABBIT_PASS = "guest"
+RABBIT_VHOST = "/"
+
+CONTROL_EXCHANGE = "pinet"
+
+
 try:
     from local_settings import *
 except Exception, e:
