@@ -25,7 +25,6 @@ RABBIT_VHOST = "/"
 
 CONTROL_EXCHANGE = "pinet"
 
-
 try:
     from local_settings import *
 except Exception, e:
