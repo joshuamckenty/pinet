@@ -12,9 +12,8 @@ from carrot import messaging
 
 logging.getLogger().setLevel(logging.DEBUG)
 
-conn = connection.BrokerConnection(hostname="localhost", port=5672,
-                                   userid="guest", password="guest",
-                                   virtual_host="/")
+import utils
+conn = utils.get_rabbit_conn()
 
 def generic_response(message_data, message):
     logging.debug('response %s', message_data)

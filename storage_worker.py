@@ -4,41 +4,39 @@ import sys
 import node
 import storage
 import logging
+import utils
+import calllib
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.split(__file__)[0], 'contrib')))
 
 from carrot import connection
 from carrot import messaging 
 
-logging.getLogger().setLevel(logging.DEBUG)
+NODE_TOPIC='storage'
 
-bs = storage.BlockStore()
 
-conn = connection.BrokerConnection(hostname="localhost", port=5672,
-                                   userid="guest", password="guest",
-                                   virtual_host="/")
+if __name__ == '__main__':
+    import optparse
 
-def router(message_data, message):
-    logging.debug('response %s', message_data)
+    parser = optparse.OptionParser()
+    parser.add_option("--use_fake", dest="use_fake",
+                      help="don't actually create volumes",
+                      default=False,
+                      action="store_true")
+    parser.add_option('-v', dest='verbose',
+                      help='verbose logging',
+                      default=False,
+                      action='store_true')
 
-    try:
-        msg_id = message_data.pop('_msg_id')
-    except Exception:
-        logging.exception("ouch")
-        message.ack()
-        return
+    (options, args) = parser.parse_args()
+    if options.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+        
 
-    logging.debug('foobar')
+    # TODO(termie): make these into singletons?
+    bs = storage.BlockStore(options)
+    conn = utils.get_rabbit_conn()
 
-    message.ack()
-    rval = getattr(bs, message_data.get('method'))(**dict([(str(k), v) for k, v in message_data.get('args', {}).iteritems()]))
-    logging.debug("Trying to send: %s" % rval)
-
-    publisher = messaging.Publisher(connection=conn, queue=msg_id, exchange=msg_id, auto_delete = True, exchange_type="direct", routing_key=msg_id)
-    publisher.send({'result': rval})
-    publisher.close()
-
-consumer = messaging.Consumer(connection=conn, queue="storage", exchange="pinet", exchange_type="topic", routing_key="storage")
-consumer.register_callback(router)
-consumer.wait()
-
+    consumer = calllib.PinetLibraryConsumer(connection=conn, module=NODE_TOPIC, lib=bs)
+    logging.debug('About to wait for consumer with callback')
+    consumer.wait()
