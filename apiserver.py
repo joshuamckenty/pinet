@@ -44,6 +44,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             raise tornado.web.HTTPError(400)
             
         # TODO: Access key authorization
+        """
         _log.info('access_key: %s' % params['AWSAccessKeyId'])
         manager = UserManager()
         _log.info('host: %s' % self.request.host)
@@ -53,7 +54,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
                                     self.request.host,
                                     self.request.path):
             raise tornado.web.HTTPError(403)
-
+        """
         _log.info('action: %s' % action)
 
         for key, value in args.items():

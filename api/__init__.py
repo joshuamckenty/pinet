@@ -33,14 +33,53 @@ def invoke_request(action, **kwargs):
         host='localhost',
     )
 
-    images = []
+    images = { 'imagesSet': [] }
 
     for b in conn.get_all_buckets():
         k = boto.s3.key.Key(b)
         k.key = 'info.json'
-        images.append(anyjson.deserialize(k.get_contents_as_string()))
+        images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
 
     return render_response(action, request_id, images)
+    
+    """
+    Expected format for DescribeImages:
+    
+    response_data = \
+    {
+        'imagesSet':
+        [
+            {
+                'imageOwnerId': 'admin',
+                'isPublic': 'true',
+                'imageId': 'emi-CD1310B7',
+                'imageState': 'available',
+                'kernelId': 'eki-218811E8',
+                'architecture': 'x86_64',
+                'imageLocation': 'test/test1.manifest.xml',
+                'rootDeviceType': 'instance-store',
+                'ramdiskId': 'eri-5CB612F8',
+                'rootDeviceName': '/dev/sda1',
+                'imageType': 'machine'
+            },
+            {
+                'imageOwnerId': 'admin',
+                'isPublic': 'true',
+                'imageId': 'emi-AB1560D9',
+                'imageState': 'available',
+                'kernelId': 'eki-218811E8',
+                'architecture': 'x86_64',
+                'imageLocation': 'test/test1.manifest.xml',
+                'rootDeviceType': 'instance-store',
+                'ramdiskId': 'eri-5CB612F8',
+                'rootDeviceName': '/dev/sda1',
+                'imageType': 'machine'
+            }
+        ]
+    }
+    """
+    
+    return render_response(action, request_id, response_data)
     
 
 def render_response(action, request_id, response_data):
@@ -52,32 +91,32 @@ def render_response(action, request_id, response_data):
     request_id_el = xml.createElement('requestId')
     request_id_el.appendChild(xml.createTextNode(request_id))
     
-    list_el = xml.createElement('imagesSet')
+    render_dict(xml, response_el, response_data)
     
-    for item in response_data:
-        list_el.appendChild(render_item(xml, 'item', item))
-    
-    response_el.appendChild(list_el)
     xml.appendChild(response_el)
     
-    _log.debug(xml.toxml())
-    return xml.toxml()
+    response = xml.toxml()
+    _log.debug(response)
+    return response
+    
+def render_dict(xml, el, data):
+    for key in data.keys():
+        val = data[key]
+        if val:
+            el.appendChild(render_data(xml, key, val))
 
-def render_item(xml, el_name, item):
-    item_el = xml.createElement(el_name)
+def render_data(xml, el_name, data):
+    data_el = xml.createElement(el_name)
     
-    for key in item.keys():
-        data = item[key]
-        data_el = xml.createElement(key)
+    if isinstance(data, list):
+        for item in data:
+            data_el.appendChild(render_data(xml, 'item', item))
+    elif isinstance(data, dict):
+        render_dict(xml, data_el, data)
+    elif data != None:
+        data_el.appendChild(xml.createTextNode(str(data)))
         
-        if data is dict:
-            data_el.appendChild(render_item(xml, key, data))
-        elif data != None:
-            data_el.appendChild(xml.createTextNode(str(data)))
-        
-        item_el.appendChild(data_el)
-    
-    return item_el
+    return data_el
 
 """
 <DescribeImagesResponse xmlns="http://ec2.amazonaws.com/doc/2009-11-30/"><requestId>558c80e8-bd18-49ff-8479-7bc176e12415</requestId>
