@@ -58,6 +58,15 @@ def DescribeVolumes(request_id, **kwargs):
     xml = render_response(action, request_id, volumes)
     _log.debug("DescribeVolumes is returning %s" % (xml))
     return xml
+
+def DescribeInstances(request_id, **kwargs):
+    action = "DescribeInstances"
+    instances = calllib.call_sync("cloud",  '{"method": "list_instances"}')
+
+    xml = render_response(action, request_id, instances)
+    _log.debug("DescribeInstances is returning %s" % (xml))
+    return xml
+
     
 def DescribeImages(request_id, **kwargs):
     action = "DescribeImages"
