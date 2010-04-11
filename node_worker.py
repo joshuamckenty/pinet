@@ -10,6 +10,7 @@ from carrot import connection
 from carrot import messaging 
 import calllib
 import utils
+from tornado import ioloop
 
 NODE_TOPIC='node'
 
@@ -34,4 +35,8 @@ if __name__ == '__main__':
     n = node.Node(options)
     conn = utils.get_rabbit_conn()
     consumer = calllib.AdapterConsumer(connection=conn, topic=NODE_TOPIC, proxy=n)
-    consumer.wait()
+    io_inst = ioloop.IOLoop.instance()
+    scheduler = ioloop.PeriodicCallback(lambda: n.report_state(), 10 * 1000 , io_loop=io_inst)
+    injected = consumer.attachToTornado(io_inst)
+    scheduler.start()
+    io_inst.start()

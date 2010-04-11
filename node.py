@@ -35,6 +35,10 @@ class Node(object):
     def noop(self):
         return "PONG"
 
+    def report_state(self):
+        logging.debug("Reporting State")
+        rval = calllib.call_sync("cloud",  '{"method": "update_state", "args" : {"topic": "instances", "value": "%s"}}' % (self.describe_instances()))
+
     def _get_connection(self, options=None):
         # TODO(termie): maybe lazy load after initial check for permissions
         # TODO(termie): check whether we can be disconnected
