@@ -8,13 +8,16 @@ import sys
 import time
 from xml.etree import ElementTree
 
-import libvirt
+try:
+    import libvirt
+except Exception, e:
+    pass
 
 import exception
 import fakevirt
 import partition2disk
 import settings
-import storage
+
 from utils import runthis
 
 import calllib
