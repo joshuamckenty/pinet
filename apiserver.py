@@ -8,8 +8,7 @@ import tornado.ioloop
 import tornado.web
 import settings
 from daemon import Daemon
-from api import handle_request
-from users import UserManager
+
 import contrib # adds contrib to the path
 import call
 import calllib
@@ -17,6 +16,7 @@ import utils
 
 import cloud
 from cloud import CLOUD_TOPIC
+from users import UserManager
 from apirequest import APIRequest
 
 _log = logging.getLogger()
@@ -154,10 +154,10 @@ if __name__ == "__main__":
             user_manager = UserManager()
         controllers = { 'Cloud': cloud.CloudController(options) }
         _app = APIServerApplication(user_manager, controllers)
-        #conn = utils.get_rabbit_conn()
-        #consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
-        #io_inst = tornado.ioloop.IOLoop.instance()
-        #injected = consumer.attachToTornado(io_inst)
+        conn = utils.get_rabbit_conn()
+        consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
+        io_inst = tornado.ioloop.IOLoop.instance()
+        injected = consumer.attachToTornado(io_inst)
         daemon.start()
     elif args[0] == 'stop':
         daemon.stop()
