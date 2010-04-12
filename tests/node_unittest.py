@@ -13,7 +13,7 @@ import exception
 import node
 import test
 
-class NodeTestCase(mox.MoxTestBase):
+class NodeTestCase(test.BaseTestCase):
     def setUp(self):
         super(NodeTestCase, self).setUp()
 
@@ -32,33 +32,26 @@ class NodeTestCase(mox.MoxTestBase):
         self.mox.ReplayAll()
         my_node = node.Node()
 
-    def test_describe_instances_basic(self):
-        """ test that describe_instances does anything """
-        self.expectOpenAuth()
-        self.conn.listDomainsID().AndReturn([])
-
-        self.mox.ReplayAll()
-        my_node = node.Node()
-        instances = my_node.describe_instances()
-
     def test_run_instance_basic(self):
         """ test that run_instance does something """
         instance_id = 'foo'
         self.mox.StubOutWithMock(node, 'Instance', use_mock_anything=True)
+        inst = self.mox.CreateMockAnything()
 
         self.expectOpenAuth()
-        node.Instance(self.conn, instance_id, options=None)
+        node.Instance(self.conn, name=instance_id, options=None).AndReturn(inst)
+        inst.spawn()
 
         self.mox.ReplayAll()
         my_node = node.Node()
-        my_node.run_instance(instance_id)
+        yield my_node.run_instance(instance_id)
 
     def test_run_instance_instance_errors(self):
         instance_id = 'foo'
 
         self.mox.StubOutWithMock(node, 'Instance', use_mock_anything=True)
         self.expectOpenAuth()
-        node.Instance(self.conn, instance_id, options=None).AndRaise(
+        node.Instance(self.conn, name=instance_id, options=None).AndRaise(
                 Exception('I Should Be Turned Into An exception.Error'))
 
         self.mox.ReplayAll()
@@ -89,19 +82,6 @@ class NodeTestCase(mox.MoxTestBase):
         self.mox.ReplayAll()
         my_node = node.Node()
         self.assertRaises(exception.Error, my_node.run_instance, instance_id)
-
-    def test_terminate_instance_basic(self):
-        """ test that terminate_instance does something """
-        instance_id = 'foo'
-        
-        mock_instance = self.mox.CreateMockAnything()
-        self.expectOpenAuth()
-        self.conn.lookupByName(instance_id).AndReturn(mock_instance)
-        mock_instance.destroy()
-
-        self.mox.ReplayAll()
-        my_node = node.Node()
-        my_node.terminate_instance(instance_id)
 
 
 class FakeOptions(object):
