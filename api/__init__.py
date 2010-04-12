@@ -23,37 +23,14 @@ _log = logging.getLogger()
 
 ACTION_MAP = {
     'Cloud': {
-        'DescribeImages': ('walrus_controller', 'describe_images'),
+        'DescribeImages': ('cloud_controller', 'describe_images'),
         'DescribeInstances': ('cloud_controller', 'describe_instances'),
         'DescribeVolumes': ('cloud_controller', 'describe_volumes'),
     },
 }
 
-class Walrus(object):
-  def describe_images(self, request_id, **kwargs):
-    conn = boto.s3.connection.S3Connection (
-        aws_secret_access_key="fixme",
-        aws_access_key_id="fixme",
-        is_secure=False,
-        calling_format=boto.s3.connection.OrdinaryCallingFormat(),
-        debug=0,
-        port=settings.S3_PORT,
-        host='localhost',
-    )
-
-    images = { 'imagesSet': [] }
-
-    for b in conn.get_all_buckets():
-        k = boto.s3.key.Key(b)
-        k.key = 'info.json'
-        images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
-        
-    return images
-
-walrus_controller = Walrus()
 
 def handle_request(section, action, cloud_controller, **kwargs):
-    global walrus_controller # DIRTY, FIXME
     # TODO: Generate a unique request ID.
     request_id = '558c80e8-bd18-49ff-8479-7bc176e12415'
     
