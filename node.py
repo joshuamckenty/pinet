@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import shutil
+import base64
 import StringIO
 import sys
 import time
@@ -77,7 +78,7 @@ class Node(object):
                         }
                     })
         instances = {"reservationSet" : instances}
-        yield calllib.call("cloud",  
+        calllib.cast("cloud",  
                             {"method": "update_state",
                              "args" : {"topic": "instances",
                                        "value": instances
@@ -95,14 +96,16 @@ class Node(object):
     @exception.wrap_exception
     def run_instance(self, instance_id):
         """ launch a new instance with specified options """
-        logging.debug("Started instance %s" % (instance_id))
+        logging.debug("Starting instance %s..." % (instance_id))
         if instance_id in self._instances:
             raise exception.Error(
                     'attempting to use existing instance_id: %s' % instance_id)
 
         new_inst = Instance(self._conn, name=instance_id, options=self.options)
         self._instances[instance_id] = new_inst
-        return new_inst.spawn()
+        rval = new_inst.spawn()
+        logging.debug("Start attempt for instance %s returned %s" % (instance_id, rval))
+        return rval
     
 
     @exception.wrap_exception
@@ -125,13 +128,16 @@ class Node(object):
                     'trying to reboot unknown instance: %s' % instance_id)
         return self._instances[instance_id].reboot()
 
+    @defer.inlineCallbacks
     @exception.wrap_exception
     def get_console_output(self, instance_id):
         """ send the console output for an instance """
         if instance_id not in self._instances:
             raise exception.Error(
                     'trying to get console log for unknown: %s' % instance_id)
-        return self._instances[instance_id].console_log()
+        rv = yield self._instances[instance_id].console_log()
+        output = {"InstanceId" : instance_id, "Timestamp" : "2", "output" : base64.b64encode(rv)}
+        defer.returnValue(output)
 
     @defer.inlineCallbacks
     @exception.wrap_exception
@@ -269,9 +275,8 @@ class Instance(object):
         self._state = Instance.RUNNING
         return defer.succeed(True)
 
-    @exception.wrap_exception
     def console_log(self):
-        return defer.succed(open('%s/%s/console.log' % (settings.instances_path, self._name)).read())
+        return defer.succeed(open('%s/%s/console.log' % (settings.instances_path, self._name)).read())
 
     def generate_mac(self):
         mac = [0x00, 0x16, 0x3e, random.randint(0x00, 0x7f),

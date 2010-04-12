@@ -4,6 +4,7 @@ import logging
 import subprocess
 
 import node
+import settings
 
 import contrib
 from carrot import connection
@@ -31,12 +32,13 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
     if options.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger('amqplib').setLevel(logging.WARN)
         
     n = node.Node(options)
     conn = utils.get_rabbit_conn()
     consumer = calllib.AdapterConsumer(connection=conn, topic=NODE_TOPIC, proxy=n)
     io_inst = ioloop.IOLoop.instance()
-    scheduler = ioloop.PeriodicCallback(lambda: n.report_state(), 10 * 1000, io_loop=io_inst)
+    scheduler = ioloop.PeriodicCallback(lambda: n.report_state(), settings.NODE_INTERVAL, io_loop=io_inst)
     injected = consumer.attachToTornado(io_inst)
     scheduler.start()
     io_inst.start()

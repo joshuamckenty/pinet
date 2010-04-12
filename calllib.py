@@ -32,25 +32,20 @@ class AdapterConsumer(TopicConsumer):
         super(AdapterConsumer, self).__init__(connection=connection, topic=topic)
  
     def receive(self, message_data, message):
-        logging.debug('received %s' % (message_data))
-
-        try:
-            msg_id = message_data.pop('_msg_id')
-        except Exception:
-            logging.exception("no msg_id found")
-            message.ack()
-            return
+        # logging.debug('received %s' % (message_data))
+        msg_id = message_data.pop('_msg_id', None)
 
         method = message_data.get('method')
         args = message_data.get('args', {})
 
-        node_func = getattr(self.proxy, method)
-        node_args = dict((str(k), v) for k, v in args.iteritems())
-        
+	node_func = getattr(self.proxy, method)
+	node_args = dict((str(k), v) for k, v in args.iteritems())
         d = defer.maybeDeferred(node_func, **node_args)
-        d.addCallback(lambda rval: msg_reply(msg_id, rval))
-        d.addErrback(lambda e: msg_reply(msg_id, str(e)))
+        if msg_id:
+            d.addCallback(lambda rval: msg_reply(msg_id, rval))
+            d.addErrback(lambda e: msg_reply(msg_id, str(e)))
         message.ack()
+        return
 
     def attachToTornado(self, io_inst):
         injected = ioloop.PeriodicCallback(
@@ -120,3 +115,10 @@ def call(topic, msg):
     publisher.send(msg)
     publisher.close()
     return d
+
+
+def cast(topic, msg):
+    logging.debug("Making asynchronous cast...")
+    publisher = TopicPublisher(connection=conn, topic=topic)
+    publisher.send(msg)
+    publisher.close()

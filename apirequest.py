@@ -54,10 +54,15 @@ class APIRequest(object):
         return response
     
     def _render_dict(self, xml, el, data):
-        for key in data.keys():
-            val = data[key]
-            if val:
-                el.appendChild(self._render_data(xml, key, val))
+        # import pdb; pdb.set_trace()
+        try:
+            for key in data.keys():
+                val = data[key]
+                if val:
+                    el.appendChild(self._render_data(xml, key, val))
+        except:
+            _log.debug(data)
+            raise
 
     def _render_data(self, xml, el_name, data):
         data_el = xml.createElement(el_name)
