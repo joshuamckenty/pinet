@@ -26,10 +26,15 @@ from utils import runthis
 
 import calllib
 
-import contrib
 from tornado import ioloop
 from twisted.internet import defer
 
+VM_TYPES = {
+    "m1.small" : { "ram" : 1024, "cpu" : 1, "disk" : 4096 },
+    "m1.medium" : { "ram" : 2048, "cpu" : 2, "disk" : 4096 },
+    "m1.large" : { "ram" : 4096, "cpu" : 4, "disk" : 4096 },
+    "c1.medium" : { "ram" : 1024, "cpu" : 1, "disk" : 4096 },
+        }
 
 class Node(object):
     """ The node is in charge of running instances.  """
@@ -94,14 +99,14 @@ class Node(object):
         return defer.succeed([x.describe() for x in self._instances.values()])
     
     @exception.wrap_exception
-    def run_instance(self, instance_id):
+    def run_instance(self, instance_id, image_id, instance_type):
         """ launch a new instance with specified options """
         logging.debug("Starting instance %s..." % (instance_id))
         if instance_id in self._instances:
             raise exception.Error(
                     'attempting to use existing instance_id: %s' % instance_id)
-
-        new_inst = Instance(self._conn, name=instance_id, options=self.options)
+        type = VM_TYPES[instance_type]
+        new_inst = Instance(self._conn, name=instance_id, vcpus=type['cpu'], memory_mb = type['ram'], image_id = image_id, options=self.options)
         self._instances[instance_id] = new_inst
         rval = new_inst.spawn()
         logging.debug("Start attempt for instance %s returned %s" % (instance_id, rval))
@@ -173,6 +178,7 @@ class Node(object):
         """ detach a volume from an instance """
 
 
+
 class Instance(object):
     NOSTATE = 0x00
     RUNNING = 0x01
@@ -182,7 +188,7 @@ class Instance(object):
     SHUTOFF = 0x05
     CRASHED = 0x06
 
-    def __init__(self, conn, name, vcpus=1, memory_mb=1024, options=None):
+    def __init__(self, conn, name, vcpus=1, memory_mb=1024, image_id=None, options=None):
         """ spawn an instance with a given name """
         self._conn = conn
         self._name = name
@@ -190,6 +196,7 @@ class Instance(object):
         self._memory_mb = memory_mb
         self._mac  = self.generate_mac()
         self._use_fake = False
+        self._image_id = image_id 
         if options and options.use_fake:
             self._use_fake = True
 
@@ -305,7 +312,8 @@ class Instance(object):
 
             shutil.copyfile(settings.aki, self._basepath+'/kernel')
             shutil.copyfile(settings.ari, self._basepath+'/ramdisk')
-            partition2disk.convert(settings.ami, self._basepath+'/disk')
+            # TODO: If the disk image isn't on the node, go fetch from S3
+            partition2disk.convert("%s/%s.img" % (settings.IMAGES_PATH, self._image_id), self._basepath+'/disk')
 
         return libvirt_xml
 

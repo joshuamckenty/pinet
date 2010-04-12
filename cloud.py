@@ -57,16 +57,21 @@ class CloudController(object):
         return self.instances
 
     def run_instances(self, request_id, **kwargs):
+        image_id = kwargs['ImageId'][0]
+        instance_type = kwargs['InstanceType'][0]
         reservation_id = 'r-%06d' % random.randint(0,1000000)
         for num in range(int(kwargs['MaxCount'][0])):
             instance_id = 'i-%06d' % random.randint(0,1000000)
-            calllib.call('node', {"method": "run_instance", "args" : {"instance_id": instance_id}})
+            calllib.call('node', {"method": "run_instance", "args" : 
+                           {"instance_id": instance_id, 
+                            "image_id" : image_id, 
+                            "instance_type": instance_type}})
 
         return {'result': 'ok'}
 
     def terminate_instances(self, request_id, **kwargs):
         # TODO: Support multiple instances
-        instance_id = kwargs['InstanceId'][0]
+        instance_id = kwargs['InstanceId.1'][0]
         calllib.cast('node', {"method": "terminate_instance", "args" : {"instance_id": instance_id}})
         return {'result': 'ok'}
         
