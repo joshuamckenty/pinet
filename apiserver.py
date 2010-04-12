@@ -90,7 +90,6 @@ class APIRequestHandler(tornado.web.RequestHandler):
         for num in range(int(self.request.arguments['MaxCount'][0])):
             instance_id = 'i-%06d' % random.randint(0,1000000)
             call.send_message('node', {"method": "run_instance", "args" : {"instance_id": instance_id}}, wait=False)
-        """
         self._error('unhandled', "args: %s" % str(self.request.arguments))
 
     def _error(self, code, message):
@@ -98,7 +97,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
         self.set_header('Content-Type', 'text/xml')
         self.write('<?xml version="1.0"?>')
         self.write('<Response><Errors><Error><Code>%s</Code><Message>%s</Message></Error></Errors><RequestID>?</RequestID></Response>' % (code, message))
-        
+       """ 
 
 class APIServerApplication(tornado.web.Application):
     def __init__(self, user_manager, controllers):
