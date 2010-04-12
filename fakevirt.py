@@ -5,10 +5,15 @@ from xml.etree import ElementTree
 
 
 class FakeVirtConnection(object):
-    def __init__(self, options=None):
-        self.options = options
+    def __init__(self):
         self.next_index = 0
         self.instances = {}
+
+    @classmethod
+    def instance(cls):
+        if not hasattr(cls, '_instance'):
+            cls._instance = cls()
+        return cls._instance
 
     def lookupByID(self, i):
         return self.instances[str(i)]

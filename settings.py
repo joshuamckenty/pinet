@@ -1,4 +1,8 @@
 # vim: tabstop=4 shiftwidth=4
+import logging
+
+logging.warning('DEPRECATED: settings.py is deprecated, use flags.py instead')
+
 IMAGES_PATH = '/root/pinet/images'
 ami = '%s/ubuntu-karmic-x86_64.img' % (IMAGES_PATH)
 aki = '/root/pinet/images/vmlinuz-karmic-x86-64'
