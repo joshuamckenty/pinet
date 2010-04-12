@@ -14,7 +14,7 @@ def handle_request(controller, action, **kwargs):
     try:
         method = getattr(controller, camelcase_to_underscore(action))
     except AttributeError:
-        _error = 'Unsupported API request: controller = %s, action = %s' % (controller_name, action)
+        _error = 'Unsupported API request: controller = %s, action = %s' % (controller, action)
         _log.warning(_error)
         # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
         raise Exception(_error)

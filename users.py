@@ -139,7 +139,7 @@ class LDAPWrapper(object):
         self.conn.delete_s('cn=%s%s' % (name, self.config['ldap_suffix']))
 
 def usage():
-    print 'usage: %s -c username | -d username' % sys.argv[0]
+    print 'usage: %s -c username (access_key) (secret_key) | -d username' % sys.argv[0]
 
 if __name__ == "__main__":
     # um = UserManager({'use_fake': True})
@@ -160,14 +160,19 @@ if __name__ == "__main__":
     filename=os.path.join(settings.LOG_PATH, 'users.log'), filemode='a')
     manager = UserManager()
     
-    if len(sys.argv) == 3:
+    if len(sys.argv) > 2:
         if sys.argv[1] == '-c':
-            manager.create(sys.argv[2])
+            access, secret = None, None
+            if len(sys.argv) > 3:
+                access = sys.argv[3]
+            if len(sys.argv) > 4:
+                secret = sys.argv[4] 
+            manager.create(sys.argv[2], access, secret)
             print manager.keys(sys.argv[2])
         elif sys.argv[1] == '-d':
             manager.delete(sys.argv[2])
-        elif sys.argv[1] == '-t':
-            manager.test(sys.argv[2])
+        elif sys.argv[1] == '-k':
+            manager.keys(sys.argv[2])
         else:
             usage()
             sys.exit(2)

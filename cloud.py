@@ -6,7 +6,6 @@ import calllib
 
 import contrib
 from twisted.internet import defer
-import boto
 import boto.s3
 import settings
 
@@ -60,9 +59,12 @@ class CloudController(object):
         for b in conn.get_all_buckets():
             k = boto.s3.key.Key(b)
             k.key = 'info.json'
-            images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
-        
+            images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))    
         return images
+    
+    def run_instances(self, request_id, **kwargs):
+        logging.debug("We're going to try to run an instance now")
+        return { 'test': [] }
 
     def update_state(self, topic, value):
         logging.debug("Updating state for %s" % (topic))
