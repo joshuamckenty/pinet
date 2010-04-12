@@ -1,7 +1,13 @@
 # vim: tabstop=4 shiftwidth=4
-ami = '/root/pinet/images/ubuntu-karmic-x86_64.img'
+import logging
+
+logging.warning('DEPRECATED: settings.py is deprecated, use flags.py instead')
+
+IMAGES_PATH = '/root/pinet/images'
+ami = '%s/ubuntu-karmic-x86_64.img' % (IMAGES_PATH)
 aki = '/root/pinet/images/vmlinuz-karmic-x86-64'
 ari = '/root/pinet/images/initrd.img-karmic-x86_64'
+
 
 instances_path = '/root/pinet/instances'
 bridge = 'virbr0'

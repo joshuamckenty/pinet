@@ -5,7 +5,8 @@ CONTRIB_PATH = os.path.abspath(os.path.dirname(__file__))
 
 paths = [CONTRIB_PATH,
          os.path.join(CONTRIB_PATH, 'pymox'),
-         os.path.join(CONTRIB_PATH, 'tornado')
+         os.path.join(CONTRIB_PATH, 'tornado'),
+         os.path.join(CONTRIB_PATH, 'python-gflags'),
          ]
 
 for p in paths:

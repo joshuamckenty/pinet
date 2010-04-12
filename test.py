@@ -10,8 +10,14 @@ from tornado import ioloop
 from twisted.internet import defer
 from twisted.python import failure
 
-class BaseTestCase(unittest.TestCase):
+import fakerabbit
+import flags
 
+
+FLAGS = flags.FLAGS
+
+
+class BaseTestCase(unittest.TestCase):
     def setUp(self):
         super(BaseTestCase, self).setUp()
 
@@ -19,9 +25,12 @@ class BaseTestCase(unittest.TestCase):
         # because it screws with our generators
         self.mox = mox.Mox()
         self.stubs = stubout.StubOutForTesting()
-
-        self.ioloop = ioloop.IOLoop.instance()
         
+        # TODO(termie): we could possibly keep a more global registry of
+        #               the injected listeners... this is fine for now though
+        self.injected = []
+        self.ioloop = ioloop.IOLoop.instance()
+  
         self._waiting = None
         self._doneWaiting = False
         self._timedOut = False
@@ -32,7 +41,13 @@ class BaseTestCase(unittest.TestCase):
         self.stubs.UnsetAll()
         self.stubs.SmartUnsetAll()
         self.mox.VerifyAll()
-    
+
+        for x in self.injected:
+            x.stop()
+
+        if FLAGS.fake_rabbit:
+            fakerabbit.reset_all()
+
     def _waitForTest(self, timeout=5):
         """ Push the ioloop along to wait for our test to complete. """
         self._waiting = self.ioloop.add_timeout(time.time() + timeout,
@@ -99,7 +114,6 @@ class BaseTestCase(unittest.TestCase):
         
         inlined = defer.inlineCallbacks(f)
         d = inlined()
-        d.addBoth(lambda x: self._done() and x)
         return d
     
     def _catchExceptions(self, result, failure):
@@ -135,6 +149,7 @@ class BaseTestCase(unittest.TestCase):
             try:
                 d = self._maybeInlineCallbacks(testMethod)
                 d.addErrback(lambda x: self._catchExceptions(result, x))
+                d.addBoth(lambda x: self._done() and x)
                 self._waitForTest()
                 ok = True
             except self.failureException:

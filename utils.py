@@ -1,20 +1,23 @@
+# vim: soft
 """
 Popen bits.
 
 """
+import logging
 import settings
 import subprocess
 
 import contrib
 import carrot
 
+import calllib
+
+
 def runthis(prompt, cmd):
     print "Running %s" % (cmd)
     print prompt % (subprocess.call(cmd.split(" ")))
 
+
 def get_rabbit_conn():
-    return carrot.connection.BrokerConnection(hostname=settings.RABBIT_HOST,
-                                   port=settings.RABBIT_PORT,
-                                   userid=settings.RABBIT_USER,
-                                   password=settings.RABBIT_PASS,
-                                   virtual_host=settings.RABBIT_VHOST)
+    logging.warning('DEPRECATED: get_rabbit_conn is deprecated, use calllib.Connection.instance() instead')
+    return calllib.BrokerConnection.instance()
