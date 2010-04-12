@@ -99,7 +99,6 @@ class BaseTestCase(unittest.TestCase):
         
         inlined = defer.inlineCallbacks(f)
         d = inlined()
-        d.addBoth(lambda x: self._done() and x)
         return d
     
     def _catchExceptions(self, result, failure):
@@ -135,6 +134,7 @@ class BaseTestCase(unittest.TestCase):
             try:
                 d = self._maybeInlineCallbacks(testMethod)
                 d.addErrback(lambda x: self._catchExceptions(result, x))
+                d.addBoth(lambda x: self._done() and x)
                 self._waitForTest()
                 ok = True
             except self.failureException:

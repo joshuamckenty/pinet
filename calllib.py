@@ -38,8 +38,8 @@ class AdapterConsumer(TopicConsumer):
         method = message_data.get('method')
         args = message_data.get('args', {})
 
-	node_func = getattr(self.proxy, method)
-	node_args = dict((str(k), v) for k, v in args.iteritems())
+        node_func = getattr(self.proxy, method)     
+        node_args = dict((str(k), v) for k, v in args.iteritems())
         d = defer.maybeDeferred(node_func, **node_args)
         if msg_id:
             d.addCallback(lambda rval: msg_reply(msg_id, rval))
@@ -79,7 +79,14 @@ class DirectPublisher(messaging.Publisher):
 
 def msg_reply(msg_id, reply):
     publisher = DirectPublisher(connection=conn, msg_id=msg_id)
-    publisher.send({'result': reply})
+    
+    try:
+        publisher.send({'result': reply})
+    except TypeError:
+        publisher.send(
+                {'result': dict((k, repr(v)) 
+                                for k, v in reply.__dict__.iteritems())
+                 })
     publisher.close()
 
 def call_sync(topic, msg):
