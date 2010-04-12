@@ -28,7 +28,9 @@ class RootRequestHandler(tornado.web.RequestHandler):
         
 class APIRequestHandler(tornado.web.RequestHandler):
     def get(self, controller_name):
-        
+        self.execute(controller_name)
+
+    def execute(self, controller_name):
         args = self.request.arguments
         params = {} # copy of args to pass to authentication
         for key, value in args.items():
@@ -51,12 +53,11 @@ class APIRequestHandler(tornado.web.RequestHandler):
             raise tornado.web.HTTPError(400)
             
         # TODO: Access key authorization
-
         _log.info('access_key: %s' % params['AWSAccessKeyId'])
         _log.info('host: %s' % self.request.host)
         if not manager.authenticate(params,
                                     signature,
-                                    'GET',
+                                    self.request.method,
                                     self.request.host,
                                     self.request.path):
             raise tornado.web.HTTPError(403)
@@ -77,12 +78,14 @@ class APIRequestHandler(tornado.web.RequestHandler):
         self.set_header('Content-Type', 'text/xml')
         self.write(response)
 
-    def post(self, section):
+    def post(self, controller_name):
+        self.execute(controller_name)
+        """
         reservation_id = 'r-%06d' % random.randint(0,1000000)
         for num in range(int(self.request.arguments['MaxCount'][0])):
             instance_id = 'i-%06d' % random.randint(0,1000000)
             call.send_message('node', {"method": "run_instance", "args" : {"instance_id": instance_id}}, wait=False)
-
+        """
         self._error('unhandled', "args: %s" % str(self.request.arguments))
 
     def _error(self, code, message):

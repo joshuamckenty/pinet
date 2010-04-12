@@ -21,7 +21,7 @@ def handle_request(controllers, controller_name, action, **kwargs):
         controller = controllers[controller_name]
         method = getattr(controller, camelcase_to_underscore(action))
     except:
-        _error = 'Unsupported API request: controller = %s, action = %s' % (section, action)
+        _error = 'Unsupported API request: controller = %s, action = %s' % (controller_name, action)
         _log.warning(_error)
         # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
         # raise Exception(_error)
