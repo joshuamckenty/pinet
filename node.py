@@ -78,7 +78,7 @@ class Node(object):
                         }
                     })
         instances = {"reservationSet" : instances}
-        yield calllib.call("cloud",  
+        calllib.cast("cloud",  
                             {"method": "update_state",
                              "args" : {"topic": "instances",
                                        "value": instances

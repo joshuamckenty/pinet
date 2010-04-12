@@ -61,7 +61,7 @@ class BlockStore(object):
 
     def report_state(self):
         logging.debug("Reporting State")
-        rval = calllib.call_sync("cloud",  {"method": "update_state", "args" : {"topic": "volumes", "value": self.describe_volumes()}}) 
+        calllib.cast("cloud",  {"method": "update_state", "args" : {"topic": "volumes", "value": self.describe_volumes()}}) 
 
 
 
