@@ -18,7 +18,7 @@ import utils
 import cloud
 from cloud import CLOUD_TOPIC
 
-cloud_controller = None # Will create later
+controllers = None # Will create later
 
 _log = logging.getLogger()
 
@@ -27,7 +27,7 @@ class RootRequestHandler(tornado.web.RequestHandler):
         self.write('listening')
         
 class APIRequestHandler(tornado.web.RequestHandler):
-    def get(self, section):
+    def get(self, controller_name):
         
         args = self.request.arguments
         params = {} # copy of args to pass to authentication
@@ -67,7 +67,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             _log.info('arg: %s\t\tval: %s' % (key, value))
 
         #try:
-        response = handle_request(section, action, cloud_controller, **args)
+        response = handle_request(controllers, controller_name, action, **args)
         print response
         _log.debug(response)
         #except ValueError, e:
@@ -135,9 +135,9 @@ if __name__ == "__main__":
             manager = UserManager({'use_fake': True})
         else:
             manager = UserManager()
-        cloud_controller = cloud.CloudController(options)
+        controllers = { 'Cloud': cloud.CloudController(options) }
         conn = utils.get_rabbit_conn()
-        consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=cloud_controller)
+        consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
         io_inst = tornado.ioloop.IOLoop.instance()
         injected = consumer.attachToTornado(io_inst)
         daemon.start()
