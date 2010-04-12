@@ -23,6 +23,11 @@ class CloudController(object):
     def __str__(self):
         return 'CloudController'
 
+    def get_console_output(self, request_id, **kwargs):
+        # TODO : Make this use deferred instead
+        instance_id = kwargs['InstanceId.1'][0]
+        return calllib.call_sync('node', {"method": "get_console_output", "args" : {"instance_id": instance_id}})
+
     def describe_volumes(self, request_id, **kwargs):
         return self.volumes
 
