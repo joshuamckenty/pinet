@@ -1,9 +1,13 @@
-# TODO: Move to /tests/ once there is a wayt o import UserManager from there
 import unittest
+import flags
+
 from users import UserManager
 
+FLAGS = flags.FLAGS
+FLAGS.fake_libvirt = True
+
 class UserTests(unittest.TestCase):
-    users = UserManager(config={ 'use_fake': True })
+    users = UserManager(config={ 'use_fake': FLAGS.fake_libvirt })
     
     def test_001_can_create_user(self):
         self.users.create('test1', 'access', 'secret')
