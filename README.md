@@ -9,7 +9,8 @@ DEPENDENCIES
 RabbitMQ: messaging queue, used for all communication between components
 OpenLDAP: users, groups (maybe cut)
 Redis: data store
-Tornado:  scalable non blocking web server for api requests
+Tornado: scalable non blocking web server for api requests
+Twisted: just for the twisted.internet.defer package
 
 COMPONENTS
 ==========

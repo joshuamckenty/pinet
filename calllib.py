@@ -12,6 +12,7 @@ import anyjson
 from carrot import connection
 from carrot import messaging
 from tornado import ioloop
+from twisted.internet import defer
 
 import utils
 conn = utils.get_rabbit_conn()
@@ -46,8 +47,9 @@ class AdapterConsumer(TopicConsumer):
         node_func = getattr(self.proxy, method)
         node_args = dict((str(k), v) for k, v in args.iteritems())
         
-        rval = node_func(**node_args)
-        msg_reply(msg_id, rval)
+        d = defer.maybeDeferred(node_func, **node_args)
+        d.addCallback(lambda rval: msg_reply(msg_id, rval))
+        d.addErrback(lambda e: msg_reply(msg_id, str(e)))
         message.ack()
 
     def attachToTornado(self, io_inst):
@@ -102,3 +104,19 @@ def call_sync(topic, msg):
         time.sleep(1)
     data = reply.decode()
     return data['result']
+
+
+def call(topic, msg):
+    logging.debug("Making asynchronous call...")
+    msg_id = uuid.uuid4().hex
+    msg.update({'_msg_id': msg_id})
+    logging.debug("MSG_ID is %s" % (msg_id))
+    
+    d = defer.Deferred()
+    consumer = DirectConsumer(connection=conn, msg_id=msg_id)
+    consumer.register_callback(d.callback)
+
+    publisher = TopicPublisher(connection=conn, topic=topic)
+    publisher.send(msg)
+    publisher.close()
+    return d
