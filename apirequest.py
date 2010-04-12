@@ -1,12 +1,16 @@
 import logging
 import random
 import re
-
 from xml.dom import minidom
+
+from twisted.internet import defer
+
 
 _log = logging.getLogger()
 
+
 camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
+
 
 class APIRequest(object):
     def __init__(self, controller, action):
@@ -25,13 +29,11 @@ class APIRequest(object):
             # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
             raise Exception(_error)
 
-        response_body = method(self.request_id, **kwargs)
-
-        xml = self._render_response(response_body)
-
-        _log.debug('%s.%s returned %s' % (self.controller, self.action, xml))
+        d = defer.maybeDeferred(method(self.request_id, **kwargs))
+        d.addCallback(self._render_response)
+        d.addCallback(lambda xml: _log.debug('%s.%s returned %s' % (self.controller, self.action, xml)) and xml)
     
-        return xml
+        return d
 
     def _render_response(self, response_data):
         xml = minidom.Document()

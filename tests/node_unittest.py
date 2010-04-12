@@ -95,6 +95,3 @@ class NodeFakeConnectionTestCase(test.BaseTestCase):
         self.assertEqual(rv, [instance_id])
         
         self.assertRaises(exception.Error, self.node.run_instance, instance_id)
-
-if __name__ == '__main__':
-    unittest.main()

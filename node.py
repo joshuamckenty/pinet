@@ -56,9 +56,11 @@ flags.DEFINE_string('default_kernel',
 flags.DEFINE_string('default_ramdisk',
                     'initrd-karmic-x86_64',
                     'default ramdisk to use, testing only')
+flags.DEFINE_string('default_instance_type',
+                    'm1.small',
+                    'default instance type to use, testing only')
 
 
-DEFAULT_INSTANCE_TYPE = 'm1.small'
 INSTANCE_TYPES = {}
 INSTANCE_TYPES['m1.small'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 4096}
 INSTANCE_TYPES['m1.medium'] = {'memory_mb': 2048, 'vcpus': 2, 'disk_mb': 4096}
@@ -235,7 +237,7 @@ class Instance(object):
         self._s = {}
         
         # TODO(termie): is instance_type that actual name for this?
-        size = kwargs.get('instance_type', DEFAULT_INSTANCE_TYPE)
+        size = kwargs.get('instance_type', FLAGS.default_instance_type)
         if size not in INSTANCE_TYPES:
             raise exception.Error('invalid instance type: %s' % size)
 
