@@ -25,6 +25,7 @@ ACTION_MAP = {
     'Cloud': {
         'DescribeImages': ('cloud_controller', 'describe_images'),
         'DescribeInstances': ('cloud_controller', 'describe_instances'),
+        'DescribeVolumes': ('cloud_controller', 'describe_volumes'),
     },
 }
 
@@ -38,7 +39,7 @@ def handle_request(section, action, cloud_controller, **kwargs):
     # Build request json.
     try:
         controller_name, method = translate_request(section, action)
-        _log.debug('Translated API request: controller = %s, method = %s' % (controller, method))
+        _log.debug('Translated API request: controller = %s, method = %s' % (controller_name, method))
         controller = locals()[controller_name]
     except:
         _error = 'Unsupported API request: section = %s, action = %s' % (section, action)

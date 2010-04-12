@@ -1,5 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
+import anyjson
 CLOUD_TOPIC='cloud'
 
 class CloudController(object):
@@ -10,13 +11,13 @@ class CloudController(object):
         self.options = options
         pass
 
-    def list_volumes(self):
+    def describe_volumes(self, request_id, **kwargs):
         return self.volumes
 
-    def list_instances(self):
+    def describe_instances(self, request_id, **kwargs):
         return self.instances
 
-    def list_images(self):
+    def describe_images(self, request_id, **kwargs):
         return self.images
 
     def update_state(self, topic, value):

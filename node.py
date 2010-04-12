@@ -73,8 +73,8 @@ class Node(object):
                         }
                     }
                 })
-        instances = anyjson.serialize({"reservationSet" : instances})
-        rval = calllib.call_sync("cloud",  '{"method": "update_state", "args" : {"topic": "instances", "value": %s}}' % (instances))
+        instances = {"reservationSet" : instances}
+        rval = calllib.call_sync("cloud",  {"method": "update_state", "args" : {"topic": "instances", "value": instances }})
 
     def noop(self):
         return "PONG"

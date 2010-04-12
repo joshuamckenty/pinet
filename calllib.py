@@ -88,7 +88,7 @@ def msg_reply(msg_id, reply):
 def call_sync(topic, msg):
     logging.debug("Making synchronous (blocking) call...")
     msg_id = uuid.uuid4().hex
-    msg = anyjson.deserialize(msg)
+    # msg = anyjson.deserialize(msg)
     msg.update({'_msg_id': msg_id})
     logging.debug("MSG_ID is %s" % (msg_id))
 

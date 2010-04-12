@@ -128,7 +128,7 @@ if __name__ == "__main__":
                       
     logfile = os.path.join(settings.LOG_PATH, 'apiserver.log')
     logging.basicConfig(level=logging.DEBUG, filename=logfile, filemode='a')
-    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid'))
+    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid'), stdout=logfile, stderr=logfile)
         
     if args[0] == 'start':
         if options and options.use_fake:
