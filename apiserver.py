@@ -18,9 +18,8 @@ import utils
 import cloud
 from cloud import CLOUD_TOPIC
 
-controllers = None # Will create later
-
 _log = logging.getLogger()
+_app = None
 
 class RootRequestHandler(tornado.web.RequestHandler):
     def get(self):
@@ -28,6 +27,11 @@ class RootRequestHandler(tornado.web.RequestHandler):
         
 class APIRequestHandler(tornado.web.RequestHandler):
     def get(self, controller_name):
+        try:
+            controller = self.application.controllers[controller_name]
+        except KeyError:
+            self._error('unhandled', 'no controller named %s' % controller_name)
+            return
         
         args = self.request.arguments
         params = {} # copy of args to pass to authentication
@@ -54,7 +58,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
 
         _log.info('access_key: %s' % params['AWSAccessKeyId'])
         _log.info('host: %s' % self.request.host)
-        if not manager.authenticate(params,
+        if not self.application.user_manager.authenticate(params,
                                     signature,
                                     'GET',
                                     self.request.host,
@@ -67,7 +71,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             _log.info('arg: %s\t\tval: %s' % (key, value))
 
         #try:
-        response = handle_request(controllers, controller_name, action, **args)
+        response = handle_request(controller, action, **args)
         print response
         _log.debug(response)
         #except ValueError, e:
@@ -92,14 +96,18 @@ class APIRequestHandler(tornado.web.RequestHandler):
         self.write('<Response><Errors><Error><Code>%s</Code><Message>%s</Message></Error></Errors><RequestID>?</RequestID></Response>' % (code, message))
         
 
-application = tornado.web.Application([
-    (r'/', RootRequestHandler),
-    (r'/services/([A-Za-z0-9]+)/', APIRequestHandler),
-])
+class APIServerApplication(tornado.web.Application):
+    def __init__(self, user_manager, controllers):
+        tornado.web.Application.__init__(self, [
+            (r'/', RootRequestHandler),
+            (r'/services/([A-Za-z0-9]+)/', APIRequestHandler),
+        ])
+        self.user_manager = user_manager
+        self.controllers = controllers
 
 class APIServerDaemon(Daemon):
     def run(self):
-        http_server = tornado.httpserver.HTTPServer(application)
+        http_server = tornado.httpserver.HTTPServer(_app)
         http_server.listen(settings.CC_PORT)
         logging.debug('Started HTTP server on %s' % (settings.CC_PORT))
         tornado.ioloop.IOLoop.instance().start()
@@ -132,14 +140,15 @@ if __name__ == "__main__":
         
     if args[0] == 'start':
         if options and options.use_fake:
-            manager = UserManager({'use_fake': True})
+            user_manager = UserManager({'use_fake': True})
         else:
-            manager = UserManager()
+            user_manager = UserManager()
         controllers = { 'Cloud': cloud.CloudController(options) }
-        conn = utils.get_rabbit_conn()
-        consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
-        io_inst = tornado.ioloop.IOLoop.instance()
-        injected = consumer.attachToTornado(io_inst)
+        _app = APIServerApplication(user_manager, controllers)
+        #conn = utils.get_rabbit_conn()
+        #consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
+        #io_inst = tornado.ioloop.IOLoop.instance()
+        #injected = consumer.attachToTornado(io_inst)
         daemon.start()
     elif args[0] == 'stop':
         daemon.stop()
