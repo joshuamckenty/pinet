@@ -4,8 +4,9 @@ import random
 
 import contrib
 from twisted.internet import defer
-import boto.s3
 import anyjson
+import boto
+import boto.s3
 
 import settings
 import calllib
@@ -18,17 +19,12 @@ class CloudController(object):
         self.instances = None
         self.images = None
         self.options = options
-        pass
+
+    def __str__(self):
+        return 'CloudController'
 
     def describe_volumes(self, request_id, **kwargs):
         return self.volumes
-
-    def create_volume(self, request_id, **kwargs):
-        calllib.call("storage",  
-                            {"method": "create_volume",
-                             "args" : {"size": int(kwargs['Size'][0]) * 1024}
-                             })
-        return {'result': 'ok'}
 
     def describe_instances(self, request_id, **kwargs):
         return self.instances
@@ -60,7 +56,8 @@ class CloudController(object):
         for b in conn.get_all_buckets():
             k = boto.s3.key.Key(b)
             k.key = 'info.json'
-            images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))    
+            images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
+        
         return images
 
     def update_state(self, topic, value):

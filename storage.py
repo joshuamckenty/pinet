@@ -126,7 +126,7 @@ class Volume(object):
           throw()
         self.volume_id = lvname
         self._create_volume_group()
-        runthis("Creating LV %s", "sudo lvcreate -L %s -n %s %s" % (size, lvname, settings.volume_group))
+        subprocess.call(["sudo", "lvcreate", '-L', size, '-n', lvname, settings.volume_group])
 
     def _get_next_aoe_number(self):
         aoes = Popen(["sudo", "ls",  "-1", "/dev/etherd/"], stdout=PIPE).communicate()[0]

@@ -4,6 +4,7 @@ import logging
 import subprocess
 
 import node
+import cloud
 
 import contrib
 from carrot import connection
@@ -12,7 +13,7 @@ import calllib
 import utils
 from tornado import ioloop
 
-NODE_TOPIC='node'
+CLOUD_TOPIC='cloud'
 
 
 if __name__ == '__main__':
@@ -32,11 +33,9 @@ if __name__ == '__main__':
     if options.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
         
-    n = node.Node(options)
+    cloud_controller = cloud.CloudController(options)
     conn = utils.get_rabbit_conn()
-    consumer = calllib.AdapterConsumer(connection=conn, topic=NODE_TOPIC, proxy=n)
+    consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=cloud_controller)
     io_inst = ioloop.IOLoop.instance()
-    scheduler = ioloop.PeriodicCallback(lambda: n.report_state(), 10 * 1000, io_loop=io_inst)
     injected = consumer.attachToTornado(io_inst)
-    scheduler.start()
     io_inst.start()

@@ -8,8 +8,7 @@ import tornado.ioloop
 import tornado.web
 import settings
 from daemon import Daemon
-from api import handle_request
-from users import UserManager
+
 import contrib # adds contrib to the path
 import call
 import calllib
@@ -17,6 +16,8 @@ import utils
 
 import cloud
 from cloud import CLOUD_TOPIC
+from users import UserManager
+from apirequest import APIRequest
 
 _log = logging.getLogger()
 _app = None
@@ -79,7 +80,9 @@ class APIRequestHandler(tornado.web.RequestHandler):
         for key, value in args.items():
             _log.info('arg: %s\t\tval: %s' % (key, value))
 
-        response = handle_request(controller, action, **args)
+        request = APIRequest(controller, action)
+        response = request.send(**args)
+        
         _log.debug(response)
 
         # TODO: Wrap response in AWS XML format  
