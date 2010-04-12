@@ -25,6 +25,9 @@ RABBIT_VHOST = "/"
 
 CONTROL_EXCHANGE = "pinet"
 
+STORAGE_INTERVAL = 5 * 1000
+NODE_INTERVAL = 5 * 1000
+
 try:
     from local_settings import *
 except Exception, e:

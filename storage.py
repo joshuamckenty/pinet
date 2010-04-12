@@ -92,7 +92,7 @@ class Volume(object):
         
 
     def setup(self, size):
-        lvname = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ') for x in xrange(10)])
+        lvname = 'vol-%s' % (''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ') for x in xrange(10)]))
         print "LVName is %s" % (lvname)
         self._create_volume(lvname, size)
     

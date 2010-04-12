@@ -15,9 +15,9 @@ CLOUD_TOPIC='cloud'
 
 class CloudController(object):
     def __init__(self, options):
-        self.volumes = None
-        self.instances = None
-        self.images = None
+        self.volumes = {"result": "uninited"}
+        self.instances = {"result": "uninited"}
+        self.images = {"result":"uninited"}
         self.options = options
 
     def __str__(self):
@@ -31,6 +31,14 @@ class CloudController(object):
     def describe_volumes(self, request_id, **kwargs):
         return self.volumes
 
+    def list_volumes(self, request_id, **kwargs):
+        return self.describe_volumes(request_id, kwargs)
+
+    def create_volume(self, request_id, **kwargs):
+        size = kwargs['Size'][0]
+        calllib.cast('storage', {"method": "create_volume", "args" : {"size": size}})
+        return {'result': 'ok'}
+
     def describe_instances(self, request_id, **kwargs):
         return self.instances
 
@@ -43,7 +51,16 @@ class CloudController(object):
         return {'result': 'ok'}
 
     def terminate_instances(self, request_id, **kwargs):
-        pass
+        # TODO: Support multiple instances
+        instance_id = kwargs['InstanceId'][0]
+        calllib.cast('node', {"method": "terminate_instance", "args" : {"instance_id": instance_id}})
+        return {'result': 'ok'}
+        
+
+    def delete_volume(self, request_id, **kwargs):
+        volume_id = kwargs['VolumeId'][0]
+        calllib.cast('storage', {"method": "delete_volume", "args" : {"volume_id": volume_id}})
+        return {'result': 'ok'}
 
     def describe_images(self, request_id, **kwargs):
         conn = boto.s3.connection.S3Connection (

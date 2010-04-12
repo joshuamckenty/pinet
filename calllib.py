@@ -32,7 +32,7 @@ class AdapterConsumer(TopicConsumer):
         super(AdapterConsumer, self).__init__(connection=connection, topic=topic)
  
     def receive(self, message_data, message):
-        logging.debug('received %s' % (message_data))
+        # logging.debug('received %s' % (message_data))
         msg_id = message_data.pop('_msg_id', None)
 
         method = message_data.get('method')
@@ -40,8 +40,8 @@ class AdapterConsumer(TopicConsumer):
 
 	node_func = getattr(self.proxy, method)
 	node_args = dict((str(k), v) for k, v in args.iteritems())
+        d = defer.maybeDeferred(node_func, **node_args)
         if msg_id:
-            d = defer.maybeDeferred(node_func, **node_args)
             d.addCallback(lambda rval: msg_reply(msg_id, rval))
             d.addErrback(lambda e: msg_reply(msg_id, str(e)))
         message.ack()
