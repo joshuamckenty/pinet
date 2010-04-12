@@ -1,13 +1,14 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
-import anyjson
-
-import calllib
+import random
 
 import contrib
 from twisted.internet import defer
 import boto.s3
+import anyjson
+
 import settings
+import calllib
 
 CLOUD_TOPIC='cloud'
 
@@ -36,7 +37,7 @@ class CloudController(object):
         reservation_id = 'r-%06d' % random.randint(0,1000000)
         for num in range(int(kwargs['MaxCount'][0])):
             instance_id = 'i-%06d' % random.randint(0,1000000)
-            call.send_message('node', {"method": "run_instance", "args" : {"instance_id": instance_id}}, wait=False)
+            calllib.call('node', {"method": "run_instance", "args" : {"instance_id": instance_id}})
 
         return {'result': 'ok'}
 
@@ -61,10 +62,6 @@ class CloudController(object):
             k.key = 'info.json'
             images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))    
         return images
-    
-    def run_instances(self, request_id, **kwargs):
-        logging.debug("We're going to try to run an instance now")
-        return { 'test': [] }
 
     def update_state(self, topic, value):
         logging.debug("Updating state for %s" % (topic))
