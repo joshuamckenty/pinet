@@ -8,51 +8,28 @@ import boto
 import boto.s3
 import settings
 
-# THIS IS EVIL
-import contrib
-import cloud
-import calllib
-
-import anyjson
-
 from xml.dom import minidom
-from calllib import call_sync
 
 _log = logging.getLogger()
 
-#camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
+camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
 
-ACTION_MAP = {
-    'Cloud': {
-        'DescribeImages': ('cloud_controller', 'describe_images'),
-        'DescribeInstances': ('cloud_controller', 'describe_instances'),
-        'DescribeVolumes': ('cloud_controller', 'describe_volumes'),
-    },
-}
-
-
-def handle_request(section, action, cloud_controller, **kwargs):
+def handle_request(controllers, controller_name, action, **kwargs):
     request_id = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-') for x in xrange(20)])
     
     try:
-        controller_name, method = translate_request(section, action)
-        _log.debug('Translated API request: controller = %s, method = %s' % (controller_name, method))
-        controller = locals()[controller_name]
+        controller = controllers[controller_name]
+        method = getattr(controller, camelcase_to_underscore(action))
     except:
-        _error = 'Unsupported API request: section = %s, action = %s' % (section, action)
+        _error = 'Unsupported API request: controller = %s, action = %s' % (controller_name, action)
         _log.warning(_error)
         # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
         raise Exception(_error)
 
-    return invoke_request(request_id, controller, action, method, **kwargs)
-
-def translate_request(section, action):
-    return ACTION_MAP[section][action]
-    
-def invoke_request(request_id, controller, action, method, **kwargs):
-    response_body = getattr(controller, method)(request_id, **kwargs)
+    response_body = method(request_id, **kwargs)
     xml = render_response(request_id, action, response_body)
     _log.debug('%s.%s returned %s' % (controller, method, xml))
+    
     return xml
 
 def render_response(request_id, action, response_data):
