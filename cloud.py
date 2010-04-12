@@ -39,6 +39,20 @@ class CloudController(object):
         calllib.cast('storage', {"method": "create_volume", "args" : {"size": size}})
         return {'result': 'ok'}
 
+    def attach_volume(self, request_id, **kwargs):
+        volume_id = kwargs['VolumeId'][0]
+        instance_id = kwargs['InstanceId'][0]
+        mountpoint = kwargs['Device'][0]
+        calllib.cast('storage', {"method": "attach_volume", "args" : 
+           {"volume_id": volume_id, "instance_id" : instance_id, "mountpoint" : mountpoint}})
+        return {'result': 'ok'}
+
+    def detach_volume(self, request_id, **kwargs):
+        volume_id = kwargs['VolumeId'][0]
+        calllib.cast('storage', {"method": "detach_volume", "args" : 
+           {"volume_id": volume_id}})
+        return {'result': 'ok'}
+
     def describe_instances(self, request_id, **kwargs):
         return self.instances
 

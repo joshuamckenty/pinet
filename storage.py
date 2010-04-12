@@ -22,16 +22,24 @@ class BlockStore(object):
         pass
 
     def create_volume(self, size):
-        return Volume(size = size)
+        volume = Volume(size = size)
+        volume._configure_export()
+        volume._restart_exports()
+        return volume
 
     def delete_volume(self, volume_id):
         return Volume(volume_id = volume_id).delete()
 
     def attach_volume(self, volume_id, instance_id, mountpoint):
-        pass
+        runthis("Attached Volume: %s", "sudo virsh attach-disk %s /dev/etherd/%s %s"
+                % (instance_id, self.convert_volume_to_aoe(volume_id), mountpoint.split("/")[-1]))
 
     def detach_volume(self, volume_id):
-        pass
+        mountpoint = "/dev/sdf"
+        instance_id = "hoyoo" 
+        # TODO - need a datastore to keep mountpoints, instances and volumes associated
+        runthis("Detached Volume: %s", "sudo virsh detach-disk %s %s "
+                % (instance_id, mountpoint.split("/")[-1]))
 
     def describe_volumes(self):
         set = []
@@ -97,15 +105,7 @@ class Volume(object):
         self._create_volume(lvname, size)
     
     def _create_volume_group(self):
-        # pvcreate is idempotent
-        # for pv in Popen(["pvs", "--nosuffix", "--noheadings", "--units", "g", "--separator", ",", "-o", "+pv_pe_count,pv_pe_alloc_count", ], stdout=PIPE).communicate()[0].split("\n"):
-        #    if pv == settings.storage_dev:
-        #        found = True
-        #if not found:
-        #    subprocess.call(["pvcreate", settings.storage_dev])
-        
         print "PVCreate returned: %s" % (subprocess.call(["sudo", "pvcreate", settings.storage_dev]))
-        # os.chown("/dev/%s" % (settings.volume_group), os.geteuid(), os.getegid()) 
         print "VGCreate returned: %s" % (subprocess.call(["sudo", "vgcreate", settings.volume_group, settings.storage_dev]))
 
     def _get_aoe_numbers(self):
