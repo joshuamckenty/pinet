@@ -33,6 +33,17 @@ class CloudController(object):
     def describe_instances(self, request_id, **kwargs):
         return self.instances
 
+    def run_instances(self, request_id, **kwargs):
+        reservation_id = 'r-%06d' % random.randint(0,1000000)
+        for num in range(int(kwargs['MaxCount'][0])):
+            instance_id = 'i-%06d' % random.randint(0,1000000)
+            call.send_message('node', {"method": "run_instance", "args" : {"instance_id": instance_id}}, wait=False)
+
+        return {'result': 'ok'}
+
+    def terminate_instances(self, request_id, **kwargs):
+        pass
+
     def describe_images(self, request_id, **kwargs):
         conn = boto.s3.connection.S3Connection (
             aws_secret_access_key="fixme",
