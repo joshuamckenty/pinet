@@ -30,7 +30,6 @@ from tornado import ioloop
 from twisted.internet import defer
 
 
-
 class Node(object):
     """ The node is in charge of running instances.  """
 
@@ -54,36 +53,47 @@ class Node(object):
                 logging.error('Failed to open connection to the hypervisor')
                 sys.exit(1)
         return conn
-
+    
+    @defer.inlineCallbacks
     def report_state(self):
         logging.debug("Reporting State")
         instances = []
-        for instance in self.describe_instances():
-            instances.append(
-                {"item": 
-                   {"reservation_id": "foo",
-                    "ownerId" : "tim",
-                    "groupSet" : {"item" : {"groupId": "default"}},
-                    "instancesSet" : {
-                        "item": {"instanceId" : instance,
-                                 "imageId" : "emi-foo",
-                                 "instanceState" : {"code": 0,
-                                                    "name" : "pending"}
-                                 }
+        rv = yield self.describe_instances()
+        
+        if rv:
+            for instance in rv:
+                instances.append(
+                    {"item": 
+                       {"reservation_id": "foo",
+                        "ownerId" : "tim",
+                        "groupSet" : {"item" : {"groupId": "default"}},
+                        "instancesSet" : {
+                            "item": {"instanceId" : instance,
+                                     "imageId" : "emi-foo",
+                                     "instanceState" : {"code": 0,
+                                                        "name" : "pending"}
+                                     }
+                            }
                         }
-                    }
-                })
-        instances = anyjson.serialize({"reservationSet" : instances})
-        rval = calllib.call_sync("cloud",  '{"method": "update_state", "args" : {"topic": "instances", "value": %s}}' % (instances))
-
-    def noop(self):
-        return "PONG"
+                    })
+        yield calllib.call("cloud",  
+                            {"method": "update_state",
+                             "args" : {"topic": "instances",
+                                       "value": instances
+                                       }
+                             })
     
+    @defer.inlineCallbacks
+    def noop(self):
+        yield 'PONG'
+    
+    @defer.inlineCallbacks
     @exception.wrap_exception
     def describe_instances(self):
         """ return a list of instances on this node """
-        return [x.describe() for x in self._instances.values()]
-
+        yield [x.describe() for x in self._instances.values()]
+    
+    @defer.inlineCallbacks
     @exception.wrap_exception
     def run_instance(self, instance_id):
         """ launch a new instance with specified options """
@@ -92,36 +102,39 @@ class Node(object):
                     'attempting to use existing instance_id: %s' % instance_id)
 
         new_inst = Instance(self._conn, name=instance_id, options=self.options)
-        new_inst.spawn()
         self._instances[instance_id] = new_inst
+        yield new_inst.spawn()
     
+
+    @defer.inlineCallbacks
     @exception.wrap_exception
-    def terminate_instance(self, instance_id, callback=None):
+    def terminate_instance(self, instance_id):
         """ terminate an instance on this machine """
         if instance_id not in self._instances:
             raise exception.Error(
                     'trying to terminate unknown instance: %s' % instance_id)
 
-        # TODO(termie): deferreds would be wunderbar here
-        def _callback():
-            self._instances.pop(instance_id)
-            if callback:
-                callback()
-        self._instances[instance_id].destroy(callback=_callback)
+        d = self._instances[instance_id].destroy()
+        d.addCallback(self._instances.pop, instance_id)
+        yield d
 
+    @defer.inlineCallbacks
     @exception.wrap_exception
     def reboot_instance(self, instance_id):
         """ reboot an instance on this server
         KVM doesn't support reboot, so we terminate and restart """
-        self._conn.lookupByName(instance_id).destroy()
-        xml = open(settings.instances_path + '/' + instance_id + '/libvirt.xml').read()
-        self._conn.createXML(xml, 0)
+        if instance_id not in self._instances:
+            raise exception.Error(
+                    'trying to reboot unknown instance: %s' % instance_id)
+        yield self._instances[instance_id].reboot()
 
+    @defer.inlineCallbacks
     @exception.wrap_exception
     def get_console_output(self, instance_id):
         """ send the console output for an instance """
-        return open(settings.instances_path + '/' + instance_id + '/console.log').read()
+        yield open(settings.instances_path + '/' + instance_id + '/console.log').read()
 
+    @defer.inlineCallbacks
     @exception.wrap_exception
     def attach_volume(self, instance_id = None, volume_id = None, dev = None):
         """ attach a volume to an instance """
@@ -129,18 +142,22 @@ class Node(object):
         self._init_aoe() 
         # Use aoetools via system calls
         # find out where the volume is mounted (ip, shelf and blade)
-        aoe = calllib.call_sync("storage",  '{"method": "convert_volume_to_aoe", "args" : {"volume_id": "%s"}}' % (volume_id))
+        aoe = yield calllib.call("storage",  
+                                 {"method": "convert_volume_to_aoe",
+                                  "args" : {"volume_id": (volume_id)}})
         if aoe is None or len(aoe) < 3:
-            return "fail"
-        shelf_id = aoe[1]
-        blade_id = aoe[3]
-        # mount it to a random mount point
-        mountpoint = "%s/%s" % (settings.volume_mountpoint, volume_id)
-        try:
-            os.mkdir(mountpoint) 
-        except:
-            pass
-        runthis("Mounting AoE mount %s", "sudo mount /dev/etherd/e%s.%s %s -t ext3" % (shelf_id, blade_id, mountpoint ))
+            yield "fail"
+        else:
+            shelf_id = aoe[1]
+            blade_id = aoe[3]
+            # mount it to a random mount point
+            mountpoint = "%s/%s" % (settings.volume_mountpoint, volume_id)
+            try:
+                os.mkdir(mountpoint) 
+            except:
+                pass
+            runthis("Mounting AoE mount %s", 
+                    "sudo mount /dev/etherd/e%s.%s %s -t ext3" % (shelf_id, blade_id, mountpoint ))
 
     def _init_aoe(self):
         runthis("Doin an AoE discover, returns %s", "sudo aoe-discover")
@@ -193,8 +210,9 @@ class Instance(object):
                 'mem': mem,
                 'num_cpu': num_cpu,
                 'cpu_time': cpu_time}
-
-    def destroy(self, callback=None):
+    
+    @defer.inlineCallbacks
+    def destroy(self):
         if self.is_destroyed():
             raise exception.Error('trying to destroy already destroyed'
                                   ' instance: %s' % self._name)
@@ -204,7 +222,9 @@ class Instance(object):
         virt_dom = self._conn.lookupByName(self._name)
         virt_dom.destroy()
         
-        timer = ioloop.PeriodicCallback(callback=None, callback_time=1000)
+        d = defer.Deferred()
+
+        timer = ioloop.PeriodicCallback(callback=None, callback_time=500)
         def _wait_for_shutdown():
             try:
                 info = self.info()
@@ -214,38 +234,45 @@ class Instance(object):
             except Exception:
                 self._state = Instance.SHUTDOWN
                 timer.stop()
-            callback()
+            d.callback(None)
         timer.callback = _wait_for_shutdown
         timer.start()
-        
-
-
-
+        yield d
+    
+    @defer.inlineCallbacks
     def reboot(self):
         if not self.is_running():
-            raise exception.Error('trying to reboot a non-running instance: %s (state: %s)' % (self._name, self._state))
+            raise exception.Error(
+                    'trying to reboot a non-running'
+                    'instance: %s (state: %s)' % (self._name, self._state))
         
-        self._conn.lookupByName(self._name).destroy()
+        yield self._conn.lookupByName(self._name).destroy()
 
-        self._state = Instance.PENDING
+        self._state = Instance.NOSTATE
         self._conn.createXML(self._xml, 0)
         # TODO(termie): this should actually register a callback to check
         #               for successful boot
         self._state = Instance.RUNNING
-
+        yield defer.succeed(None)
+    
+    @defer.inlineCallbacks
     def spawn(self):
         if not self.is_pending():
-            raise exception.Error('trying to spawn a running or terminated instance: %s (state: %s)' % (self._name, self._state))
+            raise exception.Error(
+                    'trying to spawn a running or terminated'
+                    'instance: %s (state: %s)' % (self._name, self._state))
 
         self._xml = self.setup()
         self._conn.createXML(self._xml, 0)
         # TODO(termie): this should actually register a callback to check
         #               for successful boot
         self._state = Instance.RUNNING
+        yield
 
     def generate_mac(self):
-        mac = [0x00, 0x16, 0x3e, random.randint(0x00, 0x7f), \
-           random.randint(0x00, 0xff), random.randint(0x00, 0xff)]
+        mac = [0x00, 0x16, 0x3e, random.randint(0x00, 0x7f),
+               random.randint(0x00, 0xff), random.randint(0x00, 0xff)
+               ]
         return ':'.join(map(lambda x: "%02x" % x, mac))
 
     # FIXME - we need to be able to do this command async
