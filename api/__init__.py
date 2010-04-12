@@ -22,13 +22,38 @@ _log = logging.getLogger()
 #camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
 
 ACTION_MAP = {
-    'Configuration': {
-        'DescribeImages': ('cloud', 'describe_images'),
-        'DescribeInstances': ('cloud', 'describe_instances'),
+    'Cloud': {
+        'DescribeImages': ('walrus_controller', 'describe_images'),
+        'DescribeInstances': ('cloud_controller', 'describe_instances'),
+        'DescribeVolumes': ('cloud_controller', 'describe_volumes'),
     },
 }
 
-def handle_request(section, action, **kwargs):
+class Walrus(object):
+  def describe_images(self, request_id, **kwargs):
+    conn = boto.s3.connection.S3Connection (
+        aws_secret_access_key="fixme",
+        aws_access_key_id="fixme",
+        is_secure=False,
+        calling_format=boto.s3.connection.OrdinaryCallingFormat(),
+        debug=0,
+        port=settings.S3_PORT,
+        host='localhost',
+    )
+
+    images = { 'imagesSet': [] }
+
+    for b in conn.get_all_buckets():
+        k = boto.s3.key.Key(b)
+        k.key = 'info.json'
+        images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
+        
+    return images
+
+walrus_controller = Walrus()
+
+def handle_request(section, action, cloud_controller, **kwargs):
+    global walrus_controller # DIRTY, FIXME
     # TODO: Generate a unique request ID.
     request_id = '558c80e8-bd18-49ff-8479-7bc176e12415'
     
@@ -37,13 +62,15 @@ def handle_request(section, action, **kwargs):
     
     # Build request json.
     try:
-        controller, method = translate_request(section, action)
-        _log.debug('Translated API request: controller = %s, method = %s' % (controller, method))
+        controller_name, method = translate_request(section, action)
+        _log.debug('Translated API request: controller = %s, method = %s' % (controller_name, method))
+        controller = locals()[controller_name]
     except:
+        controller = globals()[controller_name]
         _error = 'Unsupported API request: section = %s, action = %s' % (section, action)
         _log.warning(_error)
         # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
-        raise Exception(_error)
+        # raise Exception(_error)
 
     return invoke_request(request_id, controller, action, method, **kwargs)
 
@@ -51,8 +78,7 @@ def translate_request(section, action):
     return ACTION_MAP[section][action]
     
 def invoke_request(request_id, controller, action, method, **kwargs):
-    # TODO: make this aware of controller
-    response_body = globals()[method](request_id, **kwargs)
+    response_body = getattr(controller, method)(request_id, **kwargs)
     xml = render_response(request_id, action, response_body)
     _log.debug('%s.%s returned %s' % (controller, method, xml))
     return xml
@@ -94,28 +120,3 @@ def render_data(xml, el_name, data):
         
     return data_el
 
-def describe_volumes(request_id, **kwargs):
-    return calllib.call_sync("cloud",  '{"method": "list_volumes"}')
-
-def describe_instances(request_id, **kwargs):
-    return calllib.call_sync("cloud",  '{"method": "list_instances"}')
-
-def describe_images(request_id, **kwargs):
-    conn = boto.s3.connection.S3Connection (
-        aws_secret_access_key="fixme",
-        aws_access_key_id="fixme",
-        is_secure=False,
-        calling_format=boto.s3.connection.OrdinaryCallingFormat(),
-        debug=0,
-        port=settings.S3_PORT,
-        host='localhost',
-    )
-
-    images = { 'imagesSet': [] }
-
-    for b in conn.get_all_buckets():
-        k = boto.s3.key.Key(b)
-        k.key = 'info.json'
-        images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
-        
-    return images

@@ -76,6 +76,7 @@ class Node(object):
                             }
                         }
                     })
+        instances = {"reservationSet" : instances}
         yield calllib.call("cloud",  
                             {"method": "update_state",
                              "args" : {"topic": "instances",
@@ -132,7 +133,10 @@ class Node(object):
     @exception.wrap_exception
     def get_console_output(self, instance_id):
         """ send the console output for an instance """
-        yield open(settings.instances_path + '/' + instance_id + '/console.log').read()
+        if instance_id not in self._instances:
+            raise exception.Error(
+                    'trying to get console log for unknown: %s' % instance_id)
+        yield self._instances[instance_id].console_log()
 
     @defer.inlineCallbacks
     @exception.wrap_exception
@@ -212,6 +216,7 @@ class Instance(object):
                 'cpu_time': cpu_time}
     
     @defer.inlineCallbacks
+    @exception.wrap_exception
     def destroy(self):
         if self.is_destroyed():
             raise exception.Error('trying to destroy already destroyed'
@@ -240,6 +245,7 @@ class Instance(object):
         yield d
     
     @defer.inlineCallbacks
+    @exception.wrap_exception
     def reboot(self):
         if not self.is_running():
             raise exception.Error(
@@ -256,6 +262,7 @@ class Instance(object):
         yield defer.succeed(None)
     
     @defer.inlineCallbacks
+    @exception.wrap_exception
     def spawn(self):
         if not self.is_pending():
             raise exception.Error(
@@ -268,6 +275,11 @@ class Instance(object):
         #               for successful boot
         self._state = Instance.RUNNING
         yield
+
+    @defer.inlineCallbacks
+    @exception.wrap_exception
+    def console_log(self):
+        yield open('%s/%s/console.log' % (settings.instances_path, self._name)).read()
 
     def generate_mac(self):
         mac = [0x00, 0x16, 0x3e, random.randint(0x00, 0x7f),
