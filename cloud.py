@@ -71,7 +71,7 @@ class CloudController(object):
 
     def terminate_instances(self, request_id, **kwargs):
         # TODO: Support multiple instances
-        instance_id = kwargs['InstanceId'][0]
+        instance_id = kwargs['InstanceId.1'][0]
         calllib.cast('node', {"method": "terminate_instance", "args" : {"instance_id": instance_id}})
         return {'result': 'ok'}
         
