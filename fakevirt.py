@@ -1,3 +1,4 @@
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
 import StringIO
 from xml.etree import ElementTree
@@ -27,7 +28,6 @@ class FakeVirtConnection(object):
 
         my_xml = ElementTree.parse(xml_stringio)
         name = my_xml.find('name').text
-        logging.info('name %s', name)
 
         fake_instance = FakeVirtInstance(conn=self, 
                                          index=str(self.next_index),
@@ -41,18 +41,30 @@ class FakeVirtConnection(object):
 
 
 class FakeVirtInstance(object):
+    NOSTATE = 0x00
+    RUNNING = 0x01
+    BLOCKED = 0x02
+    PAUSED = 0x03
+    SHUTDOWN = 0x04
+    SHUTOFF = 0x05
+    CRASHED = 0x06
+
     def __init__(self, conn, index, name, xml):
         self._conn = conn
         self._destroyed = False
         self._name = name
         self._index = index
+        self._state = self.RUNNING
 
     def name(self):
         return self._name
 
     def destroy(self):
-        if self._destroyed:
+        if self._state == self.SHUTOFF:
             raise Exception('instance already destroyed: %s' % self.name())
-        self._destroyed = True
+        self._state = self.SHUTOFF
         self._conn._removeInstance(self._index)
 
+    def info(self):
+        
+        return [self._state, 0, 0, 0, 0]
