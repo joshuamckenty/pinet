@@ -1,3 +1,5 @@
+import logging
+
 SCOPE_SUBTREE  = 1
 
 class NO_SUCH_OBJECT(Exception):
@@ -19,7 +21,7 @@ class FakeLDAP(object):
         pass
 
     def search_s(self, cn, scope, query=None, fields=None):
-        print "searching for %s" % cn
+        logging.debug("searching for %s" % cn)
         try:
             if fields:
                 k,v = query[1:-1].split('=')
@@ -36,9 +38,10 @@ class FakeLDAP(object):
             raise NO_SUCH_OBJECT()
     
     def add_s(self, cn, attr):
-        print "adding %s" % cn
+        logging.debug("adding %s" % cn)
         _users[cn] = attr
 
     def delete_s(self, cn):
+        logging.debug("creating for %s" % cn)
         del _users[cn]
     
