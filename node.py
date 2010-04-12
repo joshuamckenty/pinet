@@ -59,7 +59,7 @@ class Node(object):
         logging.debug("Reporting State")
         instances = []
         rv = yield self.describe_instances()
-        
+
         if rv:
             for instance in rv:
                 instances.append(
@@ -84,30 +84,27 @@ class Node(object):
                                        }
                              })
     
-    @defer.inlineCallbacks
     def noop(self):
-        yield 'PONG'
+        return defer.succeed('PONG')
     
-    @defer.inlineCallbacks
     @exception.wrap_exception
     def describe_instances(self):
         """ return a list of instances on this node """
-        yield [x.describe() for x in self._instances.values()]
+        return defer.succeed([x.describe() for x in self._instances.values()])
     
-    @defer.inlineCallbacks
     @exception.wrap_exception
     def run_instance(self, instance_id):
         """ launch a new instance with specified options """
+        logging.debug("Started instance %s" % (instance_id))
         if instance_id in self._instances:
             raise exception.Error(
                     'attempting to use existing instance_id: %s' % instance_id)
 
         new_inst = Instance(self._conn, name=instance_id, options=self.options)
         self._instances[instance_id] = new_inst
-        yield new_inst.spawn()
+        return new_inst.spawn()
     
 
-    @defer.inlineCallbacks
     @exception.wrap_exception
     def terminate_instance(self, instance_id):
         """ terminate an instance on this machine """
@@ -117,9 +114,8 @@ class Node(object):
 
         d = self._instances[instance_id].destroy()
         d.addCallback(self._instances.pop, instance_id)
-        yield d
+        return d
 
-    @defer.inlineCallbacks
     @exception.wrap_exception
     def reboot_instance(self, instance_id):
         """ reboot an instance on this server
@@ -127,16 +123,15 @@ class Node(object):
         if instance_id not in self._instances:
             raise exception.Error(
                     'trying to reboot unknown instance: %s' % instance_id)
-        yield self._instances[instance_id].reboot()
+        return self._instances[instance_id].reboot()
 
-    @defer.inlineCallbacks
     @exception.wrap_exception
     def get_console_output(self, instance_id):
         """ send the console output for an instance """
         if instance_id not in self._instances:
             raise exception.Error(
                     'trying to get console log for unknown: %s' % instance_id)
-        yield self._instances[instance_id].console_log()
+        return self._instances[instance_id].console_log()
 
     @defer.inlineCallbacks
     @exception.wrap_exception
@@ -215,7 +210,6 @@ class Instance(object):
                 'num_cpu': num_cpu,
                 'cpu_time': cpu_time}
     
-    @defer.inlineCallbacks
     @exception.wrap_exception
     def destroy(self):
         if self.is_destroyed():
@@ -242,7 +236,7 @@ class Instance(object):
             d.callback(None)
         timer.callback = _wait_for_shutdown
         timer.start()
-        yield d
+        return d
     
     @defer.inlineCallbacks
     @exception.wrap_exception
@@ -259,9 +253,8 @@ class Instance(object):
         # TODO(termie): this should actually register a callback to check
         #               for successful boot
         self._state = Instance.RUNNING
-        yield defer.succeed(None)
+        defer.returnValue(None)
     
-    @defer.inlineCallbacks
     @exception.wrap_exception
     def spawn(self):
         if not self.is_pending():
@@ -274,12 +267,11 @@ class Instance(object):
         # TODO(termie): this should actually register a callback to check
         #               for successful boot
         self._state = Instance.RUNNING
-        yield
+        return defer.succeed(True)
 
-    @defer.inlineCallbacks
     @exception.wrap_exception
     def console_log(self):
-        yield open('%s/%s/console.log' % (settings.instances_path, self._name)).read()
+        return defer.succed(open('%s/%s/console.log' % (settings.instances_path, self._name)).read())
 
     def generate_mac(self):
         mac = [0x00, 0x16, 0x3e, random.randint(0x00, 0x7f),

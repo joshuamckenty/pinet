@@ -1,7 +1,7 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
 import anyjson
-import boto
+import boto.s3
 import settings
 
 CLOUD_TOPIC='cloud'
