@@ -98,6 +98,7 @@ class Node(object):
     @exception.wrap_exception
     def run_instance(self, instance_id):
         """ launch a new instance with specified options """
+        logging.debug("Started instance %s" % (instance_id))
         if instance_id in self._instances:
             raise exception.Error(
                     'attempting to use existing instance_id: %s' % instance_id)

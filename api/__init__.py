@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import random
 import re
 
 import boto
@@ -31,23 +32,17 @@ ACTION_MAP = {
 
 
 def handle_request(section, action, cloud_controller, **kwargs):
-    # TODO: Generate a unique request ID.
-    request_id = '558c80e8-bd18-49ff-8479-7bc176e12415'
+    request_id = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-') for x in xrange(20)])
     
-    # TODO: Add api validation.
-    # validate(action, **kwargs)
-    
-    # Build request json.
     try:
         controller_name, method = translate_request(section, action)
         _log.debug('Translated API request: controller = %s, method = %s' % (controller_name, method))
         controller = locals()[controller_name]
     except:
-        controller = globals()[controller_name]
         _error = 'Unsupported API request: section = %s, action = %s' % (section, action)
         _log.warning(_error)
         # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
-        # raise Exception(_error)
+        raise Exception(_error)
 
     return invoke_request(request_id, controller, action, method, **kwargs)
 

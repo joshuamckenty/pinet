@@ -34,24 +34,16 @@ class BlockStore(object):
         pass
 
     def describe_volumes(self):
-        """<item>
-          <volumeId>vol-4282672b</volumeId>
-          <size>800</size>
-          <status>in-use</status>
-          <createTime>2008-05-07T11:51:50.000Z</createTime>
-          <attachmentSet>
-            <item>
-              <volumeId>vol-4282672b</volumeId>
-              <instanceId>i-6058a509</instanceId>
-              <size>800</size>
-              <status>attached</status>
-              <attachTime>2008-05-07T12:51:50.000Z</attachTime>
-            </item>
-          </attachmentSet>
-        </item>"""
         set = []
-        for vol in self.loop_volumes():
-            set.append({"item": {"volumeId": vol, "size" : "5000", "availabilityZone" : "pinet", "status" : "available", "createTime" : "1", "attachmentSet" : []}})
+        for volume_id in self.loop_volumes():
+            vol = Volume(volume_id = volume_id)
+            set.append({"item": 
+                           {"volumeId": volume_id, 
+                            "size" : vol.get_size(), 
+                            "availabilityZone" : "pinet", 
+                            "status" : vol.get_status(), 
+                            "createTime" : "1", 
+                            "attachmentSet" : []}})
         volumeSet = {"volumeSet" : set}
         return volumeSet
 
@@ -83,6 +75,12 @@ class Volume(object):
             self.volume_id = volume_id
         if size:
             self.setup(size)
+
+    def get_status(self):
+        return "attached"
+
+    def get_size(self):
+        return "5000"
 
     def delete(self):
         aoe = self._get_aoe_numbers()
