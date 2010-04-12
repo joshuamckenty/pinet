@@ -15,7 +15,7 @@ import calllib
 import utils
 
 import cloud
-from cloud import CLOUD_TOPIC
+from cloud_worker import CLOUD_TOPIC
 from users import UserManager
 from apirequest import APIRequest
 
@@ -80,13 +80,11 @@ class APIRequestHandler(tornado.web.RequestHandler):
             _log.info('arg: %s\t\tval: %s' % (key, value))
 
         request = APIRequest(controller, action)
-        #response = request.send**args)
         d = request.send(**args)
-        d.addCallback(lambda response: _log.debug(response) and response)
+        d.addCallback(lambda response: _log.debug(response) and response or response)
 
         # TODO: Wrap response in AWS XML format  
         self.set_header('Content-Type', 'text/xml')
-        #self.write(response)
         d.addCallback(self.write)
 
     def post(self, controller_name):
@@ -145,9 +143,9 @@ if __name__ == "__main__":
             user_manager = UserManager({'use_fake': True})
         else:
             user_manager = UserManager()
-        controllers = { 'Cloud': cloud.CloudController(options) }
+        controllers = { 'Cloud': cloud.CloudController() }
         _app = APIServerApplication(user_manager, controllers)
-        conn = utils.get_rabbit_conn()
+        conn = calllib.Connection.instance()
         consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
         io_inst = tornado.ioloop.IOLoop.instance()
         injected = consumer.attachToTornado(io_inst)

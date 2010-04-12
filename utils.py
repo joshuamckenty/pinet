@@ -20,4 +20,4 @@ def runthis(prompt, cmd):
 
 def get_rabbit_conn():
     logging.warning('DEPRECATED: get_rabbit_conn is deprecated, use calllib.Connection.instance() instead')
-    return calllib.BrokerConnection.instance()
+    return calllib.Connection.instance()
