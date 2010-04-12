@@ -96,15 +96,10 @@ class BaseTestCase(unittest.TestCase):
         if not hasattr(g, 'send'):
             self._done()
             return defer.succeed(g)
-
-        def _wrapped():
-            for i in g:
-                yield i
-            yield self._done()
-        _wrapped.func_name = f.func_name
-
-        inlined = defer.inlineCallbacks(_wrapped)
+        
+        inlined = defer.inlineCallbacks(f)
         d = inlined()
+        d.addBoth(lambda x: self._done() and x)
         return d
     
     def _catchExceptions(self, result, failure):

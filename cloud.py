@@ -6,6 +6,9 @@ import calllib
 
 import contrib
 from twisted.internet import defer
+import boto
+import boto.s3
+import settings
 
 CLOUD_TOPIC='cloud'
 

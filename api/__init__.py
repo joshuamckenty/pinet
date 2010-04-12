@@ -1,12 +1,6 @@
 import logging
-import os
-import sys
 import random
 import re
-
-import boto
-import boto.s3
-import settings
 
 from xml.dom import minidom
 
@@ -14,13 +8,12 @@ _log = logging.getLogger()
 
 camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
 
-def handle_request(controllers, controller_name, action, **kwargs):
+def handle_request(controller, action, **kwargs):
     request_id = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-') for x in xrange(20)])
     
     try:
-        controller = controllers[controller_name]
         method = getattr(controller, camelcase_to_underscore(action))
-    except:
+    except AttributeError:
         _error = 'Unsupported API request: controller = %s, action = %s' % (controller_name, action)
         _log.warning(_error)
         # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
