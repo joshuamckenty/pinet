@@ -7,15 +7,7 @@ import boto
 import boto.s3
 import settings
 
-# THIS IS EVIL
-import contrib
-import cloud
-import calllib
-
-import anyjson
-
 from xml.dom import minidom
-from calllib import call_sync
 
 _log = logging.getLogger()
 
