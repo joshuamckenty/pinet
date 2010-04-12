@@ -18,7 +18,24 @@ class CloudController(object):
         return self.instances
 
     def describe_images(self, request_id, **kwargs):
-        return self.images
+        conn = boto.s3.connection.S3Connection (
+            aws_secret_access_key="fixme",
+            aws_access_key_id="fixme",
+            is_secure=False,
+            calling_format=boto.s3.connection.OrdinaryCallingFormat(),
+            debug=0,
+            port=settings.S3_PORT,
+            host='localhost',
+        )
+
+        images = { 'imagesSet': [] }
+
+        for b in conn.get_all_buckets():
+            k = boto.s3.key.Key(b)
+            k.key = 'info.json'
+            images['imagesSet'].append(anyjson.deserialize(k.get_contents_as_string()))
+        
+        return images
 
     def update_state(self, topic, value):
         logging.debug("Updating state for %s" % (topic))
