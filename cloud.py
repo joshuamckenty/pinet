@@ -1,6 +1,11 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
 import anyjson
+
+import calllib
+
+import contrib
+from twisted.internet import defer
 import boto.s3
 import settings
 
@@ -16,6 +21,13 @@ class CloudController(object):
 
     def describe_volumes(self, request_id, **kwargs):
         return self.volumes
+
+    def create_volume(self, request_id, **kwargs):
+        calllib.call("storage",  
+                            {"method": "create_volume",
+                             "args" : {"size": int(kwargs['Size'][0]) * 1024}
+                             })
+        return {'result': 'ok'}
 
     def describe_instances(self, request_id, **kwargs):
         return self.instances

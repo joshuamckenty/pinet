@@ -30,6 +30,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
         self.execute(controller_name)
 
     def execute(self, controller_name):
+        # Obtain the appropriate controller for this request.
         try:
             controller = self.application.controllers[controller_name]
         except KeyError:
@@ -37,48 +38,50 @@ class APIRequestHandler(tornado.web.RequestHandler):
             return
         
         args = self.request.arguments
-        params = {} # copy of args to pass to authentication
-        for key, value in args.items():
-            params[key] = value[0]
-        del params['Signature']
-
+        
+        # Read request signature.
         try:
-            access_key = args.pop('AWSAccessKeyId')[0]
-            signature_method = args.pop('SignatureMethod')[0]
-            signature_version = args.pop('SignatureVersion')[0]
             signature = args.pop('Signature')[0]
-            version = args.pop('Version')[0]
-            timestamp = args.pop('Timestamp')[0]
-        except KeyError:
-            raise tornado.web.HTTPError(400)
+        except:
+            raise Tornado.web.HTTPError(400)
+            
+        # Make a copy of arguments for authentication and signature verification.
+        auth_params = {} 
+        for key, value in args.items():
+            auth_params[key] = value[0]
 
+        # Get requested action and remove authentication arguments for final request.
         try:
             action = args.pop('Action')[0]
-        except Exception:
-            raise tornado.web.HTTPError(400)
-            
-        # TODO: Access key authorization
-        _log.info('access_key: %s' % params['AWSAccessKeyId'])
-        _log.info('host: %s' % self.request.host)
-        if not self.application.user_manager.authenticate(params,
-                                    signature,
-                                    self.request.method,
-                                    self.request.host,
-                                    self.request.path):
-            raise tornado.web.HTTPError(403)
 
+            args.pop('AWSAccessKeyId')
+            args.pop('SignatureMethod')
+            args.pop('SignatureVersion')
+            args.pop('Version')
+            args.pop('Timestamp')
+        except:
+            raise tornado.web.HTTPError(400)
+
+        # Authenticate the request.
+        authenticated = self.application.user_manager.authenticate (
+            auth_params,
+            signature,
+            self.request.method,
+            self.request.host,
+            self.request.path
+        )
+        
+        if not authenticated:
+            raise tornado.web.HTTPError(403)
+            
         _log.info('action: %s' % action)
 
         for key, value in args.items():
             _log.info('arg: %s\t\tval: %s' % (key, value))
 
-        #try:
         response = handle_request(controller, action, **args)
-        print response
         _log.debug(response)
-        #except ValueError, e:
-        #    _log.warning()
-        
+
         # TODO: Wrap response in AWS XML format  
         self.set_header('Content-Type', 'text/xml')
         self.write(response)
@@ -148,10 +151,10 @@ if __name__ == "__main__":
             user_manager = UserManager()
         controllers = { 'Cloud': cloud.CloudController(options) }
         _app = APIServerApplication(user_manager, controllers)
-        #conn = utils.get_rabbit_conn()
-        #consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
-        #io_inst = tornado.ioloop.IOLoop.instance()
-        #injected = consumer.attachToTornado(io_inst)
+        conn = utils.get_rabbit_conn()
+        consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
+        io_inst = tornado.ioloop.IOLoop.instance()
+        injected = consumer.attachToTornado(io_inst)
         daemon.start()
     elif args[0] == 'stop':
         daemon.stop()
