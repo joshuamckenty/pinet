@@ -13,7 +13,9 @@ class CloudController(object):
         self.instances = None
         self.images = None
         self.options = options
-        pass
+
+    def __str__(self):
+        return 'CloudController'
 
     def describe_volumes(self, request_id, **kwargs):
         return self.volumes

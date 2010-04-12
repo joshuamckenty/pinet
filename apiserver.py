@@ -17,6 +17,7 @@ import utils
 
 import cloud
 from cloud import CLOUD_TOPIC
+from apirequest import APIRequest
 
 _log = logging.getLogger()
 _app = None
@@ -80,7 +81,9 @@ class APIRequestHandler(tornado.web.RequestHandler):
         for key, value in args.items():
             _log.info('arg: %s\t\tval: %s' % (key, value))
 
-        response = handle_request(controller, action, **args)
+        request = APIRequest(controller, action)
+        response = request.send(**args)
+        
         _log.debug(response)
 
         # TODO: Wrap response in AWS XML format  
@@ -151,10 +154,10 @@ if __name__ == "__main__":
             user_manager = UserManager()
         controllers = { 'Cloud': cloud.CloudController(options) }
         _app = APIServerApplication(user_manager, controllers)
-        conn = utils.get_rabbit_conn()
-        consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
-        io_inst = tornado.ioloop.IOLoop.instance()
-        injected = consumer.attachToTornado(io_inst)
+        #conn = utils.get_rabbit_conn()
+        #consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
+        #io_inst = tornado.ioloop.IOLoop.instance()
+        #injected = consumer.attachToTornado(io_inst)
         daemon.start()
     elif args[0] == 'stop':
         daemon.stop()
