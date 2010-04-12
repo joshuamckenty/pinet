@@ -8,12 +8,10 @@ except Exception, e:
 
 import fakeldap
 
-import string
 import os
 import sys
 import settings
 import signer
-import random
 import uuid
 
 _log = logging.getLogger()
@@ -43,11 +41,14 @@ class UserManager:
         # TODO: Check for valid timestamp
         access_key = params['AWSAccessKeyId']
         with LDAPWrapper(self.config) as conn:
-            secret_key = conn.get_secret_from_access(access_key)
-
-        if secret_key:
+            user = conn.get_user_from_access(access_key)
+        
+        if user:
+            secret_key = user[self.config['secret_field']][0]
             expected_signature = signer.Signer(secret_key).generate(params, verb, server_string, path)
-            return signature == expected_signature
+            if signature == expected_signature:
+                return user
+        return False
         
     def keys(self, name):
         """ return access & secret for a username """
@@ -92,11 +93,11 @@ class LDAPWrapper(object):
 
     def find_user_by_name(self, name):
         try:
-            dn = 'cn=%s%s' % (name, self.config['ldap_suffix'])
+            dn = 'uid=%s,ou=Users%s' % (name, self.config['ldap_suffix'])
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE)
         except Exception:
             return None
-        return res[0]
+        return res[0][1]  # return attribute list
 
     def user_exists(self, name):
         return self.find_user_by_name(name) != None
@@ -106,30 +107,33 @@ class LDAPWrapper(object):
             raise LdapUserException("LDAP user " + name + " already exists")
         # sn is also required for organizationalPerson
         attr = [
-            ('objectclass', ['person', 'organizationalperson']),
-            ('cn', name),
+            ('objectclass', ['person', 'organizationalperson', 'inetorgperson']),
+            ('ou', 'Users'),
+            ('uid', name),
             ('sn', name),
-            (self.config['secret_field'], secret_key), # HACK: using existing fields so we don't have to create a schema
+            ('cn', name),
+            # HACK: using existing fields so we don't have to create a schema
+            (self.config['secret_field'], secret_key),
             (self.config['access_field'], access_key),
         ]
-        self.conn.add_s('cn=%s%s' % (name, self.config['ldap_suffix']), attr)
+        self.conn.add_s('uid=%s,ou=Users%s' % (name, self.config['ldap_suffix']), attr)
 
-    def get_secret_from_access(self, access):
+    def find_user_by_access_key(self, access):
         try:
-            dn = self.config['ldap_suffix'][1:]
+            dn = 'ou=Users%s' % self.config['ldap_suffix']
             query = '(' + self.config['access_field'] + '=' + access + ')'
-            res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query, [self.config['secret_field']])
+            res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query)
         except Exception:
             return None
         if not res:
             return None
-        return res[0][1][self.config['secret_field']][0]
+        return res[0][1] # return attribute list
 
     def get_user_keys(self, name):
         if not self.user_exists(name):
             raise LdapUserException("LDAP user " + name + " doesn't exist")
 
-        attr = self.find_user_by_name(name)[1]
+        attr = self.find_user_by_name(name)
         return (attr[self.config['access_field']][0],
                         attr[self.config['secret_field']][0])
 
@@ -172,7 +176,7 @@ if __name__ == "__main__":
         elif sys.argv[1] == '-d':
             manager.delete(sys.argv[2])
         elif sys.argv[1] == '-k':
-            manager.keys(sys.argv[2])
+            print manager.keys(sys.argv[2])
         else:
             usage()
             sys.exit(2)
