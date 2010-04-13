@@ -115,7 +115,6 @@ class UserManager:
         self.delete_key_pair(user_name, key_name)
 
     def delete_key_pair(self, user_name, key_name):
-        print user_name, key_name
         with LDAPWrapper(self.config) as conn:
             conn.delete_public_key(user_name, key_name)
 
@@ -216,15 +215,12 @@ class LDAPWrapper(object):
                                              attr)
     
     def find_user_by_access_key(self, access):
-        print "finding user by access"
         try:
             dn = self.config['ldap_subtree']
             query = '(' + 'accessKey' + '=' + access + ')'
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query)
         except Exception, ex:
-            raise ex
             return None
-        print "got result", res
         if not res:
             return None
         return res[0][1] # return attribute list

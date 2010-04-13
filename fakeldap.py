@@ -33,7 +33,6 @@ class FakeLDAP(object):
                 if attrs.has_key(k) and (v in attrs[k] or
                     v == attrs[k]):
                     objects[cn] = attrs
-        print 'objects', objects
         if objects == {}:
             raise NO_SUCH_OBJECT()
         return objects.items()
