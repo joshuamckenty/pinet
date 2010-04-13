@@ -3,41 +3,42 @@
 """
 Storage Worker proxies AMQP calls into the storage library.
 """
-import logging
 
+import logging
 import calllib
 import node
 import storage
-import settings
+import server
 
 from tornado import ioloop
 
 NODE_TOPIC='storage'
 
+import flags
+FLAGS = flags.FLAGS
 
-if __name__ == '__main__':
-    import optparse
+flags.DEFINE_integer('storage_report_state_interval', 10, 
+                     'seconds between broadcasting state to cloud',
+                     lower_bound=1)
 
-    parser = optparse.OptionParser()
-    parser.add_option("--use_fake", dest="use_fake",
-                      help="don't actually create volumes",
-                      default=False,
-                      action="store_true")
-    parser.add_option('-v', dest='verbose',
-                      help='verbose logging',
-                      default=False,
-                      action='store_true')
-
-    (options, args) = parser.parse_args()
-    if options.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-    logging.getLogger('amqplib').setLevel(logging.WARN)
-        
-    bs = storage.BlockStore(options)
+def main(argv):
+    bs = storage.BlockStore(FLAGS)
+    
     conn = calllib.Connection.instance()
-    consumer = calllib.AdapterConsumer(connection=conn, topic=NODE_TOPIC, proxy=bs)
+    consumer = calllib.AdapterConsumer(
+            connection=conn, topic=NODE_TOPIC, proxy=bs)
+    
     io_inst = ioloop.IOLoop.instance()
-    scheduler = ioloop.PeriodicCallback(lambda: bs.report_state(), settings.STORAGE_INTERVAL , io_loop=io_inst)
+    scheduler = ioloop.PeriodicCallback(
+            lambda: bs.report_state(), 
+            FLAGS.storage_report_state_interval * 1000,
+            io_loop=io_inst)
+
     injected = consumer.attachToTornado(io_inst)
     scheduler.start()
     io_inst.start()
+    
+    
+if __name__ == '__main__':
+    server.serve('storage_worker', main)
+
