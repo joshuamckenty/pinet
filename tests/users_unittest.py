@@ -18,8 +18,11 @@ class UserTests(unittest.TestCase):
 
     def test_003_can_delete_user(self):
         self.users.delete('test1')
-        
-    def test_004_can_authenticate(self):
+    
+    def test_004_can_download_credentials(self):
+        raise NotImplementedError
+    
+    def test_005_can_authenticate(self):
         raise NotImplementedError
         
 if __name__ == "__main__":
