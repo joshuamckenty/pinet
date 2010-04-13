@@ -3,6 +3,11 @@
 import sys, os, time, atexit
 from signal import SIGTERM 
 
+import logging
+
+logging.warning('DEPRECATED Using daemon_old.py has been deprecated,'
+                ' please make use of server.py and python-daemon instead.')
+
 class Daemon(object):
     """
     A generic daemon class.

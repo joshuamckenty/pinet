@@ -29,10 +29,9 @@ class APIRequest(object):
             # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
             raise Exception(_error)
 
-        d = defer.maybeDeferred(method(self.request_id, **kwargs))
+        d = defer.maybeDeferred(method, self.request_id, **kwargs)
         d.addCallback(self._render_response)
-        d.addCallback(lambda xml: _log.debug('%s.%s returned %s' % (self.controller, self.action, xml)) and xml)
-    
+
         return d
 
     def _render_response(self, response_data):
@@ -43,6 +42,11 @@ class APIRequest(object):
     
         request_id_el = xml.createElement('requestId')
         request_id_el.appendChild(xml.createTextNode(self.request_id))
+        response_el.appendChild(request_id_el)
+    
+        _log.debug('RESPONSE DATA')
+        _log.debug(response_data)
+        _log.debug('END RESPONSE DATA')
     
         self._render_dict(xml, response_el, response_data)
     
@@ -57,6 +61,7 @@ class APIRequest(object):
     
     def _render_dict(self, xml, el, data):
         # import pdb; pdb.set_trace()
+        _log.debug(dir(data))
         try:
             for key in data.keys():
                 val = data[key]

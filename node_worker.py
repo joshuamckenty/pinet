@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
+import logging.handlers
 import sys
 
 import contrib
@@ -11,24 +12,18 @@ from tornado import ioloop
 import calllib
 import flags
 import node
+import server
 import utils
 
-FLAGS = flags.FLAGS
 
+FLAGS = flags.FLAGS
 flags.DEFINE_integer('node_report_state_interval', 10, 
                      'seconds between nodes reporting state to cloud',
                      lower_bound=1)
 
 
-if __name__ == '__main__':
-    argv = FLAGS(sys.argv)
-    
-    logging.getLogger('amqplib').setLevel(logging.WARN)
-    if FLAGS.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.WARNING)
-
+def main(argv):
+    logging.warn('HEYA')
     n = node.Node()
     d = n.adopt_instances()
     d.addCallback(lambda x: logging.info('Adopted %d instances', x))
@@ -46,3 +41,7 @@ if __name__ == '__main__':
     injected = consumer.attachToTornado(io_inst)
     scheduler.start()
     io_inst.start()
+
+
+if __name__ == '__main__':
+    server.serve('node_worker', main)

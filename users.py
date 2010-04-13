@@ -10,11 +10,14 @@ import fakeldap
 
 import os
 import sys
-import settings
 import signer
 import uuid
 
-_log = logging.getLogger()
+import flags
+
+FLAGS = flags.FLAGS
+
+flags.DEFINE_bool('fake_users', False, 'use fake users')
 
 
 from M2Crypto import RSA, BIO
@@ -240,9 +243,7 @@ if __name__ == "__main__":
     # 
     # 
     # sys.exit(0)
-
-    logging.basicConfig(level=logging.DEBUG,
-    filename=os.path.join(settings.LOG_PATH, 'users.log'), filemode='a')
+    
     manager = UserManager()
     
     if len(sys.argv) > 2:
