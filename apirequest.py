@@ -29,11 +29,9 @@ class APIRequest(object):
             # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
             raise Exception(_error)
 
-        #response_data = method(self.request_id, **kwargs)
         d = defer.maybeDeferred(method, self.request_id, **kwargs)
         d.addCallback(self._render_response)
-        #d.addCallback(lambda xml: _log.debug('%s.%s returned %s' % (self.controller, self.action, xml)) and xml)
-        #return self._render_response(response_data)
+
         return d
 
     def _render_response(self, response_data):
