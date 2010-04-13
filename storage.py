@@ -3,10 +3,8 @@ Pinet Storage manages creating, attaching, detaching, and destroying persistent 
 Currently uses iSCSI.
 """
 
-import libvirt
 import os
 import logging
-import settings
 import subprocess
 from subprocess import Popen, PIPE
 import random
@@ -14,6 +12,13 @@ from utils import runthis
 import calllib
 import datastore
 
+import contrib
+import flags
+
+FLAGS = flags.FLAGS
+flags.DEFINE_string('storage_dev', '/dev/sdb1', 'Physical device to use for volumes')
+flags.DEFINE_string('volume_group', 'pinet-volumes', 'Name for the VG that will contain exported volumes')
+flags.DEFINE_string('aoe_eth_dev', 'br0', 'Which device to export the volumes on')
 
 class BlockStore(object):
     """ The BlockStore is in charge of iSCSI volumes and exports."""
@@ -51,6 +56,7 @@ class BlockStore(object):
             set.append({"item": 
                            {"volumeId": volume_id, 
                             "size" : vol.get_size(), 
+                            "aoe_device" : vol._get_aoe_numbers(),
                             "availabilityZone" : "pinet", 
                             "status" : vol.get_status(), 
                             "createTime" : "1", 
@@ -104,7 +110,7 @@ class Volume(object):
             runthis("Destroyed AOE export: %s", "sudo vblade-persist destroy %s %s" % (aoe[1], aoe[3]))
         except:
             pass
-        subprocess.call(["sudo", "lvremove", "-f", "%s/%s" % (settings.volume_group, self.volume_id)])
+        subprocess.call(["sudo", "lvremove", "-f", "%s/%s" % (FLAGS.volume_group, self.volume_id)])
         
 
     def setup(self, size):
@@ -113,8 +119,8 @@ class Volume(object):
         self._create_volume(lvname, size)
     
     def _create_volume_group(self):
-        print "PVCreate returned: %s" % (subprocess.call(["sudo", "pvcreate", settings.storage_dev]))
-        print "VGCreate returned: %s" % (subprocess.call(["sudo", "vgcreate", settings.volume_group, settings.storage_dev]))
+        print "PVCreate returned: %s" % (subprocess.call(["sudo", "pvcreate", FLAGS.storage_dev]))
+        print "VGCreate returned: %s" % (subprocess.call(["sudo", "vgcreate", FLAGS.volume_group, FLAGS.storage_dev]))
 
     def _get_aoe_numbers(self):
         aoes = Popen(["sudo", "ls",  "-al", "/dev/etherd/"], stdout=PIPE).communicate()[0]
@@ -124,7 +130,7 @@ class Volume(object):
             print "AoE number is %s" % (aoe)
             bits = aoe.split(" ")
             print bits
-            if bits[-1] == "/dev/%s/%s" % (settings.volume_group, self.volume_id):
+            if bits[-1] == "/dev/%s/%s" % (FLAGS.volume_group, self.volume_id):
                 return (bits[-3])
         
 
@@ -134,7 +140,7 @@ class Volume(object):
           throw()
         self.volume_id = lvname
         self._create_volume_group()
-        subprocess.call(["sudo", "lvcreate", '-L', size, '-n', lvname, settings.volume_group])
+        subprocess.call(["sudo", "lvcreate", '-L', size, '-n', lvname, FLAGS.volume_group])
 
     def _get_next_aoe_number(self):
         aoes = Popen(["sudo", "ls",  "-1", "/dev/etherd/"], stdout=PIPE).communicate()[0]
@@ -151,7 +157,7 @@ class Volume(object):
         if (blade_id > 5):
             shelf_id += 1
             blade_id = 0
-        runthis("Creating AOE export: %s", "sudo vblade-persist setup %s %s %s /dev/%s/%s" % (shelf_id, blade_id, settings.aoe_eth_dev, settings.volume_group, self.volume_id))
+        runthis("Creating AOE export: %s", "sudo vblade-persist setup %s %s %s /dev/%s/%s" % (shelf_id, blade_id, FLAGS.aoe_eth_dev, FLAGS.volume_group, self.volume_id))
 
     def _restart_exports(self):
         runthis("Setting exports to auto: %s", "sudo vblade-persist auto all")

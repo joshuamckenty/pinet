@@ -8,15 +8,15 @@ import boto
 import boto.s3
 from twisted.internet import defer
 
-import settings
 import calllib
 import flags
+import users
 
 FLAGS = flags.FLAGS
-
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
 flags.DEFINE_integer('s3_port', 3333, 'the port we connect to s3 on')
 
+        
 class CloudController(object):
     def __init__(self):
         self.volumes = {"result": "uninited"}
@@ -25,7 +25,12 @@ class CloudController(object):
 
     def __str__(self):
         return 'CloudController'
-    
+
+    def create_key_pair(self, request_id, **kwargs):
+        logging.getLogger().debug(kwargs)
+        private_key = users.UserManager().create_key_pair()
+        return {'None': None}
+
     def get_console_output(self, request_id, **kwargs):
         # TODO(termie): move this InstanceId stuff into the api layer
         instance_id = kwargs['InstanceId.1'][0]
@@ -44,14 +49,23 @@ class CloudController(object):
         calllib.cast('storage', {"method": "create_volume", 
                                  "args" : {"size": size}})
         return defer.succeed(True)
+    
+    def _get_volume(self, volume_id):
+        for item in self.volumes['volumeSet']:
+            if item['item']['volumeId'] == volume_id:
+                return item['item']
+        return None
+
 
     def attach_volume(self, request_id, **kwargs):
         # TODO(termie): API layer
         volume_id = kwargs['VolumeId'][0]
         instance_id = kwargs['InstanceId'][0]
         mountpoint = kwargs['Device'][0]
-        calllib.cast('storage', {"method": "attach_volume",
-                                 "args" : {"volume_id": volume_id,
+        aoe_device = self._get_volume(volume_id)['aoe_device']
+        # Needs to get right node controller for attaching to
+        calllib.cast('node', {"method": "attach_volume",
+                                 "args" : {"aoe_device": aoe_device,
                                            "instance_id" : instance_id,
                                            "mountpoint" : mountpoint}})
         return defer.succeed(True)
@@ -64,7 +78,15 @@ class CloudController(object):
         return defer.succeed({'result': 'ok'})
 
     def describe_instances(self, request_id, **kwargs):
-        return defer.succeed(self.instances)
+        return defer.succeed(self.format_instances())
+
+    def format_instances(self, instance_list = []):
+        instances = []
+        for node in self.instances.values():
+            for instance in node.values():
+                instances.append(instance)
+        instance_response = {'reservationSet' : instances}
+        return instance_response
 
     def run_instances(self, request_id, **kwargs):
         # TODO(termie): API layer
@@ -122,7 +144,11 @@ class CloudController(object):
         """ accepts status reports from the queue and consolidates them """
         logging.debug("Updating state for %s" % (topic))
         # TODO(termie): do something smart here to aggregate this data
-        setattr(self, topic, value)
+        # TODO(jmc): This is fugly
+        if "node" == topic:
+            getattr(self, topic)[value.keys()[0]] = value.values()[0]
+        else:
+            setattr(self, topic, value)
         return defer.succeed(True)
 
 

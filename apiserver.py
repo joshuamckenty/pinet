@@ -6,8 +6,6 @@ import sys
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
-import settings
-from daemon import Daemon
 
 import contrib # adds contrib to the path
 import call
@@ -104,55 +102,3 @@ class APIServerApplication(tornado.web.Application):
         ])
         self.user_manager = user_manager
         self.controllers = controllers
-
-class APIServerDaemon(Daemon):
-    def run(self):
-        http_server = tornado.httpserver.HTTPServer(_app)
-        http_server.listen(settings.CC_PORT)
-        logging.debug('Started HTTP server on %s' % (settings.CC_PORT))
-        tornado.ioloop.IOLoop.instance().start()
-        
-        
-if __name__ == "__main__":
-    import optparse
-
-    parser = optparse.OptionParser(usage='usage: %prog [options] start|stop|restart')
-    parser.add_option("--use_fake", dest="use_fake",
-                      help="don't actually use ldap",
-                      default=False,
-                      action="store_true")
-    parser.add_option('-v', dest='verbose',
-                      help='verbose logging',
-                      default=False,
-                      action='store_true')
-                      
-    (options, args) = parser.parse_args()
-    
-    if len(args) != 1:
-        parser.error("missing command")
-    
-    if options.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-                      
-    logfile = os.path.join(settings.LOG_PATH, 'apiserver.log')
-    logging.basicConfig(level=logging.DEBUG, filename=logfile, filemode='a')
-    daemon = APIServerDaemon(os.path.join(settings.PID_PATH, 'apiserver.pid'), stdout=logfile, stderr=logfile)
-        
-    if args[0] == 'start':
-        if options and options.use_fake:
-            user_manager = UserManager({'use_fake': True})
-        else:
-            user_manager = UserManager()
-        controllers = { 'Cloud': cloud.CloudController() }
-        _app = APIServerApplication(user_manager, controllers)
-        conn = calllib.Connection.instance()
-        consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=controllers['Cloud'])
-        io_inst = tornado.ioloop.IOLoop.instance()
-        injected = consumer.attachToTornado(io_inst)
-        daemon.start()
-    elif args[0] == 'stop':
-        daemon.stop()
-    elif args[0] == 'restart':
-        daemon.restart()
-    else:
-        parser.error("unknown command")

@@ -8,15 +8,26 @@ except Exception, e:
 
 import fakeldap
 
-import string
 import os
 import sys
-import settings
 import signer
-import random
 import uuid
 
-_log = logging.getLogger()
+import flags
+
+FLAGS = flags.FLAGS
+
+flags.DEFINE_bool('fake_users', False, 'use fake users')
+
+
+from M2Crypto import RSA, BIO
+
+
+def _generate_key_pair(bits=1024):
+    key = RSA.gen_key(bits, 65537)
+    bio = BIO.MemoryBuffer()
+    key.save_pub_key_bio(bio)
+    return (key.as_pem(cipher=None), bio.read())
 
 class LdapUserException(Exception):
     def __init__(self, message):
@@ -29,11 +40,10 @@ class UserManager:
     def __init__(self, config={}):
         self.config = {
             'password': 'changeme',
-            'user': 'admin',
-            'ldap_suffix': ',dc=example,dc=com',
+            'user_dn': 'cn=Manager,dc=example,dc=com',
+            'user_unit': 'Users',
+            'ldap_subtree': 'ou=Users,dc=example,dc=com',
             'ldap_url': 'ldap://localhost',
-            'access_field': 'st',
-            'secret_field': 'street',
         }
         self.config.update(config)
         if self.config.has_key('use_fake') and self.config['use_fake']:
@@ -43,11 +53,14 @@ class UserManager:
         # TODO: Check for valid timestamp
         access_key = params['AWSAccessKeyId']
         with LDAPWrapper(self.config) as conn:
-            secret_key = conn.get_secret_from_access(access_key)
-
-        if secret_key:
-            expected_signature = signer.Signer(secret_key).generate(params, verb, server_string, path)
-            return signature == expected_signature
+            user = conn.find_user_by_access_key(access_key)
+        
+        if user == None:
+            return None
+        secret_key = user['secretKey'][0]
+        expected_signature = signer.Signer(secret_key).generate(params, verb, server_string, path)
+        if signature == expected_signature:
+            return user
         
     def keys(self, name):
         """ return access & secret for a username """
@@ -57,7 +70,10 @@ class UserManager:
     def get_secret_from_access(self, access_key):
         """ retreive the secret key for a given access key """
         with LDAPWrapper(self.config) as conn:
-            return conn.get_secret_from_access(access_key)
+            user = conn.find_user_by_access_key(access_key)
+            if user:
+                return user['secretKey'][0]
+            return False
 
     def create(self, name, access=None, secret=None):
         if access == None: access = str(uuid.uuid4())
@@ -68,7 +84,19 @@ class UserManager:
     def delete(self, name):
         with LDAPWrapper(self.config) as conn:
             conn.delete_user(name)
+
+    def create_key_pair(self, access_key, key_name):
+        with LDAPWrapper(self.config) as conn:
+            user = conn.find_user_by_access_key(access_key)
         
+        if user == None:
+            return None
+        user_name = user['uid'][0]
+        private_key, public_key = _generate_key_pair()
+        with LDAPWrapper(self.config) as conn:
+            conn.create_public_key(user_name, key_name, public_key)
+        return private_key
+
 class LDAPWrapper(object):
     def __init__(self, config):
         self.config = config
@@ -87,56 +115,122 @@ class LDAPWrapper(object):
         else:
             assert(ldap.__name__ != 'fakeldap')
             self.conn = ldap.initialize(self.config['ldap_url'])
-        dn = "cn=%s%s" % (self.config['user'], self.config['ldap_suffix'])
-        self.conn.simple_bind_s(dn, self.config['password'])
+        self.conn.simple_bind_s(self.config['user_dn'], self.config['password'])
 
-    def find_user_by_name(self, name):
+    def find_object(self, dn, filter = None):
+        objects = self.find_objects(dn, filter)
+        if objects == None:
+            return None
+        return objects[0][1] # return attribute list
+    
+    def find_objects(self, dn, filter = None):
         try:
-            dn = 'cn=%s%s' % (name, self.config['ldap_suffix'])
-            res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE)
+            res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, filter)
         except Exception:
             return None
-        return res[0]
+        return res
+
+    def find_user(self, name):
+        dn = 'uid=%s,%s' % (name, self.config['ldap_subtree'])
+        return self.find_object(dn, '(objectclass=inetOrgPerson)')
 
     def user_exists(self, name):
-        return self.find_user_by_name(name) != None
+        return self.find_user(name) != None
+        
+    def find_public_key(self, user_name, key_name):
+        dn = 'cn=%s,uid=%s,%s' % (key_name,
+                                   user_name,
+                                   self.config['ldap_subtree'])
+        return self.find_object(dn, '(objectclass=pinetPublicKey)')
+
+    def delete_public_keys(self, user_name):
+        dn = 'uid=%s,%s' % (user_name, self.config['ldap_subtree'])
+        key_objects = self.find_objects(dn, '(objectclass=pinetPublicKey)')
+        if key_objects != None:
+            for key_object in key_objects:
+                key_name = key_object[1]['cn'][0]
+                self.delete_public_key(user_name, key_name)
+
+    def public_key_exists(self, user_name, key_name):
+        return self.find_public_key(user_name, key_name) != None
         
     def create_user(self, name, access_key, secret_key):
         if self.user_exists(name):
             raise LdapUserException("LDAP user " + name + " already exists")
-        # sn is also required for organizationalPerson
         attr = [
-            ('objectclass', ['person', 'organizationalperson']),
-            ('cn', name),
+            ('objectclass', ['person',
+                             'organizationalPerson',
+                             'inetOrgPerson',
+                             'pinetKeys']),
+            ('ou', self.config['user_unit']),
+            ('uid', name),
             ('sn', name),
-            (self.config['secret_field'], secret_key), # HACK: using existing fields so we don't have to create a schema
-            (self.config['access_field'], access_key),
+            ('cn', name),
+            ('secretKey', secret_key),
+            ('accessKey', access_key),
         ]
-        self.conn.add_s('cn=%s%s' % (name, self.config['ldap_suffix']), attr)
+        self.conn.add_s('uid=%s,%s' % (name, self.config['ldap_subtree']),
+                        attr)
 
-    def get_secret_from_access(self, access):
+    def create_public_key(self, user_name, key_name, public_key):
+        """create's a public key in the directory underneath the user"""
+        # TODO(vish): possibly refactor this to store keys in their own ou
+        #   and put dn reference in the user object
+        if not self.user_exists(user_name):
+            raise LdapUserException("User" + user_name + " doesn't exist")
+        if self.public_key_exists(user_name, key_name):
+            raise LdapUserException("Public Key " +
+                                    key_name +
+                                    " already exists for user " +
+                                    user_name)
+        attr = [
+            ('objectclass', ['pinetPublicKey']),
+            ('cn', key_name),
+            ('sshPublicKey', public_key),
+        ]
+        self.conn.add_s('cn=%s,uid=%s,%s' % (key_name,
+                                             user_name,
+                                             self.config['ldap_subtree']),
+                                             attr)
+    
+    def find_user_by_access_key(self, access):
         try:
-            dn = self.config['ldap_suffix'][1:]
-            query = '(' + self.config['access_field'] + '=' + access + ')'
-            res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query, [self.config['secret_field']])
+            dn = self.config['ldap_subtree']
+            query = '(' + 'accessKey' + '=' + access + ')'
+            res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query)
         except Exception:
             return None
         if not res:
             return None
-        return res[0][1][self.config['secret_field']][0]
+        print res
+        return res[0][1] # return attribute list
 
     def get_user_keys(self, name):
         if not self.user_exists(name):
-            raise LdapUserException("LDAP user " + name + " doesn't exist")
+            raise LdapUserException("User " + name + " doesn't exist")
 
-        attr = self.find_user_by_name(name)[1]
-        return (attr[self.config['access_field']][0],
-                        attr[self.config['secret_field']][0])
+        attr = self.find_user(name)
+        return (attr['accessKey'][0],
+                attr['secretKey'][0])
+
+    def delete_public_key(self, user_name, key_name):
+        if not self.public_key_exists(user_name, key_name):
+            raise LdapUserException("Public Key " +
+                                    key_name +
+                                    " doesn't exist for user " +
+                                    user_name)
+        self.conn.delete_s('cn=%s,uid=%s,%s' % (key_name, user_name,
+                                          self.config['ldap_subtree']))
+        
 
     def delete_user(self, name):
         if not self.user_exists(name):
-            raise LdapUserException("LDAP user " + name + " doesn't exist")
-        self.conn.delete_s('cn=%s%s' % (name, self.config['ldap_suffix']))
+            raise LdapUserException("User " +
+                                    name +
+                                    " doesn't exist")
+        self.delete_public_keys(name)
+        self.conn.delete_s('uid=%s,%s' % (name,
+                                          self.config['ldap_subtree']))
 
 def usage():
     print 'usage: %s -c username (access_key) (secret_key) | -d username' % sys.argv[0]
@@ -156,8 +250,6 @@ if __name__ == "__main__":
     # 
     # sys.exit(0)
     
-    logging.basicConfig(level=logging.DEBUG,
-    filename=os.path.join(settings.LOG_PATH, 'users.log'), filemode='a')
     manager = UserManager()
     
     if len(sys.argv) > 2:
@@ -172,7 +264,7 @@ if __name__ == "__main__":
         elif sys.argv[1] == '-d':
             manager.delete(sys.argv[2])
         elif sys.argv[1] == '-k':
-            manager.keys(sys.argv[2])
+            print manager.keys(sys.argv[2])
         else:
             usage()
             sys.exit(2)

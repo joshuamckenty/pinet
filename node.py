@@ -22,7 +22,7 @@ import exception
 import fakevirt
 import flags
 import partition2disk
-import settings
+import storage
 
 from utils import runthis
 
@@ -34,7 +34,6 @@ from twisted.internet import defer
 
 
 FLAGS = flags.FLAGS
-
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
@@ -46,7 +45,6 @@ flags.DEFINE_string('bridge_dev', 'virbr0',
                     'network bridge for nodes')
 flags.DEFINE_string('libvirt_xml_template', 'libvirt.xml.template',
                     'template file to use for libvirt xml')
-
 flags.DEFINE_string('default_image',
                     'ubuntu-karmic-x86_64.img',
                     'default image to use, testing only')
@@ -123,7 +121,7 @@ class Node(object):
                             }
                         }
                     })
-        instances = {"reservationSet" : instances}
+        instances = {"node-foo" : instances}
         calllib.cast("cloud",  
                             {"method": "update_state",
                              "args" : {"topic": "instances",
@@ -189,28 +187,9 @@ class Node(object):
 
     @defer.inlineCallbacks
     @exception.wrap_exception
-    def attach_volume(self, instance_id = None, volume_id = None, dev = None):
-        """ attach a volume to an instance """
-        # FIXME - ASSERT the volume_id is valid, etc.
-        self._init_aoe() 
-        # Use aoetools via system calls
-        # find out where the volume is mounted (ip, shelf and blade)
-        aoe = yield calllib.call("storage",  
-                                 {"method": "convert_volume_to_aoe",
-                                  "args" : {"volume_id": (volume_id)}})
-        if aoe is None or len(aoe) < 3:
-            yield "fail"
-        else:
-            shelf_id = aoe[1]
-            blade_id = aoe[3]
-            # mount it to a random mount point
-            mountpoint = "%s/%s" % (settings.volume_mountpoint, volume_id)
-            try:
-                os.mkdir(mountpoint) 
-            except:
-                pass
-            runthis("Mounting AoE mount %s", 
-                    "sudo mount /dev/etherd/e%s.%s %s -t ext3" % (shelf_id, blade_id, mountpoint ))
+    def attach_volume(self, instance_id = None, aoe_device = None, mountpoint = None):
+        runthis("Attached Volume: %s", "sudo virsh attach-disk %s /dev/etherd/%s %s"
+                % (instance_id, aoe_device, mountpoint.split("/")[-1]))
 
     def _init_aoe(self):
         runthis("Doin an AoE discover, returns %s", "sudo aoe-discover")

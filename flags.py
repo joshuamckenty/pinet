@@ -21,6 +21,4 @@ from gflags import *
 # $ python node_worker.py --flagfile flagfile
 
 
-
-
 DEFINE_bool('verbose', False, 'show debug output')

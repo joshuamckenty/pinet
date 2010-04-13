@@ -4,7 +4,6 @@ import sys
 import uuid
 import time
 import logging
-import settings
 
 import contrib
 import anyjson
@@ -25,6 +24,7 @@ flags.DEFINE_integer('rabbit_port', 5672, 'rabbit port')
 flags.DEFINE_string('rabbit_userid', 'guest', 'rabbit userid')
 flags.DEFINE_string('rabbit_password', 'guest', 'rabbit password')
 flags.DEFINE_string('rabbit_virtual_host', '/', 'rabbit virtual host')
+flags.DEFINE_string('control_exchange', 'pinet', 'the main exchange to connect to')
 
 class Connection(connection.BrokerConnection):
     @classmethod
@@ -76,7 +76,7 @@ class TopicConsumer(Consumer):
     def __init__(self, connection=None, topic="broadcast"):
         self.queue = topic
         self.routing_key = topic
-        self.exchange = settings.CONTROL_EXCHANGE
+        self.exchange = FLAGS.control_exchange
         super(TopicConsumer, self).__init__(connection=connection)
 
 
@@ -105,12 +105,11 @@ class AdapterConsumer(TopicConsumer):
         return
 
 
-
 class TopicPublisher(Publisher):
     exchange_type = "topic" 
     def __init__(self, connection=None, topic="broadcast"):
         self.routing_key = topic
-        self.exchange = settings.CONTROL_EXCHANGE
+        self.exchange = FLAGS.control_exchange
         super(TopicPublisher, self).__init__(connection=connection)
         
 

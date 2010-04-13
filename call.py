@@ -9,11 +9,9 @@ import anyjson
 from carrot import connection
 from carrot import messaging
 
+import calllib
 
 logging.getLogger().setLevel(logging.DEBUG)
-
-import utils
-conn = utils.get_rabbit_conn()
 
 def generic_response(message_data, message):
     logging.debug('response %s', message_data)
@@ -27,7 +25,7 @@ def send_message(topic, message, wait=True):
     logging.debug('message %s', message)
 
     if wait:
-        consumer = messaging.Consumer(connection=conn,
+        consumer = messaging.Consumer(connection=calllib.Connection.instance(),
                                       queue=msg_id,
                                       exchange=msg_id,
                                       auto_delete=True,
@@ -35,7 +33,7 @@ def send_message(topic, message, wait=True):
                                       routing_key=msg_id)
         consumer.register_callback(generic_response)
 
-    publisher = messaging.Publisher(connection=conn,
+    publisher = messaging.Publisher(connection=calllib.Connection.instance(),
                                     exchange="pinet",
                                     exchange_type="topic",
                                     routing_key=topic)
