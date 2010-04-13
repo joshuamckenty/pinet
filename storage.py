@@ -3,7 +3,6 @@ Pinet Storage manages creating, attaching, detaching, and destroying persistent 
 Currently uses iSCSI.
 """
 
-import libvirt
 import os
 import logging
 import subprocess
@@ -54,6 +53,7 @@ class BlockStore(object):
             set.append({"item": 
                            {"volumeId": volume_id, 
                             "size" : vol.get_size(), 
+                            "aoe_device" : vol._get_aoe_numbers(),
                             "availabilityZone" : "pinet", 
                             "status" : vol.get_status(), 
                             "createTime" : "1", 
