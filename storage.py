@@ -12,6 +12,7 @@ from subprocess import Popen, PIPE
 import random
 from utils import runthis
 import calllib
+import datastore
 
 
 class BlockStore(object):
@@ -31,8 +32,10 @@ class BlockStore(object):
         return Volume(volume_id = volume_id).delete()
 
     def attach_volume(self, volume_id, instance_id, mountpoint):
+        volume = Volume(volume_id)
         runthis("Attached Volume: %s", "sudo virsh attach-disk %s /dev/etherd/%s %s"
                 % (instance_id, self.convert_volume_to_aoe(volume_id), mountpoint.split("/")[-1]))
+        volume.save()
 
     def detach_volume(self, volume_id):
         mountpoint = "/dev/sdf"
@@ -79,10 +82,15 @@ class Volume(object):
     
     def __init__(self, volume_id = None, size = None):
         self.volume_id = None
+        self.state = 'unknown'
         if volume_id:
             self.volume_id = volume_id
         if size:
             self.setup(size)
+
+    def save(self):
+        keeper = datastore.keeper(prefix="storage")
+        keeper['volume_id'] = {'state' : self.state}
 
     def get_status(self):
         return "attached"
