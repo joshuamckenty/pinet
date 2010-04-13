@@ -7,7 +7,7 @@ import tornado.ioloop
 import tornado.web
 import tornado.s3server
 import settings
-from daemon import Daemon
+from daemon_old import Daemon
 
 class S3ServerDaemon(Daemon):
     def start(self):

@@ -34,7 +34,6 @@ from twisted.internet import defer
 
 
 FLAGS = flags.FLAGS
-
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
@@ -46,7 +45,6 @@ flags.DEFINE_string('bridge_dev', 'virbr0',
                     'network bridge for nodes')
 flags.DEFINE_string('libvirt_xml_template', 'libvirt.xml.template',
                     'template file to use for libvirt xml')
-
 flags.DEFINE_string('default_image',
                     'ubuntu-karmic-x86_64.img',
                     'default image to use, testing only')

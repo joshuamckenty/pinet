@@ -16,7 +16,15 @@ import signer
 import random
 import uuid
 
+import flags
+
+FLAGS = flags.FLAGS
+
+flags.DEFINE_bool('fake_users', False, 'use fake users')
+
 _log = logging.getLogger()
+
+
 
 class LdapUserException(Exception):
     def __init__(self, message):

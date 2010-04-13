@@ -105,7 +105,6 @@ class AdapterConsumer(TopicConsumer):
         return
 
 
-
 class TopicPublisher(Publisher):
     exchange_type = "topic" 
     def __init__(self, connection=None, topic="broadcast"):

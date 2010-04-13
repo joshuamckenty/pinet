@@ -7,7 +7,7 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 import settings
-from daemon import Daemon
+from daemon_old import Daemon
 
 import contrib # adds contrib to the path
 import call
@@ -114,6 +114,8 @@ class APIServerDaemon(Daemon):
         
         
 if __name__ == "__main__":
+    logging.warning('DEPRECATED running apiserver directly has been deprecated'
+                    ' please use api_worker.py instead')
     import optparse
 
     parser = optparse.OptionParser(usage='usage: %prog [options] start|stop|restart')

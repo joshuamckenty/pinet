@@ -12,11 +12,12 @@ import settings
 import calllib
 import flags
 
-FLAGS = flags.FLAGS
 
+FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
 flags.DEFINE_integer('s3_port', 3333, 'the port we connect to s3 on')
 
+        
 class CloudController(object):
     def __init__(self):
         self.volumes = {"result": "uninited"}
