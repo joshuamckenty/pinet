@@ -10,7 +10,7 @@ from twisted.internet import defer
 
 import calllib
 import flags
-
+import users
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
@@ -25,7 +25,12 @@ class CloudController(object):
 
     def __str__(self):
         return 'CloudController'
-    
+
+    def create_key_pair(self, request_id, **kwargs):
+        logging.getLogger().debug(kwargs)
+        private_key = users.UserManager().create_key_pair()
+        return {'None': None}
+
     def get_console_output(self, request_id, **kwargs):
         # TODO(termie): move this InstanceId stuff into the api layer
         instance_id = kwargs['InstanceId.1'][0]

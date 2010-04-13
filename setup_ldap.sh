@@ -64,12 +64,31 @@ DB_LDIF_EOF
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/db.ldif
 
 cat >/etc/ldap/base.ldif <<BASE_LDIF_EOF
+# Root 
 dn: dc=example,dc=com
 objectClass: dcObject
 objectclass: organization
 o: example.com
 dc: example
-description: My LDAP Root
+description: LDAP Root
+
+# Subtree for users
+dn: ou=Users,dc=example,dc=com
+ou: Users
+description: Users
+objectClass: organizationalUnit
+
+# Subtree for groups
+dn: ou=Groups,dc=example,dc=com
+ou: Groups
+description: Groups
+objectClass: organizationalUnit
+
+# Subtree for keys
+dn: ou=Keys,dc=example,dc=com
+ou: Groups
+description: Keys
+objectClass: organizationalUnit
 
 dn: cn=admin,dc=example,dc=com
 objectClass: simpleSecurityObject
@@ -120,18 +139,6 @@ olcAccess: to * by dn="cn=admin,dc=example,dc=com" write by * read
 ACL_LDIF_EOF
 
 ldapmodify -x -D cn=admin,cn=config -W -f /etc/ldap/acl.ldif
-
-cat >/home/jesus/.svnpy.yml <<SVNPY_EOF
-{
-  'apache_conf_dir': '/etc/apache2/conf.d',
-  'apache_svn_path': '/svn',
-  'svn_dir': '/var/svn',
-  'password': 'changeme',
-  'user': 'admin',
-  'ldap_suffix': ',dc=example,dc=com',
-  'ldap_url': 'ldap://localhost'
-}
-SVNPY_EOF
 
 ####################
 # FARMER

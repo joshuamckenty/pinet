@@ -8,7 +8,7 @@ class NO_SUCH_OBJECT(Exception):
 def initialize(uri):
     return FakeLDAP(uri)
 
-_users = {}
+_objects = {}
 
 class FakeLDAP(object):
     def __init__(self, uri):
@@ -20,28 +20,34 @@ class FakeLDAP(object):
     def unbind_s(self):
         pass
 
-    def search_s(self, cn, scope, query=None, fields=None):
-        logging.debug("searching for %s" % cn)
+    def search_s(self, dn, scope, query=None, fields=None):
+        logging.debug("searching for %s" % dn)
         try:
-            if fields:
+            filtered = {}
+            for cn, attrs in _objects.iteritems():
+                if cn[-len(dn):] == dn:
+                    filtered[cn] = attrs
+            print query
+            if query:
                 k,v = query[1:-1].split('=')
-                for cn, attrs in _users.iteritems():
-                    if dict(attrs)[k] == v:
-                        user = attrs
-            else:
-                user = _users[cn]
-            attrs = {}
-            for k,v in user[1:]:
-                attrs[k] = [v]
-            return [[cn, attrs]]
+                objects = {}
+                for cn, attrs in filtered.iteritems():
+                    if v in attrs[k] or v == attrs[k]:
+                        objects[cn] = attrs
+            if objects == {}:
+                raise NO_SUCH_OBJECT()
+            print objects.items()
+            return objects.items()
         except Exception:
             raise NO_SUCH_OBJECT()
     
     def add_s(self, cn, attr):
         logging.debug("adding %s" % cn)
-        _users[cn] = attr
+        stored = {}
+        for k, v in attr:
+            stored[k] = [v]
+        _objects[cn] = stored
 
     def delete_s(self, cn):
         logging.debug("creating for %s" % cn)
-        del _users[cn]
-    
+        del _objects[cn]
