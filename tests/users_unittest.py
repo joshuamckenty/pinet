@@ -5,9 +5,10 @@ from users import UserManager
 
 FLAGS = flags.FLAGS
 FLAGS.fake_libvirt = True
+FLAGS.fake_users = True
 
 class UserTests(unittest.TestCase):
-    users = UserManager(config={ 'use_fake': False })
+    users = UserManager()
     
     def test_001_can_create_user(self):
         self.users.create('test1', 'access', 'secret')
