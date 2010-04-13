@@ -11,7 +11,6 @@ import fakeldap
 import string
 import os
 import sys
-import settings
 import signer
 import random
 import uuid
@@ -21,10 +20,6 @@ import flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_bool('fake_users', False, 'use fake users')
-
-_log = logging.getLogger()
-
-
 
 class LdapUserException(Exception):
     def __init__(self, message):
@@ -164,8 +159,6 @@ if __name__ == "__main__":
     # 
     # sys.exit(0)
     
-    logging.basicConfig(level=logging.DEBUG,
-    filename=os.path.join(settings.LOG_PATH, 'users.log'), filemode='a')
     manager = UserManager()
     
     if len(sys.argv) > 2:
