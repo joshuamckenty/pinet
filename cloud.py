@@ -49,14 +49,23 @@ class CloudController(object):
         calllib.cast('storage', {"method": "create_volume", 
                                  "args" : {"size": size}})
         return defer.succeed(True)
+    
+    def _get_volume(self, volume_id):
+        for item in self.volumes['volumeSet']:
+            if item['item']['volumeId'] == volume_id:
+                return item['item']
+        return None
+
 
     def attach_volume(self, request_id, **kwargs):
         # TODO(termie): API layer
         volume_id = kwargs['VolumeId'][0]
         instance_id = kwargs['InstanceId'][0]
         mountpoint = kwargs['Device'][0]
-        calllib.cast('storage', {"method": "attach_volume",
-                                 "args" : {"volume_id": volume_id,
+        aoe_device = self._get_volume(volume_id)['aoe_device']
+        # Needs to get right node controller for attaching to
+        calllib.cast('node', {"method": "attach_volume",
+                                 "args" : {"aoe_device": aoe_device,
                                            "instance_id" : instance_id,
                                            "mountpoint" : mountpoint}})
         return defer.succeed(True)
