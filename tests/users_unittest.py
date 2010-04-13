@@ -7,7 +7,7 @@ FLAGS = flags.FLAGS
 FLAGS.fake_libvirt = True
 
 class UserTests(unittest.TestCase):
-    users = UserManager(config={ 'use_fake': FLAGS.fake_libvirt })
+    users = UserManager(config={ 'use_fake': False })
     
     def test_001_can_create_user(self):
         self.users.create('test1', 'access', 'secret')

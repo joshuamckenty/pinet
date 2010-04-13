@@ -53,14 +53,14 @@ class UserManager:
         # TODO: Check for valid timestamp
         access_key = params['AWSAccessKeyId']
         with LDAPWrapper(self.config) as conn:
-            user = conn.get_user_from_access(access_key)
+            user = conn.find_user_by_access_key(access_key)
         
-        if user:
-            secret_key = user['secretKey'][0]
-            expected_signature = signer.Signer(secret_key).generate(params, verb, server_string, path)
-            if signature == expected_signature:
-                return user
-        return False
+        if user == None:
+            return None
+        secret_key = user['secretKey'][0]
+        expected_signature = signer.Signer(secret_key).generate(params, verb, server_string, path)
+        if signature == expected_signature:
+            return user
         
     def keys(self, name):
         """ return access & secret for a username """
@@ -70,7 +70,7 @@ class UserManager:
     def get_secret_from_access(self, access_key):
         """ retreive the secret key for a given access key """
         with LDAPWrapper(self.config) as conn:
-            user = conn.get_user_from_access(access_key)
+            user = conn.find_user_by_access_key(access_key)
             if user:
                 return user['secretKey'][0]
             return False
@@ -85,7 +85,13 @@ class UserManager:
         with LDAPWrapper(self.config) as conn:
             conn.delete_user(name)
 
-    def create_key_pair(self, user_name, key_name):
+    def create_key_pair(self, access_key, key_name):
+        with LDAPWrapper(self.config) as conn:
+            user = conn.find_user_by_access_key(access_key)
+        
+        if user == None:
+            return None
+        user_name = user['uid'][0]
         private_key, public_key = _generate_key_pair()
         with LDAPWrapper(self.config) as conn:
             conn.create_public_key(user_name, key_name, public_key)
@@ -126,7 +132,7 @@ class LDAPWrapper(object):
 
     def find_user(self, name):
         dn = 'uid=%s,%s' % (name, self.config['ldap_subtree'])
-        return self.find_object(dn, '(objectClass=inetOrgPerson)')
+        return self.find_object(dn, '(objectclass=inetOrgPerson)')
 
     def user_exists(self, name):
         return self.find_user(name) != None
@@ -135,16 +141,15 @@ class LDAPWrapper(object):
         dn = 'cn=%s,uid=%s,%s' % (key_name,
                                    user_name,
                                    self.config['ldap_subtree'])
-        return self.find_object(dn, '(objectClass=pinetPublicKey)')
+        return self.find_object(dn, '(objectclass=pinetPublicKey)')
 
     def delete_public_keys(self, user_name):
         dn = 'uid=%s,%s' % (user_name, self.config['ldap_subtree'])
-        key_objects = self.find_objects(dn, '(objectClass=pinetPublicKey)')
-        for key_object in key_objects:
-            key_name = key_object[1]['cn'][0]
-            self.delete_public_key(user_name, key_name)
-
-
+        key_objects = self.find_objects(dn, '(objectclass=pinetPublicKey)')
+        if key_objects != None:
+            for key_object in key_objects:
+                key_name = key_object[1]['cn'][0]
+                self.delete_public_key(user_name, key_name)
 
     def public_key_exists(self, user_name, key_name):
         return self.find_public_key(user_name, key_name) != None
@@ -179,7 +184,7 @@ class LDAPWrapper(object):
                                     " already exists for user " +
                                     user_name)
         attr = [
-            ('objectClass', ['pinetPublicKey']),
+            ('objectclass', ['pinetPublicKey']),
             ('cn', key_name),
             ('sshPublicKey', public_key),
         ]
@@ -197,6 +202,7 @@ class LDAPWrapper(object):
             return None
         if not res:
             return None
+        print res
         return res[0][1] # return attribute list
 
     def get_user_keys(self, name):

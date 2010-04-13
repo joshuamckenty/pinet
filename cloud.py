@@ -26,8 +26,9 @@ class CloudController(object):
     def __str__(self):
         return 'CloudController'
 
-    def add_keypair(self, request_id, **kwargs):
-        logging.debug(kwargs)
+    def create_key_pair(self, request_id, **kwargs):
+        logging.getLogger().debug(kwargs)
+        private_key = users.UserManager().create_key_pair()
         return {'None': None}
 
     def get_console_output(self, request_id, **kwargs):
