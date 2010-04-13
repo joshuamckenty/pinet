@@ -1,5 +1,4 @@
 import os
-import system
 import contrib
 import anyjson
 
@@ -10,7 +9,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('datastore_path', '/root/pinet/keeper',
                     'where keys are stored on disk')
 
-class keeper(Object):
+class keeper(object):
     def __init__(self, prefix="pinet-"):
         self.prefix = prefix
         self._path = FLAGS.datastore_path

@@ -78,7 +78,15 @@ class CloudController(object):
         return defer.succeed({'result': 'ok'})
 
     def describe_instances(self, request_id, **kwargs):
-        return defer.succeed(self.instances)
+        return defer.succeed(self.format_instances())
+
+    def format_instances(self, instance_list = []):
+        instances = []
+        for node in self.instances.values():
+            for instance in node.values():
+                instances.append(instance)
+        instance_response = {'reservationSet' : instances}
+        return instance_response
 
     def run_instances(self, request_id, **kwargs):
         # TODO(termie): API layer
@@ -136,7 +144,11 @@ class CloudController(object):
         """ accepts status reports from the queue and consolidates them """
         logging.debug("Updating state for %s" % (topic))
         # TODO(termie): do something smart here to aggregate this data
-        setattr(self, topic, value)
+        # TODO(jmc): This is fugly
+        if "node" == topic:
+            getattr(self, topic)[value.keys()[0]] = value.values()[0]
+        else:
+            setattr(self, topic, value)
         return defer.succeed(True)
 
 

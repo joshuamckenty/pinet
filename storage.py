@@ -3,13 +3,12 @@ Pinet Storage manages creating, attaching, detaching, and destroying persistent 
 Currently uses iSCSI.
 """
 
-import os
 import logging
 import subprocess
-from subprocess import Popen, PIPE
 import random
 from utils import runthis
 import calllib
+import datastore
 
 import contrib
 import flags
@@ -22,9 +21,9 @@ flags.DEFINE_string('aoe_eth_dev', 'br0', 'Which device to export the volumes on
 class BlockStore(object):
     """ The BlockStore is in charge of iSCSI volumes and exports."""
 
-    def __init__(self, options):
+    def __init__(self, FLAGS):
         """ Connect to queues and listen for requests for actions. """
-        pass
+        self.FLAGS = FLAGS
 
     def create_volume(self, size):
         volume = Volume(size = size)
@@ -36,8 +35,10 @@ class BlockStore(object):
         return Volume(volume_id = volume_id).delete()
 
     def attach_volume(self, volume_id, instance_id, mountpoint):
+        volume = Volume(volume_id)
         runthis("Attached Volume: %s", "sudo virsh attach-disk %s /dev/etherd/%s %s"
                 % (instance_id, self.convert_volume_to_aoe(volume_id), mountpoint.split("/")[-1]))
+        volume.save()
 
     def detach_volume(self, volume_id):
         mountpoint = "/dev/sdf"
@@ -65,7 +66,7 @@ class BlockStore(object):
         return "['%s']" % ("', '".join(self.loop_volumes()))
 
     def loop_volumes(self):
-        for pv in Popen(["sudo", "lvs", "--noheadings"], stdout=PIPE).communicate()[0].split("\n"):
+        for pv in subprocess.Popen(["sudo", "lvs", "--noheadings"], stdout=subprocess.PIPE).communicate()[0].split("\n"):
             if len(pv.split(" ")) > 1:
                 yield pv.split(" ")[2]
 
@@ -85,10 +86,15 @@ class Volume(object):
     
     def __init__(self, volume_id = None, size = None):
         self.volume_id = None
+        self.state = 'unknown'
         if volume_id:
             self.volume_id = volume_id
         if size:
             self.setup(size)
+
+    def save(self):
+        keeper = datastore.keeper(prefix="storage")
+        keeper['volume_id'] = {'state' : self.state}
 
     def get_status(self):
         return "attached"
@@ -115,7 +121,7 @@ class Volume(object):
         print "VGCreate returned: %s" % (subprocess.call(["sudo", "vgcreate", FLAGS.volume_group, FLAGS.storage_dev]))
 
     def _get_aoe_numbers(self):
-        aoes = Popen(["sudo", "ls",  "-al", "/dev/etherd/"], stdout=PIPE).communicate()[0]
+        aoes = subprocess.Popen(["sudo", "ls",  "-al", "/dev/etherd/"], stdout=subprocess.PIPE).communicate()[0]
         print aoes
         # print "Aoes are %s " % (",".join(aoes))
         for aoe in aoes.strip().split("\n"):
@@ -135,7 +141,7 @@ class Volume(object):
         subprocess.call(["sudo", "lvcreate", '-L', size, '-n', lvname, FLAGS.volume_group])
 
     def _get_next_aoe_number(self):
-        aoes = Popen(["sudo", "ls",  "-1", "/dev/etherd/"], stdout=PIPE).communicate()[0]
+        aoes = subprocess.Popen(["sudo", "ls",  "-1", "/dev/etherd/"], stdout=subprocess.PIPE).communicate()[0]
         last_aoe = aoes.strip().split("\n")[-1]
         print "Last aoe is: '%s'" % (last_aoe)
         return last_aoe
