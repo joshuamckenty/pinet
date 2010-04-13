@@ -17,18 +17,14 @@ import uuid
 _log = logging.getLogger()
 
 
-import subprocess
-import shlex
+from M2Crypto import RSA, BIO
 
-def _generate_key_pair():
-    args = shlex.split('ssh-keygen -y -f')
-    args.append(path)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE)
-    stdout = p.communicate()[0]
-    if p.returncode != 0:
-        raise Exception("Error handling would be nice, eh?")
-    return stdout.strip()
 
+def _generate_key_pair(bits=1024):
+    key = RSA.gen_key(bits, 65537)
+    bio = BIO.MemoryBuffer()
+    key.save_pub_key_bio(bio)
+    return (key.as_pem(cipher=None), bio.read())
 
 class LdapUserException(Exception):
     def __init__(self, message):
@@ -42,6 +38,7 @@ class UserManager:
         self.config = {
             'password': 'changeme',
             'user_dn': 'cn=Manager,dc=example,dc=com',
+            'user_unit': 'Users',
             'ldap_subtree': 'ou=Users,dc=example,dc=com',
             'ldap_url': 'ldap://localhost',
         }
@@ -85,11 +82,10 @@ class UserManager:
         with LDAPWrapper(self.config) as conn:
             conn.delete_user(name)
 
-    def create_key_pair(self, name):
+    def create_key_pair(self, user_name, key_name):
         private_key, public_key = _generate_key_pair()
         with LDAPWrapper(self.config) as conn:
-            conn.create_public_key(name, public_key)
-
+            conn.create_public_key(user_name, key_name, public_key)
         return private_key
 
 class LDAPWrapper(object):
@@ -112,26 +108,52 @@ class LDAPWrapper(object):
             self.conn = ldap.initialize(self.config['ldap_url'])
         self.conn.simple_bind_s(self.config['user_dn'], self.config['password'])
 
-    def find_object(self, name):
+    def find_object(self, dn, filter = None):
+        objects = self.find_objects(dn, filter)
+        if objects == None:
+            return None
+        return objects[0][1] # return attribute list
+    
+    def find_objects(self, dn, filter = None):
         try:
-            dn = 'uid=%s,%s' % (name, self.config['ldap_subtree'])
-            res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE)
+            res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, filter)
         except Exception:
             return None
-        return res[0][1]  # return attribute list
+        return res
 
-    def object_exists(self, name):
-        return self.find_object(name) != None
+    def find_user(self, name):
+        dn = 'uid=%s,%s' % (name, self.config['ldap_subtree'])
+        return self.find_object(dn, '(objectClass=inetOrgPerson)')
+
+    def user_exists(self, name):
+        return self.find_user(name) != None
+        
+    def find_public_key(self, user_name, key_name):
+        dn = 'cn=%s,uid=%s,%s' % (key_name,
+                                   user_name,
+                                   self.config['ldap_subtree'])
+        return self.find_object(dn, '(objectClass=pinetPublicKey)')
+
+    def delete_public_keys(self, user_name):
+        dn = 'uid=%s,%s' % (user_name, self.config['ldap_subtree'])
+        key_objects = self.find_objects(dn, '(objectClass=pinetPublicKey)')
+        for key_object in key_objects:
+            key_name = key_object[1]['cn'][0]
+            self.delete_public_key(user_name, key_name)
+
+
+
+    def public_key_exists(self, user_name, key_name):
+        return self.find_public_key(user_name, key_name) != None
         
     def create_user(self, name, access_key, secret_key):
-        if self.object_exists(name, self.config['user_unit']):
+        if self.user_exists(name):
             raise LdapUserException("LDAP user " + name + " already exists")
         attr = [
             ('objectclass', ['person',
-                             'organizationalperson',
-                             'inetorgperson',
-                             'pinetkeys',
-                             'ldappublickey']),
+                             'organizationalPerson',
+                             'inetOrgPerson',
+                             'pinetKeys']),
             ('ou', self.config['user_unit']),
             ('uid', name),
             ('sn', name),
@@ -142,22 +164,30 @@ class LDAPWrapper(object):
         self.conn.add_s('uid=%s,%s' % (name, self.config['ldap_subtree']),
                         attr)
 
-    def create_public_key(self, name, public_key):
-        if self.object_exists(name, self.config['key_unit']):
-            raise LdapUserException("LDAP public key " + name + " already exists")
+    def create_public_key(self, user_name, key_name, public_key):
+        """create's a public key in the directory underneath the user"""
+        # TODO(vish): possibly refactor this to store keys in their own ou
+        #   and put dn reference in the user object
+        if not self.user_exists(user_name):
+            raise LdapUserException("User" + user_name + " doesn't exist")
+        if self.public_key_exists(user_name, key_name):
+            raise LdapUserException("Public Key " +
+                                    key_name +
+                                    " already exists for user " +
+                                    user_name)
         attr = [
-            ('objectclass', ['ldappublickey']),
-            ('ou', self.config['key_unit']),
-            ('uid', name),
+            ('objectClass', ['pinetPublicKey']),
+            ('cn', key_name),
+            ('sshPublicKey', public_key),
         ]
-        self.conn.add_s('uid=%s,ou=%s%s' % (name,
-                                            self.config['key_unit'],
-                                            self.config['ldap_subtree']),
-                                            attr)
+        self.conn.add_s('cn=%s,uid=%s,%s' % (key_name,
+                                             user_name,
+                                             self.config['ldap_subtree']),
+                                             attr)
     
     def find_user_by_access_key(self, access):
         try:
-            dn = 'ou=%s%s' % (self.config['user_unit'], self.config['ldap_subtree'])
+            dn = self.config['ldap_subtree']
             query = '(' + 'accessKey' + '=' + access + ')'
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query)
         except Exception:
@@ -167,24 +197,31 @@ class LDAPWrapper(object):
         return res[0][1] # return attribute list
 
     def get_user_keys(self, name):
-        if not self.object_exists(name, self.config['user_unit']):
-            raise LdapUserException("LDAP user " + name + " doesn't exist")
+        if not self.user_exists(name):
+            raise LdapUserException("User " + name + " doesn't exist")
 
-        attr = self.find_object(name, self.config['user_unit'])
-        print attr
+        attr = self.find_user(name)
         return (attr['accessKey'][0],
-                        attr['secretKey'][0])
+                attr['secretKey'][0])
 
-    def delete_public_key(self, name):
-        pass
+    def delete_public_key(self, user_name, key_name):
+        if not self.public_key_exists(user_name, key_name):
+            raise LdapUserException("Public Key " +
+                                    key_name +
+                                    " doesn't exist for user " +
+                                    user_name)
+        self.conn.delete_s('cn=%s,uid=%s,%s' % (key_name, user_name,
+                                          self.config['ldap_subtree']))
+        
 
     def delete_user(self, name):
-        if not self.object_exists(name):
+        if not self.user_exists(name):
             raise LdapUserException("User " +
                                     name +
                                     " doesn't exist")
+        self.delete_public_keys(name)
         self.conn.delete_s('uid=%s,%s' % (name,
-                                               self.config['ldap_subtree']))
+                                          self.config['ldap_subtree']))
 
 def usage():
     print 'usage: %s -c username (access_key) (secret_key) | -d username' % sys.argv[0]
@@ -203,14 +240,6 @@ if __name__ == "__main__":
     # 
     # 
     # sys.exit(0)
-    um = UserManager()
-    try:
-        um.create('jesse')
-    except Exception:
-        um.delete('jesse')
-    print um.keys('jesse')
-    um.delete('jesse')
-    sys.exit(0)
 
     logging.basicConfig(level=logging.DEBUG,
     filename=os.path.join(settings.LOG_PATH, 'users.log'), filemode='a')
