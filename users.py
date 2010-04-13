@@ -16,6 +16,20 @@ import uuid
 
 _log = logging.getLogger()
 
+
+import subprocess
+import shlex
+
+def _generate_key_pair():
+    args = shlex.split('ssh-keygen -y -f')
+    args.append(path)
+    p = subprocess.Popen(args, stdout=subprocess.PIPE)
+    stdout = p.communicate()[0]
+    if p.returncode != 0:
+        raise Exception("Error handling would be nice, eh?")
+    return stdout.strip()
+
+
 class LdapUserException(Exception):
     def __init__(self, message):
         self.message = message
@@ -27,11 +41,9 @@ class UserManager:
     def __init__(self, config={}):
         self.config = {
             'password': 'changeme',
-            'user': 'admin',
-            'ldap_suffix': ',dc=example,dc=com',
+            'user_dn': 'cn=Manager,dc=example,dc=com',
+            'ldap_subtree': 'ou=Users,dc=example,dc=com',
             'ldap_url': 'ldap://localhost',
-            'access_field': 'st',
-            'secret_field': 'street',
         }
         self.config.update(config)
         if self.config.has_key('use_fake') and self.config['use_fake']:
@@ -44,7 +56,7 @@ class UserManager:
             user = conn.get_user_from_access(access_key)
         
         if user:
-            secret_key = user[self.config['secret_field']][0]
+            secret_key = user['secretKey'][0]
             expected_signature = signer.Signer(secret_key).generate(params, verb, server_string, path)
             if signature == expected_signature:
                 return user
@@ -58,7 +70,10 @@ class UserManager:
     def get_secret_from_access(self, access_key):
         """ retreive the secret key for a given access key """
         with LDAPWrapper(self.config) as conn:
-            return conn.get_secret_from_access(access_key)
+            user = conn.get_user_from_access(access_key)
+            if user:
+                return user['secretKey'][0]
+            return False
 
     def create(self, name, access=None, secret=None):
         if access == None: access = str(uuid.uuid4())
@@ -69,7 +84,14 @@ class UserManager:
     def delete(self, name):
         with LDAPWrapper(self.config) as conn:
             conn.delete_user(name)
-        
+
+    def create_key_pair(self, name):
+        private_key, public_key = _generate_key_pair()
+        with LDAPWrapper(self.config) as conn:
+            conn.create_public_key(name, public_key)
+
+        return private_key
+
 class LDAPWrapper(object):
     def __init__(self, config):
         self.config = config
@@ -88,40 +110,55 @@ class LDAPWrapper(object):
         else:
             assert(ldap.__name__ != 'fakeldap')
             self.conn = ldap.initialize(self.config['ldap_url'])
-        dn = "cn=%s%s" % (self.config['user'], self.config['ldap_suffix'])
-        self.conn.simple_bind_s(dn, self.config['password'])
+        self.conn.simple_bind_s(self.config['user_dn'], self.config['password'])
 
-    def find_user_by_name(self, name):
+    def find_object(self, name):
         try:
-            dn = 'uid=%s,ou=Users%s' % (name, self.config['ldap_suffix'])
+            dn = 'uid=%s,%s' % (name, self.config['ldap_subtree'])
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE)
         except Exception:
             return None
         return res[0][1]  # return attribute list
 
-    def user_exists(self, name):
-        return self.find_user_by_name(name) != None
+    def object_exists(self, name):
+        return self.find_object(name) != None
         
     def create_user(self, name, access_key, secret_key):
-        if self.user_exists(name):
+        if self.object_exists(name, self.config['user_unit']):
             raise LdapUserException("LDAP user " + name + " already exists")
-        # sn is also required for organizationalPerson
         attr = [
-            ('objectclass', ['person', 'organizationalperson', 'inetorgperson']),
-            ('ou', 'Users'),
+            ('objectclass', ['person',
+                             'organizationalperson',
+                             'inetorgperson',
+                             'pinetkeys',
+                             'ldappublickey']),
+            ('ou', self.config['user_unit']),
             ('uid', name),
             ('sn', name),
             ('cn', name),
-            # HACK: using existing fields so we don't have to create a schema
-            (self.config['secret_field'], secret_key),
-            (self.config['access_field'], access_key),
+            ('secretKey', secret_key),
+            ('accessKey', access_key),
         ]
-        self.conn.add_s('uid=%s,ou=Users%s' % (name, self.config['ldap_suffix']), attr)
+        self.conn.add_s('uid=%s,%s' % (name, self.config['ldap_subtree']),
+                        attr)
 
+    def create_public_key(self, name, public_key):
+        if self.object_exists(name, self.config['key_unit']):
+            raise LdapUserException("LDAP public key " + name + " already exists")
+        attr = [
+            ('objectclass', ['ldappublickey']),
+            ('ou', self.config['key_unit']),
+            ('uid', name),
+        ]
+        self.conn.add_s('uid=%s,ou=%s%s' % (name,
+                                            self.config['key_unit'],
+                                            self.config['ldap_subtree']),
+                                            attr)
+    
     def find_user_by_access_key(self, access):
         try:
-            dn = 'ou=Users%s' % self.config['ldap_suffix']
-            query = '(' + self.config['access_field'] + '=' + access + ')'
+            dn = 'ou=%s%s' % (self.config['user_unit'], self.config['ldap_subtree'])
+            query = '(' + 'accessKey' + '=' + access + ')'
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query)
         except Exception:
             return None
@@ -130,17 +167,24 @@ class LDAPWrapper(object):
         return res[0][1] # return attribute list
 
     def get_user_keys(self, name):
-        if not self.user_exists(name):
+        if not self.object_exists(name, self.config['user_unit']):
             raise LdapUserException("LDAP user " + name + " doesn't exist")
 
-        attr = self.find_user_by_name(name)
-        return (attr[self.config['access_field']][0],
-                        attr[self.config['secret_field']][0])
+        attr = self.find_object(name, self.config['user_unit'])
+        print attr
+        return (attr['accessKey'][0],
+                        attr['secretKey'][0])
+
+    def delete_public_key(self, name):
+        pass
 
     def delete_user(self, name):
-        if not self.user_exists(name):
-            raise LdapUserException("LDAP user " + name + " doesn't exist")
-        self.conn.delete_s('cn=%s%s' % (name, self.config['ldap_suffix']))
+        if not self.object_exists(name):
+            raise LdapUserException("User " +
+                                    name +
+                                    " doesn't exist")
+        self.conn.delete_s('uid=%s,%s' % (name,
+                                               self.config['ldap_subtree']))
 
 def usage():
     print 'usage: %s -c username (access_key) (secret_key) | -d username' % sys.argv[0]
@@ -159,7 +203,15 @@ if __name__ == "__main__":
     # 
     # 
     # sys.exit(0)
-    
+    um = UserManager()
+    try:
+        um.create('jesse')
+    except Exception:
+        um.delete('jesse')
+    print um.keys('jesse')
+    um.delete('jesse')
+    sys.exit(0)
+
     logging.basicConfig(level=logging.DEBUG,
     filename=os.path.join(settings.LOG_PATH, 'users.log'), filemode='a')
     manager = UserManager()
