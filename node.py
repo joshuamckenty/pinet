@@ -121,7 +121,7 @@ class Node(object):
                             }
                         }
                     })
-        instances = {"reservationSet" : instances}
+        instances = {"node-foo" : instances}
         calllib.cast("cloud",  
                             {"method": "update_state",
                              "args" : {"topic": "instances",
