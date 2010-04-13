@@ -22,30 +22,30 @@ class FakeLDAP(object):
 
     def search_s(self, dn, scope, query=None, fields=None):
         logging.debug("searching for %s" % dn)
-        try:
-            filtered = {}
-            for cn, attrs in _objects.iteritems():
-                if cn[-len(dn):] == dn:
-                    filtered[cn] = attrs
-            print query
-            if query:
-                k,v = query[1:-1].split('=')
-                objects = {}
-                for cn, attrs in filtered.iteritems():
-                    if v in attrs[k] or v == attrs[k]:
-                        objects[cn] = attrs
-            if objects == {}:
-                raise NO_SUCH_OBJECT()
-            print objects.items()
-            return objects.items()
-        except Exception:
+        filtered = {}
+        for cn, attrs in _objects.iteritems():
+            if cn[-len(dn):] == dn:
+                filtered[cn] = attrs
+        if query:
+            k,v = query[1:-1].split('=')
+            objects = {}
+            for cn, attrs in filtered.iteritems():
+                if attrs.has_key(k) and (v in attrs[k] or
+                    v == attrs[k]):
+                    objects[cn] = attrs
+        print 'objects', objects
+        if objects == {}:
             raise NO_SUCH_OBJECT()
+        return objects.items()
     
     def add_s(self, cn, attr):
         logging.debug("adding %s" % cn)
         stored = {}
         for k, v in attr:
-            stored[k] = [v]
+            if type(v) is list:
+                stored[k] = v
+            else:
+                stored[k] = [v]
         _objects[cn] = stored
 
     def delete_s(self, cn):

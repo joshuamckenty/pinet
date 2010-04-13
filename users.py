@@ -85,17 +85,39 @@ class UserManager:
         with LDAPWrapper(self.config) as conn:
             conn.delete_user(name)
 
-    def create_key_pair(self, access_key, key_name):
+    def get_user_name_from_access(self, access_key):
         with LDAPWrapper(self.config) as conn:
             user = conn.find_user_by_access_key(access_key)
-        
         if user == None:
             return None
-        user_name = user['uid'][0]
+        return user['uid'][0]
+
+    def create_key_pair_from_access(self, access_key, key_name): 
+        user_name = self.get_user_name_from_access(access_key)
+        return self.create_key_pair(user_name, key_name)
+
+    def create_key_pair(self, user_name, key_name):
         private_key, public_key = _generate_key_pair()
         with LDAPWrapper(self.config) as conn:
             conn.create_public_key(user_name, key_name, public_key)
         return private_key
+
+    def get_public_key_from_access(self, access_key, key_name): 
+        user_name = self.get_user_name_from_access(access_key)
+        return self.get_public_key(user_name, key_name)
+
+    def get_public_key(self, user_name, key_name):
+        with LDAPWrapper(self.config) as conn:
+            return conn.get_public_key(user_name, key_name)
+    
+    def delete_key_pair_from_access(self, access_key, key_name): 
+        user_name = self.get_user_name_from_access(access_key)
+        self.delete_key_pair(user_name, key_name)
+
+    def delete_key_pair(self, user_name, key_name):
+        print user_name, key_name
+        with LDAPWrapper(self.config) as conn:
+            conn.delete_public_key(user_name, key_name)
 
 class LDAPWrapper(object):
     def __init__(self, config):
@@ -177,7 +199,7 @@ class LDAPWrapper(object):
         # TODO(vish): possibly refactor this to store keys in their own ou
         #   and put dn reference in the user object
         if not self.user_exists(user_name):
-            raise LdapUserException("User" + user_name + " doesn't exist")
+            raise LdapUserException("User " + user_name + " doesn't exist")
         if self.public_key_exists(user_name, key_name):
             raise LdapUserException("Public Key " +
                                     key_name +
@@ -194,16 +216,28 @@ class LDAPWrapper(object):
                                              attr)
     
     def find_user_by_access_key(self, access):
+        print "finding user by access"
         try:
             dn = self.config['ldap_subtree']
             query = '(' + 'accessKey' + '=' + access + ')'
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query)
-        except Exception:
+        except Exception, ex:
+            raise ex
             return None
+        print "got result", res
         if not res:
             return None
-        print res
         return res[0][1] # return attribute list
+
+    def get_public_key(self, user_name, key_name):
+        if not self.public_key_exists(user_name, key_name):
+            raise LdapUserException("Public Key " +
+                                    key_name +
+                                    " doesn't exist for user " +
+                                    user_name)
+
+        attr = self.find_public_key(user_name, key_name)
+        return (attr['sshPublicKey'][0])
 
     def get_user_keys(self, name):
         if not self.user_exists(name):
