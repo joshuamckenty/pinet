@@ -10,7 +10,6 @@ import contrib
 from carrot import connection
 from carrot import messaging 
 import calllib
-import utils
 from tornado import ioloop
 
 CLOUD_TOPIC='cloud'
@@ -34,7 +33,7 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.DEBUG)
         
     cloud_controller = cloud.CloudController(options)
-    conn = utils.get_rabbit_conn()
+    conn = calllib.Connection.instance()
     consumer = calllib.AdapterConsumer(connection=conn, topic=CLOUD_TOPIC, proxy=cloud_controller)
     io_inst = ioloop.IOLoop.instance()
     injected = consumer.attachToTornado(io_inst)

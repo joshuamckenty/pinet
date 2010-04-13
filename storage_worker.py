@@ -8,7 +8,6 @@ import logging
 import calllib
 import node
 import storage
-import utils
 import settings
 
 from tornado import ioloop
@@ -35,7 +34,7 @@ if __name__ == '__main__':
     logging.getLogger('amqplib').setLevel(logging.WARN)
         
     bs = storage.BlockStore(options)
-    conn = utils.get_rabbit_conn()
+    conn = calllib.Connection.instance()
     consumer = calllib.AdapterConsumer(connection=conn, topic=NODE_TOPIC, proxy=bs)
     io_inst = ioloop.IOLoop.instance()
     scheduler = ioloop.PeriodicCallback(lambda: bs.report_state(), settings.STORAGE_INTERVAL , io_loop=io_inst)

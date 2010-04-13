@@ -13,7 +13,6 @@ import calllib
 import flags
 import node
 import server
-import utils
 
 
 FLAGS = flags.FLAGS
@@ -28,7 +27,7 @@ def main(argv):
     d = n.adopt_instances()
     d.addCallback(lambda x: logging.info('Adopted %d instances', x))
 
-    conn = utils.get_rabbit_conn()
+    conn = calllib.Connection.instance()
     consumer = calllib.AdapterConsumer(
             connection=conn, topic=FLAGS.node_topic, proxy=n)
 

@@ -8,7 +8,6 @@ import boto
 import boto.s3
 from twisted.internet import defer
 
-import settings
 import calllib
 import flags
 import users

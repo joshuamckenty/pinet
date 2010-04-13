@@ -202,6 +202,7 @@ class Node(object):
             shelf_id = aoe[1]
             blade_id = aoe[3]
             # mount it to a random mount point
+            # FIXME - tempfile?
             mountpoint = "%s/%s" % (settings.volume_mountpoint, volume_id)
             try:
                 os.mkdir(mountpoint) 
