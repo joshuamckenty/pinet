@@ -22,7 +22,7 @@ import exception
 import fakevirt
 import flags
 import partition2disk
-import settings
+import storage
 
 from utils import runthis
 
@@ -203,7 +203,7 @@ class Node(object):
             blade_id = aoe[3]
             # mount it to a random mount point
             # FIXME - tempfile?
-            mountpoint = "%s/%s" % (settings.volume_mountpoint, volume_id)
+            mountpoint = "%s/%s" % (FLAGS.volume_mountpoint, volume_id)
             try:
                 os.mkdir(mountpoint) 
             except:
