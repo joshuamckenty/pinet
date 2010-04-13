@@ -23,11 +23,12 @@ class UserTests(unittest.TestCase):
         #self.assertTrue(self.users.authenticate( **boto.generate_url ... ? ? ? ))
         raise NotImplementedError
 
-    def test_005_can_delete_user(self):
-        self.users.delete('test1')
-    
-    def test_006_can_download_credentials(self):
+    def test_005_can_download_credentials(self):
         raise NotImplementedError
+
+    def test_006_can_delete_user(self):
+        self.users.delete('test1')
+
 
         
 if __name__ == "__main__":
