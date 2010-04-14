@@ -15,6 +15,8 @@ import datastore
 import contrib
 import flags
 
+from tornado import ioloop
+from twisted.internet import defer
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('storage_dev', '/dev/sdb1', 'Physical device to use for volumes')
