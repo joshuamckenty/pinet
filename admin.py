@@ -21,22 +21,31 @@ class AdminController(object):
         return 'AdminController'
         
     def describe_user(self, request_id, **kwargs):
-        # TODO: This doesn't work
         username = kwargs['Name'][0]
-        user = self.users.get_user(username)
-        return {
-            'id': user.id,
-            'access': user.access,
-            'secret': user.secret
-        }
+
+        return self._get_dict(self.users.get_user(username))
 
     def register_user(self, request_id, **kwargs):
         username = kwargs['Name'][0]
-        return anyjson.serialize(self.user_manager.create_user(username))
+        self.users.create_user(username)
+
+        return self._get_dict(self.users.get_user(username))
         
     def deregister_user(self, request_id, **kwargs):
         username = kwargs['Name'][0]
-        return anyjson.serialize(self.user_manager.delete_user(username))
+        
+        self.users.delete_user(username)
+        
+        return {}
+
+    def _get_dict(self, user):
+        # TODO: Need to return code for credentials download
+        return {
+            'username': user.id,
+            'code': 'blank',
+            'accesskey': user.access,
+            'secretkey': user.secret
+        }
 
 
 

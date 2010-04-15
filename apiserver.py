@@ -13,7 +13,6 @@ import calllib
 import utils
 
 import cloud
-from cloud_worker import CLOUD_TOPIC
 from users import UserManager
 from apirequest import APIRequest
 
