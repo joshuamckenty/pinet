@@ -33,13 +33,11 @@ def _generate_key_pair(bits=1024):
     key.save_pub_key_bio(bio)
     return (key.as_pem(cipher=None), bio.read())
 
-class UserError(exception.Error):
-    def __init__(self, message, code='UserError.None'):
-        self.message = message
-        self.code = code
+class UserError(exception.ApiError):
+    pass
 
-    def __str__(self):
-        return self.message
+class InvalidKeyPair(exception.ApiError):
+    pass
 
 class User:
     def __init__(self, manager, ldap_user_object):
@@ -257,10 +255,10 @@ class LDAPWrapper(object):
         if not self.user_exists(uid):
             raise UserError("User " + uid + " doesn't exist")
         if self.key_pair_exists(uid, key_name):
-            raise UserError("The keypair '" +
+            raise InvalidKeyPair("The keypair '" +
                             key_name +
                             "' already exists.",
-                            "InvalidKeyPair.Duplicate")
+                            "Duplicate")
         attr = [
             ('objectclass', ['pinetKeyPair']),
             ('cn', key_name),
