@@ -130,7 +130,7 @@ class Volume(object):
             self.load(volume_id)
             if self.get_aoe_device() is None:
                 # Just make sure there's no data in keeper for dead volumes
-                KEEPER[self.volume_id] = None
+                del KEEPER[self.volume_id]
                 raise exception.Error(
                     'Volume does not exist or is not exported: %s' % volume_id)
         if size:
@@ -184,6 +184,7 @@ class Volume(object):
         except:
             pass
         self._delete_lv()
+        del KEEPER[self.volume_id]
         
     def get_aoe_device(self):
         for (path, aoe_device) in get_aoe_devices():
@@ -216,8 +217,8 @@ class Volume(object):
         runthis("Destroyed AOE export: %s", "sudo vblade-persist destroy %s %s" % (aoe[1], aoe[3]))
 
 class FakeVolume(Volume):
-    def delete(self):
-        pass
+    #def delete(self):
+    #    pass
         
     def _create_lv(self, size):
         pass

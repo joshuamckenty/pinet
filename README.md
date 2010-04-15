@@ -11,6 +11,7 @@ OpenLDAP: users, groups (maybe cut)
 Redis: data store
 Tornado: scalable non blocking web server for api requests
 Twisted: just for the twisted.internet.defer package
+M2Crypto: boto has a dependency on it, yup
 
 COMPONENTS
 ==========

@@ -6,7 +6,7 @@ import flags
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('datastore_path', '/Users/joshua/pinet/keeper',
+flags.DEFINE_string('datastore_path', './keeper',
                     'where keys are stored on disk')
 
 PREFIX = "stuff-"
@@ -14,12 +14,20 @@ PREFIX = "stuff-"
 class keeper(object):
     def __init__(self, prefix="pinet-"):
         #self.prefix = prefix
-        pass
+        try:
+            os.mkdir(FLAGS.datastore_path)
+        except:
+            pass
         
     def _slugify(self, key):
         return key
 
-    
+    def __delitem(self, item):
+        item = self._slugify(item)
+        path = "%s/%s%s" % (FLAGS.datastore_path, PREFIX, item)
+        if os.path.isfile(path):
+            os.remove(path)
+        return None
 
     def __getitem__(self, item):
         # TODO - Memoize this

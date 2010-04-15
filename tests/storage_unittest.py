@@ -19,10 +19,6 @@ import test
 
 FLAGS = flags.FLAGS
 
-class StorageSampleTestCase(test.BaseTestCase):
-    def test_nothing(self):
-        self.assertEqual([], [])
-        
 
 class StorageFakeTestCase(unittest.TestCase):
     def setUp(self):
