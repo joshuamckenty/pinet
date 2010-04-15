@@ -97,8 +97,8 @@ class APIRequestHandler(tornado.web.RequestHandler):
         # TODO(vish): do something more useful with unknown exceptions
         except Exception as ex:
             import traceback
-            tb = ''.join(traceback.format_exception(*sys.exc_info()))
-            self._error(type(ex).__name__, str(ex) + '\n' + tb)
+            self._error(type(ex).__name__, str(ex) + '\n')
+            raise
 
     def post(self, controller_name):
         self.execute(controller_name)
