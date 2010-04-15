@@ -109,7 +109,8 @@ def serve(name, main):
             detach_process=FLAGS.daemonize,
             working_directory=FLAGS.working_directory,
             pidfile=pidlockfile.TimeoutPIDLockFile(FLAGS.pidfile,
-                                                   acquire_timeout=1),
+                                                   acquire_timeout=1,
+                                                   threaded=False),
             stdin=stdin,
             stdout=stdout,
             stderr=stderr

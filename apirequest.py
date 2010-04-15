@@ -35,6 +35,8 @@ class APIRequest(object):
         return d
 
     def _render_response(self, response_data):
+        _log.debug('RESPONSE:\n%s\nEND RESPONSE----------------------' % response_data)
+        
         xml = minidom.Document()
     
         response_el = xml.createElement(self.action + 'Response')

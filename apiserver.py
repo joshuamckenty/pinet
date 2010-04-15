@@ -14,7 +14,6 @@ import utils
 import exception
 
 import cloud
-from cloud_worker import CLOUD_TOPIC
 from users import UserManager
 from apirequest import APIRequest
 
