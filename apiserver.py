@@ -75,10 +75,10 @@ class APIRequestHandler(tornado.web.RequestHandler):
         # Add user object to args
         args['user'] = user
 
-        _log.info('action: %s' % action)
+        _log.debug('action: %s' % action)
 
         for key, value in args.items():
-            _log.info('arg: %s\t\tval: %s' % (key, value))
+            _log.debug('arg: %s\t\tval: %s' % (key, value))
 
         request = APIRequest(controller, action)
         d = request.send(**args)
