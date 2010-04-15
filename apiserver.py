@@ -11,6 +11,7 @@ import contrib # adds contrib to the path
 import call
 import calllib
 import utils
+import exception
 
 import cloud
 from users import UserManager
@@ -60,7 +61,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             raise tornado.web.HTTPError(400)
 
         # Authenticate the request.
-        authenticated = self.application.user_manager.authenticate (
+        user = self.application.user_manager.authenticate (
             auth_params,
             signature,
             self.request.method,
@@ -68,9 +69,12 @@ class APIRequestHandler(tornado.web.RequestHandler):
             self.request.path
         )
         
-        if not authenticated:
+        if not user:
             raise tornado.web.HTTPError(403)
-            
+
+        # Add user object to args
+        args['user'] = user
+
         _log.info('action: %s' % action)
 
         for key, value in args.items():
@@ -79,10 +83,22 @@ class APIRequestHandler(tornado.web.RequestHandler):
         request = APIRequest(controller, action)
         d = request.send(**args)
         d.addCallback(lambda response: _log.debug(response) and response or response)
+        # d.addErrback(self.senderror)
 
         # TODO: Wrap response in AWS XML format  
         self.set_header('Content-Type', 'text/xml')
-        d.addCallback(self.write)
+        d.addCallbacks(self.write, self._error_callback)
+
+    def _error_callback(self, failure):
+        try:
+            failure.raiseException()
+        except exception.ApiError as ex:
+            self._error(type(ex).__name__ + "." + ex.code, ex.message)
+        # TODO(vish): do something more useful with unknown exceptions
+        except Exception as ex:
+            import traceback
+            tb = ''.join(traceback.format_exception(*sys.exc_info()))
+            self._error(type(ex).__name__, str(ex) + '\n' + tb)
 
     def post(self, controller_name):
         self.execute(controller_name)
@@ -90,7 +106,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
     def _error(self, code, message):
         self._status_code = 400
         self.set_header('Content-Type', 'text/xml')
-        self.write('<?xml version="1.0"?>')
+        self.write('<?xml version="1.0"?>\n')
         self.write('<Response><Errors><Error><Code>%s</Code><Message>%s</Message></Error></Errors><RequestID>?</RequestID></Response>' % (code, message))
 
 class APIServerApplication(tornado.web.Application):

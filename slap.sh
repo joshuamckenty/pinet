@@ -49,7 +49,17 @@ attributetype (
 attributetype (
     pinetAttrs:2
 	NAME 'secretKey'
-	DESC 'Key for accessing data'
+	DESC ''
+	EQUALITY caseIgnoreMatch
+	SUBSTR caseIgnoreSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+	SINGLE-VALUE
+    )
+
+attributetype (
+    pinetAttrs:3
+	NAME 'keyFingerprint'
+	DESC 'Fingerprint of private key'
 	EQUALITY caseIgnoreMatch
 	SUBSTR caseIgnoreSubstringsMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
@@ -58,7 +68,7 @@ attributetype (
 
 objectClass (
     pinetOCs:1
-    NAME 'pinetKeys'
+    NAME 'pinetUser'
     DESC 'access and secret keys'
     AUXILIARY
     MUST ( uid )
@@ -67,12 +77,11 @@ objectClass (
 
 objectClass (
     pinetOCs:2
-    NAME 'pinetPublicKey'
-    DESC 'Public Key for User'
+    NAME 'pinetKeyPair'
+    DESC 'Key pair for User'
     SUP top
     STRUCTURAL
-    MUST ( cn )
-    MAY ( sshPublicKey )
+    MUST ( cn $ sshPublicKey $ keyFingerprint )
     )
 PINET_SCHEMA_EOF
 

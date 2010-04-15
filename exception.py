@@ -4,6 +4,11 @@ import logging
 class Error(Exception):
     pass
 
+class ApiError(Error): 
+    def __init__(self, message, code='Unknown'):
+        self.message = message
+        self.code = code
+
 def wrap_exception(f):
     def _wrap(*args, **kw):
         try:
