@@ -19,19 +19,24 @@ import test
 
 FLAGS = flags.FLAGS
 
+class StorageSampleTestCase(test.BaseTestCase):
+    def test_nothing(self):
+        self.assertEqual([], [])
+        
 
-class StorageFakeTestCase(test.BaseTestCase):
+class StorageFakeTestCase(unittest.TestCase):
     def setUp(self):
         super(StorageFakeTestCase, self).setUp()
         FLAGS.fake_libvirt = True
         FLAGS.fake_storage = True
+        FLAGS.fake_rabbit = True
         self.mynode = node.Node()
         self.mystorage = storage.FakeBlockStore()
         logging.getLogger().setLevel(logging.DEBUG)
         # Create one volume and one node to test with
         self.instance_id = "storage-test"
         vol_size = "500"
-        self.test_volume = yield self.mystorage.create_volume(vol_size)
+        self.test_volume = self.mystorage.create_volume(vol_size)
         rv = self.mynode.run_instance(self.instance_id)
     
     def test_run_create_volume(self):

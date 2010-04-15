@@ -102,10 +102,10 @@ class FakeBlockStore(BlockStore):
         
     def delete_volume(self, volume_id):
         rv = super(FakeBlockStore, self).delete_volume(volume_id)
-        self.volumes.remove(volume.volume_id)
+        self.volumes.remove(volume_id)
         return rv
                 
-    def loop_volumes():
+    def loop_volumes(self):
         return self.volumes
         
     def _init_volume_group(self):
@@ -124,16 +124,15 @@ class Volume(object):
         self.status = 'unknown'
         self.mountpoint = None
         self.instance_id = None
+        self.aoe_device = None
         self.size = 0
         if volume_id:
-            self.volume_id = volume_id
+            self.load(volume_id)
             if self.get_aoe_device() is None:
                 # Just make sure there's no data in keeper for dead volumes
-                del KEEPER[self.volume_id]
+                KEEPER[self.volume_id] = None
                 raise exception.Error(
                     'Volume does not exist or is not exported: %s' % volume_id)
-            else:
-                self.load()
         if size:
             if self.volume_id:
                 raise exception.Error(
@@ -159,19 +158,23 @@ class Volume(object):
                                   'instance_id' : self.instance_id,
                                   'aoe_device' : self.aoe_device}
 
-    def load(self):
-        state = KEEPER[self.volume_id]
-        self.status = state['status']
-        self.size = state['size']
-        self.mountpoint = state['mountpoint']
-        self.instance_id = state['instance_id']
-        self.aoe_device = state['aoe_device']
+    def load(self, volume_id):
+        state = KEEPER[volume_id]
+        if state:
+            self.status = state['status']
+            self.size = state['size']
+            self.mountpoint = state['mountpoint']
+            self.instance_id = state['instance_id']
+            self.aoe_device = state['aoe_device']
+            self.volume_id = volume_id
 
     def get_status(self):
         # TODO: Introspect the etherd data for status re: attached
+        self.load(self.volume_id)
         return self.status
 
     def get_size(self):
+        self.load(self.volume_id)
         return self.size
 
     def delete(self):
@@ -194,6 +197,7 @@ class Volume(object):
         self._create_lv(size)
         self._setup_export()
         self.status = "available"
+        self.save()
 
     def _create_lv(self, size):
         runthis("Creating LV: %s", "sudo lvcreate -L %s -n %s %s" % (size, self.volume_id, FLAGS.volume_group))
