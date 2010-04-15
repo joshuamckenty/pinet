@@ -43,32 +43,43 @@ class Connection(connection.BrokerConnection):
         return cls._instance
 
 
+class StoppableHandler(object):
+    def __init__(self, fd, io_inst):
+        self.fd = fd
+        self.io_inst = io_inst
+
+    def stop(self):
+        self.io_inst.remove_handler(self.fd)
+
+
 class Consumer(messaging.Consumer):
     # TODO(termie): it would be nice to give these some way of automatically
     #               cleaning up after themselves
     def attach_to_tornado(self, io_inst=None):
         if io_inst is None:
             io_inst = ioloop.IOLoop.instance()
-        injected = ioloop.PeriodicCallback(
-            lambda: self.fetch(enable_callbacks=True), 0, io_loop=io_inst)
-        injected.start()
-        return injected
+
+        # fake rabbit doesn't use sockets, use the slow way for it
+        if FLAGS.fake_rabbit:
+            injected = ioloop.PeriodicCallback(
+                lambda: self.fetch(enable_callbacks=True), 0, io_loop=io_inst)
+            injected.start()
+            return injected
+        else:
+            sock = self.connection.connection.transport.sock
+            io_inst.add_handler(sock.fileno(),
+                                self._handle_tornado,
+                                io_inst.READ)
+            return StoppableHandler(sock.fileno(), io_inst)
 
     attachToTornado = attach_to_tornado
 
+    def _handle_tornado(self, fd, events):
+        self.fetch(enable_callbacks=True)
+    
 
 class Publisher(messaging.Publisher):
-    # TODO(termie): it would be nice to give these some way of automatically
-    #               cleaning up after themselves
-    def attach_to_tornado(self, io_inst=None):
-        if io_inst is None:
-            io_inst = ioloop.IOLoop.instance()
-        injected = ioloop.PeriodicCallback(
-            lambda: self.fetch(enable_callbacks=True), 0, io_loop=io_inst)
-        injected.start()
-        return injected
-
-    attachToTornado = attach_to_tornado
+    pass
 
 
 class TopicConsumer(Consumer):

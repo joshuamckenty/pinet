@@ -2,8 +2,8 @@
 import unittest
 
 from tests.node_unittest import *
-# from tests.cloud_unittest import *
-# from tests.users_unittest import *
+from tests.cloud_unittest import *
+from tests.users_unittest import *
 from tests.storage_unittest import *
 
 if __name__ == '__main__':
