@@ -43,11 +43,7 @@ class APIRequest(object):
         request_id_el = xml.createElement('requestId')
         request_id_el.appendChild(xml.createTextNode(self.request_id))
         response_el.appendChild(request_id_el)
-    
-        _log.debug('RESPONSE DATA')
-        _log.debug(response_data)
-        _log.debug('END RESPONSE DATA')
-    
+        
         self._render_dict(xml, response_el, response_data)
     
         xml.appendChild(response_el)
