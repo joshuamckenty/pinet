@@ -47,8 +47,10 @@ class APIRequest(object):
         _log.debug('RESPONSE DATA')
         _log.debug(response_data)
         _log.debug('END RESPONSE DATA')
-    
-        self._render_dict(xml, response_el, response_data)
+        if(response_data == True):
+            self._render_dict(xml, response_el, {'return': 'true'})
+        else: 
+            self._render_dict(xml, response_el, response_data)
     
         xml.appendChild(response_el)
     

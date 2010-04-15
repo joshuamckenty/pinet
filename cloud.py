@@ -27,9 +27,18 @@ class CloudController(object):
         return 'CloudController'
 
     def create_key_pair(self, request_id, **kwargs):
-        logging.getLogger().debug(kwargs)
-        private_key = users.UserManager().create_key_pair()
-        return {'None': None}
+        key_name = kwargs['KeyName'][0]
+        user = users.UserManager().get_user('fake')
+        private_key, fingerprint = user.generate_key_pair(key_name)
+        return {'keyName': key_name,
+                'keyFingerprint': fingerprint,
+                'keyMaterial': private_key }
+
+    def delete_key_pair(self, request_id, **kwargs):
+        key_name = kwargs['KeyName'][0]
+        user = users.UserManager().get_user('fake')
+        user.delete_key_pair(key_name)
+        return True
 
     def get_console_output(self, request_id, **kwargs):
         # TODO(termie): move this InstanceId stuff into the api layer

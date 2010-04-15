@@ -61,7 +61,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             raise tornado.web.HTTPError(400)
 
         # Authenticate the request.
-        authenticated = self.application.user_manager.authenticate (
+        self.application.user = self.application.user_manager.authenticate (
             auth_params,
             signature,
             self.request.method,
@@ -69,7 +69,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             self.request.path
         )
         
-        if not authenticated:
+        if not self.application.user:
             raise tornado.web.HTTPError(403)
             
         _log.info('action: %s' % action)
