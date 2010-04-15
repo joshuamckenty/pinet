@@ -63,7 +63,12 @@ class PinetAdminClient(object):
     
     def get_user(self, username):
         # TODO: Cache for 2 minutes
-        return self.apiconn.get_object('DescribeUser', {'Name': username}, UserInfo)
+        user = self.apiconn.get_object('DescribeUser', {'Name': username}, UserInfo)
+
+        if user.username == None:
+            return None
+        else:
+            return user
 
     def has_user(self, username):
         return self.get_user(username) != None

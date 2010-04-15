@@ -39,13 +39,16 @@ class AdminController(object):
         return {}
 
     def _get_dict(self, user):
-        # TODO: Need to return code for credentials download
-        return {
-            'username': user.id,
-            'code': 'blank',
-            'accesskey': user.access,
-            'secretkey': user.secret
-        }
+        if user:
+            # TODO: Need to return code for credentials download
+            return {
+                'username': user.id,
+                'code': 'blank',
+                'accesskey': user.access,
+                'secretkey': user.secret
+            }
+        else:
+            return {}
 
 
 
