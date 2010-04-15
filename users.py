@@ -12,7 +12,7 @@ import os
 import sys
 import signer
 import uuid
-
+import exception
 import flags
 
 FLAGS = flags.FLAGS
@@ -28,14 +28,15 @@ flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users'
 from M2Crypto import RSA, BIO
 
 def _generate_key_pair(bits=1024):
-    key = RSA.gen_key(bits, 65537)
+    key = RSA.gen_key(bits, 65537, callback=lambda: None)
     bio = BIO.MemoryBuffer()
     key.save_pub_key_bio(bio)
     return (key.as_pem(cipher=None), bio.read())
 
-class LdapUserException(Exception):
-    def __init__(self, message):
+class UserError(exception.Error):
+    def __init__(self, message, code='UserError.None'):
         self.message = message
+        self.code = code
 
     def __str__(self):
         return self.message
@@ -233,7 +234,7 @@ class LDAPWrapper(object):
         
     def create_user(self, name, access_key, secret_key):
         if self.user_exists(name):
-            raise LdapUserException("LDAP user " + name + " already exists")
+            raise UserError("LDAP user " + name + " already exists")
         attr = [
             ('objectclass', ['person',
                              'organizationalPerson',
@@ -254,12 +255,12 @@ class LDAPWrapper(object):
         # TODO(vish): possibly refactor this to store keys in their own ou
         #   and put dn reference in the user object
         if not self.user_exists(uid):
-            raise LdapUserException("User " + uid + " doesn't exist")
+            raise UserError("User " + uid + " doesn't exist")
         if self.key_pair_exists(uid, key_name):
-            raise LdapUserException("Key Pair " +
-                                    key_name +
-                                    " already exists for user " +
-                                    uid)
+            raise UserError("The keypair '" +
+                            key_name +
+                            "' already exists.",
+                            "InvalidKeyPair.Duplicate")
         attr = [
             ('objectclass', ['pinetKeyPair']),
             ('cn', key_name),
@@ -278,7 +279,7 @@ class LDAPWrapper(object):
 
     def delete_key_pair(self, uid, key_name):
         if not self.key_pair_exists(uid, key_name):
-            raise LdapUserException("Key Pair " +
+            raise UserError("Key Pair " +
                                     key_name +
                                     " doesn't exist for user " +
                                     uid)
@@ -288,7 +289,7 @@ class LDAPWrapper(object):
 
     def delete_user(self, name):
         if not self.user_exists(name):
-            raise LdapUserException("User " +
+            raise UserError("User " +
                                     name +
                                     " doesn't exist")
         self.delete_key_pairs(name)

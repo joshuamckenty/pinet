@@ -28,15 +28,19 @@ class CloudController(object):
 
     def create_key_pair(self, request_id, **kwargs):
         key_name = kwargs['KeyName'][0]
-        user = users.UserManager().get_user('fake')
-        private_key, fingerprint = user.generate_key_pair(key_name)
-        return {'keyName': key_name,
-                'keyFingerprint': fingerprint,
-                'keyMaterial': private_key }
+        user = kwargs['user']
+        try:
+            private_key, fingerprint = user.generate_key_pair(key_name)
+            return {'keyName': key_name,
+                    'keyFingerprint': fingerprint,
+                    'keyMaterial': private_key }
+        except users.UserError, e:
+            raise
 
     def delete_key_pair(self, request_id, **kwargs):
         key_name = kwargs['KeyName'][0]
-        user = users.UserManager().get_user('fake')
+        user = kwargs['user']
+        # aws returns true even if the key doens't exist
         user.delete_key_pair(key_name)
         return True
 

@@ -18,6 +18,10 @@ flags.DEFINE_bool('daemonize', False, 'daemonize this process')
 
 # NOTE(termie): right now I am defaulting to using syslog when we daemonize
 #               it may be better to do something else -shrug-
+
+# (Devin) I think we should let each process have its own log file
+#         and put it in /var/logs/pinet/(appname).log
+#         This makes debugging much easier and cuts down on sys log clutter.
 flags.DEFINE_bool('use_syslog', True, 'output to syslog when daemonizing')
 flags.DEFINE_string('logfile', None, 'log file to output to')
 flags.DEFINE_string('pidfile', None, 'pid file to output to')
