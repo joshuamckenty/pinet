@@ -9,6 +9,7 @@ paths = [CONTRIB_PATH,
          os.path.join(CONTRIB_PATH, 'python-gflags'),
          os.path.join(CONTRIB_PATH, 'python-daemon'),
          os.path.join(CONTRIB_PATH, 'lockfile'),
+         os.path.join(CONTRIB_PATH, 'boto'),
          ]
 
 for p in paths:
