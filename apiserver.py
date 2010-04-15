@@ -94,6 +94,11 @@ class APIRequestHandler(tornado.web.RequestHandler):
             failure.raiseException()
         except exception.ApiError as ex:
             self._error(type(ex).__name__ + "." + ex.code, ex.message)
+        # TODO(vish): do something more useful with unknown exceptions
+        except Exception as ex:
+            import traceback
+            tb = ''.join(traceback.format_exception(*sys.exc_info()))
+            self._error(type(ex).__name__, str(ex) + '\n' + tb)
 
     def post(self, controller_name):
         self.execute(controller_name)
