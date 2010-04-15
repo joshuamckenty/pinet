@@ -314,7 +314,7 @@ class Instance(object):
         return os.path.join(self._s['basepath'], s)
 
     def imagepath(self, s=''):
-        return os.path.join(FLAGS.image_path, s)
+        return os.path.join(FLAGS.images_path, s)
 
     def is_pending(self):
         return self.state == Instance.NOSTATE

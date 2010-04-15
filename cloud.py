@@ -105,7 +105,7 @@ class CloudController(object):
     def format_instances(self, instance_list = []):
         instances = []
         for node in self.instances.values():
-            for instance in node.values():
+            for instance in node:
                 instances.append(instance)
         instance_response = {'reservationSet' : instances}
         return instance_response
@@ -124,8 +124,9 @@ class CloudController(object):
                                              "image_id" : image_id, 
                                              "instance_type": instance_type}}))
         d = defer.gatherResults(l)
+        logging.debug(d)
         return d
-
+    
     def terminate_instances(self, request_id, **kwargs):
         # TODO: Support multiple instances
         # TODO(termie): API layer

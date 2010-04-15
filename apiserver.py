@@ -27,7 +27,8 @@ class RootRequestHandler(tornado.web.RequestHandler):
 class APIRequestHandler(tornado.web.RequestHandler):
     def get(self, controller_name):
         self.execute(controller_name)
-
+    
+    @tornado.web.asynchronous
     def execute(self, controller_name):
         # Obtain the appropriate controller for this request.
         try:
@@ -86,8 +87,12 @@ class APIRequestHandler(tornado.web.RequestHandler):
         # d.addErrback(self.senderror)
 
         # TODO: Wrap response in AWS XML format  
+        d.addCallbacks(self._write_callback, self._error_callback)
+
+    def _write_callback(self, data): 
         self.set_header('Content-Type', 'text/xml')
-        d.addCallbacks(self.write, self._error_callback)
+        self.write(data)
+        self.finish()
 
     def _error_callback(self, failure):
         try:
@@ -96,8 +101,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             self._error(type(ex).__name__ + "." + ex.code, ex.message)
         # TODO(vish): do something more useful with unknown exceptions
         except Exception as ex:
-            import traceback
-            self._error(type(ex).__name__, str(ex) + '\n')
+            self._error(type(ex).__name__, str(ex))
             raise
 
     def post(self, controller_name):
@@ -108,6 +112,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
         self.set_header('Content-Type', 'text/xml')
         self.write('<?xml version="1.0"?>\n')
         self.write('<Response><Errors><Error><Code>%s</Code><Message>%s</Message></Error></Errors><RequestID>?</RequestID></Response>' % (code, message))
+        self.finish()
 
 class APIServerApplication(tornado.web.Application):
     def __init__(self, user_manager, controllers):
