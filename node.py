@@ -196,8 +196,10 @@ class Node(object):
         runthis("Doin an AoE stat, returns %s", "sudo aoe-stat")
     
     @exception.wrap_exception
-    def detach_volume(self, instance_id, volume_id):
+    def detach_volume(self, instance_id, mountpoint):
         """ detach a volume from an instance """
+        runthis("Detached Volume: %s", "sudo virsh detach-disk %s %s "
+                % (instance_id, mountpoint))
 
 
 class Instance(object):

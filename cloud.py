@@ -49,9 +49,6 @@ class CloudController(object):
     def describe_volumes(self, request_id, **kwargs):
         return defer.succeed(self.volumes)
 
-    def list_volumes(self, request_id, **kwargs):
-        return self.describe_volumes(request_id, kwargs)
-
     def create_volume(self, request_id, **kwargs):
         # TODO(termie): API layer
         size = kwargs['Size'][0]
@@ -73,15 +70,27 @@ class CloudController(object):
         mountpoint = kwargs['Device'][0]
         aoe_device = self._get_volume(volume_id)['aoe_device']
         # Needs to get right node controller for attaching to
+        # TODO: Maybe have another exchange that goes to everyone?
         calllib.cast('node', {"method": "attach_volume",
                                  "args" : {"aoe_device": aoe_device,
+                                           "instance_id" : instance_id,
+                                           "mountpoint" : mountpoint}})
+        calllib.cast('storage', {"method": "attach_volume",
+                                 "args" : {"volume_id": volume_id,
                                            "instance_id" : instance_id,
                                            "mountpoint" : mountpoint}})
         return defer.succeed(True)
 
     def detach_volume(self, request_id, **kwargs):
         # TODO(termie): API layer
+        # TODO(jmc): Make sure the updated state has been received first
         volume_id = kwargs['VolumeId'][0]
+        volume = self._get_volume(volume_id)
+        mountpoint = volume['mountpoint']
+        instance_id = volume['instance_id']
+        calllib.cast('node', {"method": "detach_volume",
+                                 "args" : {"instance_id": instance_id,
+                                           "mountpoint": mountpoint}})
         calllib.cast('storage', {"method": "detach_volume",
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed({'result': 'ok'})

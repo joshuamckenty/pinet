@@ -71,5 +71,13 @@ class FakeVirtInstance(object):
         self._conn._removeInstance(self._index)
 
     def info(self):
+        return [self._state, 0, 2, 0, 0]
         
-        return [self._state, 0, 0, 0, 0]
+    def XMLDesc(self, flags):
+        return open('fakevirtinstance.xml', 'r').read()
+        
+    def blockStats(self, disk):
+        return [0L, 0L, 0L, 0L, null]
+        
+    def interfaceStats(self, iface):
+        return [0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L]
