@@ -1,5 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
+import os
 
 import datastore
 import exception
@@ -17,6 +18,7 @@ from IPy import IP
 FLAGS = flags.FLAGS
 flags.DEFINE_string('fake_network', False, 'should we use fake network devices and addresses')
 flags.DEFINE_string('net_libvirt_xml_template', 'net.libvirt.xml.template', 'Template file for libvirt networks')
+flags.DEFINE_string('networks_path', '/root/pinet/networks', 'Location to keep network XML files')
 flags.DEFINE_integer('public_vlan', 108, 'VLAN for public IP addresses')
 KEEPER = datastore.keeper("net-")
 
@@ -91,7 +93,10 @@ class Network(object):
         # create virsh interface to bridge to the vlan interface
         # Setup DHCP server for private addressing
         xml = self.toXml()
-        logging.debug(xml)
+        logging.debug(xml)                
+        f = open(os.path.join(FLAGS.networks_path, self._s['name']), 'w')
+        f.write(xml)
+        f.close()
         pass
 
 
