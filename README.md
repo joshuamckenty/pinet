@@ -12,6 +12,7 @@ Redis: data store
 Tornado: scalable non blocking web server for api requests
 Twisted: just for the twisted.internet.defer package
 M2Crypto: boto has a dependency on it, yup
+IPy: library for managing ip addresses
 
 COMPONENTS
 ==========
