@@ -163,7 +163,7 @@ class CloudController(object):
         info = {
             'imageId': emi_id,
             'imageLocation': image_location,
-            'imageOwnerId': 'fixme',
+            'imageOwnerId': kwargs['user'].id,
             'imageState': 'available',
             'isPublic': 'true', # grab from bundle manifest
             'architecture': 'x86_64', # grab from bundle manifest
