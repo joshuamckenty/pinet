@@ -150,7 +150,7 @@ class UserManager:
         with LDAPWrapper() as conn:
             ldap_key_objects = conn.find_key_pairs(uid)
         if ldap_key_objects == None or ldap_key_objects == []:
-            return None
+            return []
         return [KeyPair(o) for o in ldap_key_objects]
     
     def delete_key_pair(self, uid, key_name):
@@ -181,7 +181,7 @@ class LDAPWrapper(object):
 
     def find_object(self, dn, query = None):
         objects = self.find_objects(dn, query)
-        if objects == None:
+        if len(objects) == 0:
             return None
         return objects[0]
     
@@ -189,7 +189,7 @@ class LDAPWrapper(object):
         try:
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query)
         except Exception:
-            return None
+            return []
         return res
 
     def find_users(self):
