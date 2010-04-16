@@ -143,25 +143,44 @@ class CloudController(object):
         return defer.succeed(True)
 
     def describe_images(self, request_id, **kwargs):
-        conn = boto.s3.connection.S3Connection (
-            aws_secret_access_key="fixme",
-            aws_access_key_id="fixme",
-            is_secure=False,
-            calling_format=boto.s3.connection.OrdinaryCallingFormat(),
-            debug=0,
-            port=FLAGS.s3_port,
-            host='localhost',
-        )
-
         images = { 'imagesSet': [] }
 
-        for b in conn.get_all_buckets():
-            k = boto.s3.key.Key(b)
-            k.key = 'info.json'
-            images['imagesSet'].append(
-                    anyjson.deserialize(k.get_contents_as_string()))
+        for bucket in self.boto_conn().get_all_buckets():
+            try:
+                k = boto.s3.key.Key(bucket)
+                k.key = 'info.json'
+                images['imagesSet'].append(
+                        anyjson.deserialize(k.get_contents_as_string()))
+            except Exception:
+                pass
         
         return defer.succeed(images)
+    
+    def register_image(self, request_id, **kwargs):
+        image_location = kwargs['ImageLocation'][0]
+        emi_id = 'emi-%06d' % random.randint(0,1000000)
+        
+        info = {
+            'imageId': emi_id,
+            'imageLocation': image_location,
+            'imageOwnerId': 'fixme',
+            'imageState': 'available',
+            'isPublic': 'true', # grab from bundle manifest
+            'architecture': 'x86_64', # grab from bundle manifest
+        }
+        
+        # FIXME: grab kernelId and ramdiskId from bundle manifest
+        
+        # FIXME: unbundle the image using the cloud private key
+        #        saving it to "%s/image" % emi_id
+        
+        bucket = self.boto_conn().create_bucket(emi_id)
+        k = boto.s3.key.Key(bucket)
+        k.key = 'info.json'
+        k.set_contents_from_string(anyjson.serialize(info))
+        
+        logging.debug("Registering %s" % image_location)
+        return defer.succeed({'imageId': emi_id})
 
     def update_state(self, topic, value):
         """ accepts status reports from the queue and consolidates them """
@@ -174,5 +193,12 @@ class CloudController(object):
             setattr(self, topic, value)
         return defer.succeed(True)
 
-
-
+    def boto_conn(self):
+        return boto.s3.connection.S3Connection (
+            aws_secret_access_key="fixme",
+            aws_access_key_id="fixme",
+            is_secure=False,
+            calling_format=boto.s3.connection.OrdinaryCallingFormat(),
+            debug=0,
+            port=FLAGS.s3_port,
+            host='localhost')
