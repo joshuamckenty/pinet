@@ -1,6 +1,4 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-import IPy
-from IPy import IP
 import logging
 
 import datastore
@@ -12,6 +10,8 @@ from node import GenericNode
 import contrib
 import flags
 import anyjson
+import IPy
+from IPy import IP
 
 
 FLAGS = flags.FLAGS
@@ -96,9 +96,10 @@ class Network(object):
 
 
 class PrivateNetwork(Network):
-    super(PrivateNetwork, self).__init__(vlan, network)
-    self.natted = False
-    self.proxyarp = False
+    def __init__(self, vlan, network=None):
+        super(PrivateNetwork, self).__init__(vlan, network)
+        self.natted = False
+        self.proxyarp = False
 
         
 class PublicNetwork(Network):
