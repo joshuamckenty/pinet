@@ -224,8 +224,7 @@ class ObjectHandler(BaseRequestHandler):
         object_file = open(path, "r")
         try:
             data = object_file
-            (md5, base64_md5) = self.compute_md5(data)
-            self.set_header("Etag", md5)
+            self.set_header("Etag", '"' + self.compute_md5(data) + '"')
             self.finish(data.read())
         finally:
             object_file.close()
@@ -247,8 +246,7 @@ class ObjectHandler(BaseRequestHandler):
         object_file.write(self.request.body)
         object_file.close()
         object_file = open(path, 'r')
-        (md5, base64_md5) = self.compute_md5(object_file)
-        self.set_header("Etag", '"' + md5 + '"')
+        self.set_header("Etag", '"' + self.compute_md5(object_file) + '"')
         object_file.close()
         self.finish()
 
@@ -269,9 +267,7 @@ class ObjectHandler(BaseRequestHandler):
                    reset to the beginning of the file before the method returns.
 
         @rtype: tuple
-        @return: A tuple containing the hex digest version of the MD5 hash
-                 as the first element and the base64 encoded version of the
-                 plain digest as the second element.
+        @return: the hex digest version of the MD5 hash
         """
         m = hashlib.md5()
         fp.seek(0)
@@ -280,10 +276,7 @@ class ObjectHandler(BaseRequestHandler):
             m.update(s)
             s = fp.read(8192)
         hex_md5 = m.hexdigest()
-        base64md5 = base64.encodestring(m.digest())
-        if base64md5[-1] == '\n':
-            base64md5 = base64md5[0:-1]
         # self.size = fp.tell()
         fp.seek(0)
-        return (hex_md5, base64md5)
+        return hex_md5
 
