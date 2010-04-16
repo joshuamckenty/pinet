@@ -22,10 +22,10 @@ FLAGS = flags.FLAGS
 
 class StorageFakeTestCase(unittest.TestCase):
     def setUp(self):
-        super(StorageFakeTestCase, self).setUp()
         FLAGS.fake_libvirt = True
         FLAGS.fake_storage = True
         FLAGS.fake_rabbit = True
+        super(StorageFakeTestCase, self).setUp()
         self.mynode = node.Node()
         self.mystorage = storage.FakeBlockStore()
         logging.getLogger().setLevel(logging.DEBUG)
@@ -51,4 +51,4 @@ class StorageFakeTestCase(unittest.TestCase):
         # TODO - assert that it's attached to the right instance
         
         rv = self.mystorage.detach_volume(self.test_volume.volume_id)
-        self.assertEqual(self.test_volume.get_status(), "detached")
+        self.assertEqual(self.test_volume.get_status(), "available")

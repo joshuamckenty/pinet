@@ -152,7 +152,7 @@ class Volume(object):
         self.save()
 
     def save(self):
-        KEEPER[self.volume_id] = {'status' : self.get_status(),
+        KEEPER[self.volume_id] = {'status' : self.status,
                                   'size' : self.size,
                                   'mountpoint' : self.mountpoint,
                                   'instance_id' : self.instance_id,
@@ -229,7 +229,9 @@ class FakeVolume(Volume):
     def _setup_export(self):
         # TODO: This may not be good enough?
         self.aoe_device = 'e%s.%s' % (random.choice('0123456'), random.choice('0123456789'))
-    
+
+    def _delete_lv(self):
+        pass
 
 def get_aoe_devices():
     aoes = subprocess.Popen(["sudo", "ls",  "-al", "/dev/etherd/"], stdout=subprocess.PIPE).communicate()[0]
