@@ -5,37 +5,45 @@ import logging
 
 import datastore
 import exception
+from exception import *
+import node
+from node import GenericNode
 
 import contrib
 import flags
+import anyjson
 
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('fake_network', False, 'should we use fake network devices and addresses')
-
+flags.DEFINE_string('net_libvirt_xml_template', 'net.libvirt.xml.template', 'Template file for libvirt networks')
+flags.DEFINE_integer('public_vlan', 108, 'VLAN for public IP addresses')
 KEEPER = datastore.keeper("net-")
+
 
 class SecurityGroup(object):
     def __init__(self, **kwargs):
         pass
         
-class NoMoreAddresses(exception.Error):
-    pass
-
-class NotAllocated(exception.Error):
-    pass
-
-class NotValidNetworkSize(exception.Error):
-    pass
 
 class Network(object):
-    def __init__(self, network="10.0.0.0/8", vlan="1000"):
+    def __init__(self, vlan, network="10.0.0.0/8"):
+        self._s = {}
         self.network = IP(network)
         self.vlan = vlan
-        self.assigned = [self.network[0], self.network[1]]
-        # Do we want these here, or above?
-        self.allocations = [{'address' : self.network[0], 'user_id' : 'pinet'}, 
-                            {'address' : self.network[1], 'user_id' : 'pinet'}]
+        self.assigned = [self.network[0], self.network[1], self.network[-1]]
+        self._s['gateway'] = str(self.network[1])
+        self._s['netmask'] = str(self.network.netmask())
+        self._s['rangestart'] = str(self.network[2])
+        self._s['rangeend'] = str(self.network[-2])
+        self._s['bridge_name'] = "br%s" % (vlan)
+        self._s['device'] = "%s.%s" % (FLAGS.bridge_dev, vlan)
+        self._s['name'] = "pinet-%s" % (vlan)
+        
+        # Do we want these here, or in the controller?
+        self.allocations = [{'address' : self.network[0], 'user_id' : 'net'}, 
+                            {'address' : self.network[1], 'user_id' : 'gateway'},
+                            {'address' : self.network[-1], 'user_id' : 'broadcast'},]
     
     def allocate_ip(self, user_id):
         for ip in self.network:
@@ -61,13 +69,43 @@ class Network(object):
     def list_addresses(self):
         for index, item in enumerate(self.assigned):
             yield self.allocations[index]
+    
+    def toXml(self):
+        # TODO(termie): cache?
+        libvirt_xml = open(FLAGS.net_libvirt_xml_template).read()
+        xml_info = self._s.copy()
+        #xml_info.update(self._s)
+
+        # TODO(termie): lazy lazy hack because xml is annoying
+        xml_info['pinet'] = anyjson.serialize(self._s)
+        libvirt_xml = libvirt_xml % xml_info
+
+        return libvirt_xml
+
+    # NEED A FROMXML for roundtripping?
+            
+    def express(self, conn):
+        # ON ALL THE NODES:
+        # Create VLAN interface
+        
+        # create virsh interface to bridge to the vlan interface
+        # Setup DHCP server for private addressing
+        xml = self.toXml()
+        logging.debug(xml)
+        pass
+
 
 class PrivateNetwork(Network):
-    pass
+    super(PrivateNetwork, self).__init__(vlan, network)
+    self.natted = False
+    self.proxyarp = False
+
         
 class PublicNetwork(Network):
-    def __init__(self, network="192.168.216.0/24"):
-        super(PublicNetwork, self).__init__(network)
+    def __init__(self, vlan, network="192.168.216.0/24"):
+        super(PublicNetwork, self).__init__(vlan, network)
+        self.natted = True
+        self.proxyarp = False
     
     def adopt(self):
         pass
@@ -75,35 +113,44 @@ class PublicNetwork(Network):
     def write_iptables(self):
         pass
 
+
 class NetworkPool(Network):
     # TODO - Allocations need to be system global
     
-    def __init__(self, netsize=64, network="10.0.0.0/8", vlan="1000"):
-        super(NetworkPool, self).__init__(network, vlan)
+    def __init__(self, netsize=64, network="10.0.0.0/8", vlan=1000):
+        super(NetworkPool, self).__init__(vlan=vlan, network=network)
         if not netsize in [4,8,16,32,64,128,256,512,1024]:
             raise NotValidNetworkSize
         self.netsize = netsize
         self.allocations = []
+        self.vlans = []
+        self.next_vlan = vlan+1
     
     def next(self):
         start = len(self.allocations) * self.netsize
+        vlan = self.next_vlan
         self.allocations.append(self.network[start])
-        return Network("%s-%s" % (self.network[start], self.network[start + self.netsize - 1]))
+        self.vlans.append(vlan)
+        self.next_vlan += 1
+        return Network(vlan, network="%s-%s" % (self.network[start], self.network[start + self.netsize - 1]))
         
 
-class NetworkNode(object):
+class NetworkController(GenericNode):
     """ The network node is in charge of network connections  """
 
     def __init__(self, private=None, sizeof=64, public=None):
         """ load configuration options for this node and connect to libvirt """
+        super(NetworkController, self).__init__(private=private, sizeof=sizeof, public=public)
+        self._conn = self._get_connection()
         if not private:
             private = NetworkPool(sizeof)
         if not public:
-            public = PublicNetwork()
+            public = PublicNetwork(vlan=FLAGS.public_vlan)
         self._public = public
         self._private_pool = private
         self._private = {}
-        self.init_gateways()
+        self._load()
+        self.express()
     
     def get_users_network(self, user_id):
         if not self._private.has_key(user_id):
@@ -140,7 +187,6 @@ class NetworkNode(object):
             addresses = []
             for user_id in self._private.keys(): 
                 addresses.extend(self.get_users_network(user_id).list_addresses())
-            logging.debug("Full addresses list is: %s" % (addresses))
             return addresses
         return self._public.list_networks()
         
@@ -150,5 +196,14 @@ class NetworkNode(object):
     def _load(self):
         pass
         
+    def express(self):
+        # TODO - use a separate connection for each node?
+        for user_id in self._private.keys(): 
+            self.get_users_network(user_id).express(self._conn)
+        self._public.express(self._conn)
+        
     def report_state(self):
         pass
+
+class NetworkNode(node.Node):
+    pass
