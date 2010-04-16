@@ -31,24 +31,17 @@ S3 client with this module:
 
 """
 
+import base64
 import bisect
 import datetime
-import escape
+from tornado import escape
 import hashlib
-import httpserver
-import ioloop
+from tornado import httpserver
 import os
 import os.path
 import urllib
-import web
-
-
-def start(port, root_directory="/tmp/s3", bucket_depth=0):
-    """Starts the mock S3 server on the given port at the given path."""
-    application = S3Application(root_directory, bucket_depth)
-    http_server = httpserver.HTTPServer(application)
-    http_server.listen(port)
-    ioloop.IOLoop.instance().start()
+from tornado import web
+import crypto
 
 
 class S3Application(web.Application):
@@ -222,7 +215,9 @@ class ObjectHandler(BaseRequestHandler):
             info.st_mtime))
         object_file = open(path, "r")
         try:
-            self.finish(object_file.read())
+            data = object_file
+            self.set_header("Etag", '"' + crypto.compute_md5(data) + '"')
+            self.finish(data.read())
         finally:
             object_file.close()
 
@@ -242,6 +237,9 @@ class ObjectHandler(BaseRequestHandler):
         object_file = open(path, "w")
         object_file.write(self.request.body)
         object_file.close()
+        object_file = open(path, 'r')
+        self.set_header("Etag", '"' + crypto.compute_md5(object_file) + '"')
+        object_file.close()
         self.finish()
 
     def delete(self, bucket, object_name):
@@ -253,3 +251,4 @@ class ObjectHandler(BaseRequestHandler):
         os.unlink(path)
         self.set_status(204)
         self.finish()
+

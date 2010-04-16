@@ -156,14 +156,26 @@ class CloudController(object):
         
         return defer.succeed(images)
     
+    def deregister_image(self, request_id, **kwargs):
+        image_id = kwargs['ImageId'][0]
+        bucket = self.boto_conn().get_bucket(image_id)
+        k = boto.s3.key.Key(bucket)
+        k.key = 'info.json'
+        bucket.delete_key(k)
+        k.key = 'image'
+        bucket.delete_key(k)
+
+        return defer.succeed({'imageId': image_id})
+        
+    
     def register_image(self, request_id, **kwargs):
         image_location = kwargs['ImageLocation'][0]
-        emi_id = 'emi-%06d' % random.randint(0,1000000)
+        image_id = 'ami-%06d' % random.randint(0,1000000)
         
         info = {
-            'imageId': emi_id,
+            'imageId': image_id,
             'imageLocation': image_location,
-            'imageOwnerId': 'fixme',
+            'imageOwnerId': kwargs['user'].id,
             'imageState': 'available',
             'isPublic': 'true', # grab from bundle manifest
             'architecture': 'x86_64', # grab from bundle manifest
@@ -174,13 +186,15 @@ class CloudController(object):
         # FIXME: unbundle the image using the cloud private key
         #        saving it to "%s/image" % emi_id
         
-        bucket = self.boto_conn().create_bucket(emi_id)
+        bucket = self.boto_conn().create_bucket(image_id)
         k = boto.s3.key.Key(bucket)
         k.key = 'info.json'
         k.set_contents_from_string(anyjson.serialize(info))
+        k.key = 'image'
+        k.set_contents_from_string('FIXME: decrypt image')
         
         logging.debug("Registering %s" % image_location)
-        return defer.succeed({'imageId': emi_id})
+        return defer.succeed({'imageId': image_id})
 
     def update_state(self, topic, value):
         """ accepts status reports from the queue and consolidates them """
