@@ -31,6 +31,7 @@ S3 client with this module:
 
 """
 
+import base64
 import bisect
 import datetime
 import escape
@@ -222,7 +223,10 @@ class ObjectHandler(BaseRequestHandler):
             info.st_mtime))
         object_file = open(path, "r")
         try:
-            self.finish(object_file.read())
+            data = object_file
+            (md5, base64_md5) = self.compute_md5(data)
+            self.set_header("Etag", md5)
+            self.finish(data.read())
         finally:
             object_file.close()
 
@@ -242,6 +246,10 @@ class ObjectHandler(BaseRequestHandler):
         object_file = open(path, "w")
         object_file.write(self.request.body)
         object_file.close()
+        object_file = open(path, 'r')
+        (md5, base64_md5) = self.compute_md5(object_file)
+        self.set_header("Etag", '"' + md5 + '"')
+        object_file.close()
         self.finish()
 
     def delete(self, bucket, object_name):
@@ -253,3 +261,29 @@ class ObjectHandler(BaseRequestHandler):
         os.unlink(path)
         self.set_status(204)
         self.finish()
+        
+    def compute_md5(self, fp):
+        """
+        @type fp: file
+        @param fp: File pointer to the file to MD5 hash.  The file pointer will be
+                   reset to the beginning of the file before the method returns.
+
+        @rtype: tuple
+        @return: A tuple containing the hex digest version of the MD5 hash
+                 as the first element and the base64 encoded version of the
+                 plain digest as the second element.
+        """
+        m = hashlib.md5()
+        fp.seek(0)
+        s = fp.read(8192)
+        while s:
+            m.update(s)
+            s = fp.read(8192)
+        hex_md5 = m.hexdigest()
+        base64md5 = base64.encodestring(m.digest())
+        if base64md5[-1] == '\n':
+            base64md5 = base64md5[0:-1]
+        # self.size = fp.tell()
+        fp.seek(0)
+        return (hex_md5, base64md5)
+
