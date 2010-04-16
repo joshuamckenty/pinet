@@ -20,18 +20,18 @@ class AdminController(object):
     def __str__(self):
         return 'AdminController'
         
-    def describe_user(self, request_id, **kwargs):
+    def describe_user(self, context, **kwargs):
         username = kwargs['Name'][0]
 
         return self._get_dict(self.users.get_user(username))
 
-    def register_user(self, request_id, **kwargs):
+    def register_user(self, context, **kwargs):
         username = kwargs['Name'][0]
         self.users.create_user(username)
 
         return self._get_dict(self.users.get_user(username))
         
-    def deregister_user(self, request_id, **kwargs):
+    def deregister_user(self, context, **kwargs):
         username = kwargs['Name'][0]
         
         self.users.delete_user(username)
