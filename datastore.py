@@ -22,12 +22,11 @@ class keeper(object):
     def _slugify(self, key):
         return key
 
-    def __delitem(self, item):
+    def __delitem__(self, item):
         item = self._slugify(item)
         path = "%s/%s%s" % (FLAGS.datastore_path, PREFIX, item)
         if os.path.isfile(path):
             os.remove(path)
-        return None
 
     def __getitem__(self, item):
         # TODO - Memoize this
