@@ -13,6 +13,7 @@ from twisted.internet import defer
 import exception
 import flags
 import node
+import users
 import network
 import test
 
@@ -25,7 +26,7 @@ class NetworkTestCase(unittest.TestCase):
         FLAGS.fake_libvirt = True
         FLAGS.fake_network = True
         FLAGS.fake_rabbit = True
-        # FLAGS.fake_users = True
+        FLAGS.fake_users = True
         super(NetworkTestCase, self).setUp()
         # self.node = node.Node()
         self.network = network.NetworkNode()
@@ -40,8 +41,23 @@ class NetworkTestCase(unittest.TestCase):
         self.assertEqual(True, address in self._get_user_addresses("fake"))
         rv = self.network.deallocate_address(address)
         self.assertEqual(False, address in self._get_user_addresses("fake"))
+
+    def test_range_allocation(self):
+        address = self.network.allocate_address("bill")
+        secondaddress = self.network.allocate_address("sally")
+        self.assertEqual(True, address in self._get_user_addresses("bill"))
+        self.assertEqual(True, secondaddress in self._get_user_addresses("sally"))
+        self.assertEqual(False, address in self._get_user_addresses("sally"))
         
-    
+    def test_subnet_edge(self):
+        secondaddress = self.network.allocate_address("sally")
+        for user in range(1,10):
+            user_id = "user%s" % (user)
+            address = self.network.allocate_address(user_id)
+            address = self.network.allocate_address(user_id)
+            address = self.network.allocate_address(user_id)
+            self.assertEqual(False, address in self._get_user_addresses("sally"))
+        
     def test_associate_deassociate_address(self):
         #raise NotImplementedError
         pass
