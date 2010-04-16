@@ -2,8 +2,7 @@
 import contrib
 from tornado import httpserver
 from tornado import ioloop
-from tornado import s3server
-
+import s3server
 import flags
 import server
 

@@ -14,6 +14,7 @@ import signer
 import uuid
 import exception
 import flags
+import crypto
 
 FLAGS = flags.FLAGS
 
@@ -23,15 +24,6 @@ flags.DEFINE_string('ldap_password',  'changeme', 'LDAP password')
 flags.DEFINE_string('user_dn', 'cn=Manager,dc=example,dc=com', 'DN of admin user')
 flags.DEFINE_string('user_unit', 'Users', 'OID for Users')
 flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users')
-
-
-from M2Crypto import RSA, BIO
-
-def _generate_key_pair(bits=1024):
-    key = RSA.gen_key(bits, 65537, callback=lambda: None)
-    bio = BIO.MemoryBuffer()
-    key.save_pub_key_bio(bio)
-    return (key.as_pem(cipher=None), bio.read())
 
 class UserError(exception.ApiError):
     pass
@@ -137,7 +129,7 @@ class UserManager:
             conn.delete_user(uid)
 
     def generate_key_pair(self, uid, key_name):
-        private_key, public_key = _generate_key_pair()
+        private_key, public_key = crypto.generate_keypair()
         #TODO(vish): calculate real fingerprint frome private key
         fingerprint = 'fixme'
         self.create_key_pair(uid, key_name, public_key, fingerprint)
