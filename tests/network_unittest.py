@@ -28,8 +28,7 @@ class NetworkTestCase(unittest.TestCase):
         FLAGS.fake_rabbit = True
         FLAGS.fake_users = True
         super(NetworkTestCase, self).setUp()
-        # self.node = node.Node()
-        self.network = network.NetworkNode()
+        self.network = network.NetworkController()
         logging.getLogger().setLevel(logging.DEBUG)
         
         # self.instance_id = "network-test"
@@ -57,6 +56,11 @@ class NetworkTestCase(unittest.TestCase):
             address = self.network.allocate_address(user_id)
             address = self.network.allocate_address(user_id)
             self.assertEqual(False, address in self._get_user_addresses("sally"))
+    
+    def test_network_toxml(self):
+        address = self.network.allocate_address("bill")
+        secondaddress = self.network.allocate_address("sally")
+        self.network.express()
         
     def test_associate_deassociate_address(self):
         #raise NotImplementedError
@@ -67,7 +71,6 @@ class NetworkTestCase(unittest.TestCase):
         rv = self.network.describe_addresses()
         user_addresses = []
         for item in rv:
-            logging.debug(item)
             if item['user_id'] == user_id:
                 user_addresses.append(item['address'])
         return user_addresses
