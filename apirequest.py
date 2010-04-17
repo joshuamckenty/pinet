@@ -11,16 +11,19 @@ _log = logging.getLogger()
 
 camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
 
+class APIRequestContext(object):
+    def __init__(self, user):
+        self.user = user
+        self.request_id = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-') for x in xrange(20)])
 
 class APIRequest(object):
     def __init__(self, controller, action):
         self.controller = controller
         self.action = action
-        self.request_id = None
+        
+    def send(self, user, **kwargs):
+        context = APIRequestContext(user)
 
-    def send(self, **kwargs):
-        self.request_id = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-') for x in xrange(20)])
-    
         try:
             method = getattr(self.controller, camelcase_to_underscore(self.action))
         except AttributeError:
@@ -28,22 +31,20 @@ class APIRequest(object):
             _log.warning(_error)
             # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
             raise Exception(_error)
-
-        d = defer.maybeDeferred(method, self.request_id, **kwargs)
-        d.addCallback(self._render_response)
+        
+        d = defer.maybeDeferred(method, context, **kwargs)
+        d.addCallback(self._render_response, context.request_id)
 
         return d
 
-    def _render_response(self, response_data):
-        _log.debug('RESPONSE:\n%s\nEND RESPONSE----------------------' % response_data)
-        
+    def _render_response(self, response_data, request_id):
         xml = minidom.Document()
     
         response_el = xml.createElement(self.action + 'Response')
         response_el.setAttribute('xmlns', 'http://ec2.amazonaws.com/doc/2009-11-30/')
     
         request_id_el = xml.createElement('requestId')
-        request_id_el.appendChild(xml.createTextNode(self.request_id))
+        request_id_el.appendChild(xml.createTextNode(request_id))
         response_el.appendChild(request_id_el)
         if(response_data == True):
             self._render_dict(xml, response_el, {'return': 'true'})
@@ -60,8 +61,6 @@ class APIRequest(object):
         return response
     
     def _render_dict(self, xml, el, data):
-        # import pdb; pdb.set_trace()
-        _log.debug(dir(data))
         try:
             for key in data.keys():
                 val = data[key]
