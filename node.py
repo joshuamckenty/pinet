@@ -283,9 +283,10 @@ class Instance(object):
         if not FLAGS.fake_libvirt:
             # TODO(termie): what to do when this already exists?
             # TODO(termie): clean up on exit?
-            
-            os.makedirs(self._s['basepath'])
-            
+            try:
+                os.makedirs(self._s['basepath'])
+            except:
+                pass
             def _out_of_band(deferred):
                 logging.info('Creating image for: %s', self.name)
                 f = open(self.basepath('libvirt.xml'), 'w')
