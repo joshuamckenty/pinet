@@ -29,7 +29,7 @@ class SecurityGroup(object):
         
 
 class Network(object):
-    def __init__(self, vlan, network="10.0.0.0/8"):
+    def __init__(self, vlan, network="192.168.100.0/24"):
         self._s = {}
         self.network = IP(network)
         self.vlan = vlan
@@ -123,7 +123,7 @@ class PublicNetwork(Network):
 class NetworkPool(Network):
     # TODO - Allocations need to be system global
     
-    def __init__(self, netsize=64, network="10.0.0.0/8", vlan=1000):
+    def __init__(self, netsize=64, network="192.168.0.0/17", vlan=1000):
         super(NetworkPool, self).__init__(vlan=vlan, network=network)
         if not netsize in [4,8,16,32,64,128,256,512,1024]:
             raise NotValidNetworkSize

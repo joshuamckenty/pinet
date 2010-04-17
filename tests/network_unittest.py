@@ -50,7 +50,7 @@ class NetworkTestCase(unittest.TestCase):
         
     def test_subnet_edge(self):
         secondaddress = self.network.allocate_address("sally")
-        for user in range(1,10):
+        for user in range(1,5):
             user_id = "user%s" % (user)
             address = self.network.allocate_address(user_id)
             address = self.network.allocate_address(user_id)
