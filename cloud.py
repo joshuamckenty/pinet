@@ -11,6 +11,7 @@ from twisted.internet import defer
 import calllib
 import flags
 import users
+import urllib
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
@@ -158,13 +159,12 @@ class CloudController(object):
     
     def deregister_image(self, request_id, **kwargs):
         image_id = kwargs['ImageId'][0]
-        bucket = self.boto_conn().get_bucket(image_id)
-        k = boto.s3.key.Key(bucket)
-        k.key = 'info.json'
-        bucket.delete_key(k)
-        k.key = 'image'
-        bucket.delete_key(k)
 
+        self.boto_conn().make_request(
+                method='DELETE', 
+                bucket='_images', 
+                query_args=qs({'image_id': image_id}))
+                
         return defer.succeed({'imageId': image_id})
         
     
@@ -172,26 +172,12 @@ class CloudController(object):
         image_location = kwargs['ImageLocation'][0]
         image_id = 'ami-%06d' % random.randint(0,1000000)
         
-        info = {
-            'imageId': image_id,
-            'imageLocation': image_location,
-            'imageOwnerId': kwargs['user'].id,
-            'imageState': 'available',
-            'isPublic': 'true', # grab from bundle manifest
-            'architecture': 'x86_64', # grab from bundle manifest
-        }
-        
-        # FIXME: grab kernelId and ramdiskId from bundle manifest
-        
-        # FIXME: unbundle the image using the cloud private key
-        #        saving it to "%s/image" % emi_id
-        
-        bucket = self.boto_conn().create_bucket(image_id)
-        k = boto.s3.key.Key(bucket)
-        k.key = 'info.json'
-        k.set_contents_from_string(anyjson.serialize(info))
-        k.key = 'image'
-        k.set_contents_from_string('FIXME: decrypt image')
+        rval = self.boto_conn().make_request(
+                method='PUT', 
+                bucket='_images', 
+                query_args=qs({'image_location': image_location,
+                               'image_id': image_id,
+                               'user_id': kwargs['user'].id}))		
         
         logging.debug("Registering %s" % image_location)
         return defer.succeed({'imageId': image_id})
@@ -216,3 +202,10 @@ class CloudController(object):
             debug=0,
             port=FLAGS.s3_port,
             host='localhost')
+
+def qs(params):
+    pairs = []
+    for key in params.keys():
+        pairs.append(key + '=' + urllib.quote(params[key]))
+    return '&'.join(pairs)
+    

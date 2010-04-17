@@ -1,4 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
+import logging
+
 import contrib
 from tornado import httpserver
 from tornado import ioloop
