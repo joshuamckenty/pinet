@@ -11,16 +11,28 @@ from twisted.internet import defer
 import calllib
 import flags
 import users
+import time
+import node
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
 flags.DEFINE_integer('s3_port', 3333, 'the port we connect to s3 on')
 
-        
+
+_STATE_NAMES = {
+    node.Instance.NOSTATE: 'nostate',
+    node.Instance.RUNNING: 'running',
+    node.Instance.BLOCKED: 'blocked',
+    node.Instance.PAUSED: 'paused',
+    node.Instance.SHUTDOWN: 'shutdown',
+    node.Instance.SHUTOFF: 'shutoff',
+    node.Instance.CRASHED: 'crashed',
+}
+
 class CloudController(object):
     def __init__(self):
         self.volumes = {"result": "uninited"}
-        self.instances = {"result": "uninited"}
+        self.instances = None
         self.images = {"result":"uninited"}
 
     def __str__(self):
@@ -128,32 +140,66 @@ class CloudController(object):
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed({'result': 'ok'})
 
-    def describe_instances(self, context, **kwargs):
-        return defer.succeed(self.format_instances())
+    def _convert_to_set(self, lst, str):
+        if lst == None or lst == []:
+            return None
+        return [{str: x} for x in lst]
 
-    def format_instances(self, instance_list = []):
-        instances = []
+    def describe_instances(self, context, **kwargs):
+        return defer.succeed(self.format_instances(context.user.id))
+
+    def format_instances(self, owner_id = None):
+        if self.instances == None:
+            return {'reservationSet': []}
+        reservations = {}
         for node in self.instances.values():
             for instance in node:
-                instances.append(instance)
-        instance_response = {'reservationSet' : instances}
+                if owner_id == None or owner_id == instance['owner_id']:
+                    i = {}
+                    i['instance_id'] = instance['instance_id']
+                    i['image_id'] = instance['image_id']
+                    i['instance_state'] = {
+                        'code': instance['state'],
+                        'name': _STATE_NAMES[instance['state']]
+                    }
+                    i['private_dns_name'] = instance['private_dns_name']
+                    i['dns_name'] = instance['dns_name']
+                    i['key_name'] = instance['key_name']
+                    i['product_codes_set'] = self._convert_to_set(
+                        instance['product_codes'], 'product_code')
+                    i['instance_type'] = instance['instance_type']
+                    i['launch_time'] = instance['launch_time']
+                    if not reservations.has_key(instance['reservation_id']):
+                        r = {}
+                        r['reservation_id'] = instance['reservation_id']
+                        r['owner_id'] = instance['owner_id']
+                        r['group_set'] = self._convert_to_set(
+                            instance['groups'], 'group_id')
+                        r['instance_set'] = []
+                        reservations[instance['reservation_id']] = r
+                    reservations[instance['reservation_id']]['instance_set'].append(i)
+
+        instance_response = {'reservationSet' : list(reservations.values()) }
         return instance_response
 
     def run_instances(self, context, **kwargs):
-        # TODO(termie): API layer
-        image_id = kwargs['ImageId'][0]
-        instance_type = kwargs['InstanceType'][0]
-        reservation_id = 'r-%06d' % random.randint(0,1000000)
+        kwargsnew = kwargs['kwargsnew']
+        logging.debug(kwargsnew)
+        kwargsnew['owner_id'] = context.user.id
+
+        kwargsnew['reservation_id'] = 'r-%06d' % random.randint(0,1000000)
+        kwargsnew['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         l = []
-        for num in range(int(kwargs['MaxCount'][0])):
-            instance_id = 'i-%06d' % random.randint(0,1000000)
-            l.append(calllib.call('node', 
+        for num in range(int(kwargsnew['max_count'])):
+            kwargsnew['instance_id'] = 'i-%06d' % random.randint(0,1000000)
+            kwargsnew['launch_index'] = num 
+            l.append(calllib.cast('node', 
                                   {"method": "run_instance", 
-                                   "args" : {"instance_id": instance_id, 
-                                             "image_id" : image_id, 
-                                             "instance_type": instance_type}}))
+                                   "args" : kwargsnew 
+                                            }))
         d = defer.gatherResults(l)
         logging.debug(d)
+        #TODO(Vish):return proper info
         return d
     
     def terminate_instances(self, context, **kwargs):
