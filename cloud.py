@@ -38,8 +38,7 @@ class CloudController(object):
     def __str__(self):
         return 'CloudController'
                           
-    def describe_key_pairs(self, context, **kwargs):
-        key_names = self._parse_list_param('KeyName', kwargs)
+    def describe_key_pairs(self, context, key_names, **kwargs):
         key_pairs = { 'keypairsSet': [] }
 
         if len(key_names) > 0:
@@ -59,9 +58,7 @@ class CloudController(object):
 
         return key_pairs
 
-    def create_key_pair(self, context, **kwargs):
-        key_name = kwargs['KeyName'][0]
-
+    def create_key_pair(self, context, key_name, **kwargs):
         try:
             private_key, fingerprint = context.user.generate_key_pair(key_name)
             return {'keyName': key_name,
@@ -70,28 +67,26 @@ class CloudController(object):
         except users.UserError, e:
             raise
 
-    def delete_key_pair(self, context, **kwargs):
-        key_name = kwargs['KeyName'][0]
-        # aws returns true even if the key doens't exist
+    def delete_key_pair(self, context, key_name, **kwargs):
         context.user.delete_key_pair(key_name)
+        # aws returns true even if the key doens't exist
         return True
         
-    def describe_security_groups(self, context, **kwargs):
-        group_names = self._parse_list_param('GroupName', kwargs)
+    def describe_security_groups(self, context, group_names, **kwargs):
         groups = { 'securityGroupSet': [] }
 
         # Stubbed for now to unblock other things.
         return groups
         
-    def create_security_group(self, context, **kwargs):
+    def create_security_group(self, context, group_name, **kwargs):
         pass
         
-    def delete_security_group(self, context, **kwargs):
+    def delete_security_group(self, context, group_name, **kwargs):
         pass
 
-    def get_console_output(self, context, **kwargs):
-        # TODO(termie): move this InstanceId stuff into the api layer
-        instance_id = kwargs['InstanceId.1'][0]
+    def get_console_output(self, context, instance_id, **kwargs):
+        # instance_id is passed in as a list of instances
+        instance_id = instance_id[0]
         return calllib.call('node', {"method": "get_console_output",
                                      "args" : {"instance_id": instance_id}})
 
@@ -99,10 +94,9 @@ class CloudController(object):
         # TODO: Evil - this returns every volume for every user.
         return defer.succeed(self.volumes)
 
-    def create_volume(self, context, **kwargs):
+    def create_volume(self, context, size, **kwargs):
         # TODO(termie): API layer
         # TODO: We need to pass in context.user so we can associate the volume with the user.
-        size = kwargs['Size'][0]
         calllib.cast('storage', {"method": "create_volume", 
                                  "args" : {"size": size}})
         return defer.succeed(True)
@@ -114,30 +108,26 @@ class CloudController(object):
         return None
 
 
-    def attach_volume(self, context, **kwargs):
+    def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
         # TODO(termie): API layer
         # TODO: We need to verify that context.user owns both the volume and the instance before attaching.
-        volume_id = kwargs['VolumeId'][0]
-        instance_id = kwargs['InstanceId'][0]
-        mountpoint = kwargs['Device'][0]
         aoe_device = self._get_volume(volume_id)['aoe_device']
         # Needs to get right node controller for attaching to
         # TODO: Maybe have another exchange that goes to everyone?
         calllib.cast('node', {"method": "attach_volume",
                                  "args" : {"aoe_device": aoe_device,
                                            "instance_id" : instance_id,
-                                           "mountpoint" : mountpoint}})
+                                           "mountpoint" : device}})
         calllib.cast('storage', {"method": "attach_volume",
                                  "args" : {"volume_id": volume_id,
                                            "instance_id" : instance_id,
-                                           "mountpoint" : mountpoint}})
+                                           "mountpoint" : device}})
         return defer.succeed(True)
 
-    def detach_volume(self, context, **kwargs):
+    def detach_volume(self, context, volume_id, **kwargs):
         # TODO(termie): API layer
         # TODO(jmc): Make sure the updated state has been received first
         # TODO: We need to verify that context.user owns both the volume and the instance before dettaching.
-        volume_id = kwargs['VolumeId'][0]
         volume = self._get_volume(volume_id)
         mountpoint = volume['mountpoint']
         instance_id = volume['instance_id']
@@ -191,36 +181,33 @@ class CloudController(object):
         return instance_response
 
     def run_instances(self, context, **kwargs):
-        kwargsnew = kwargs['kwargsnew']
-        logging.debug(kwargsnew)
-        kwargsnew['owner_id'] = context.user.id
+        # passing all of the kwargs on to node.py
+        logging.debug(kwargs)
+        if context and context.user:
+            kwargs['owner_id'] = context.user.id
+        else:
+            kwargs['owner_id'] = None
 
-        kwargsnew['reservation_id'] = 'r-%06d' % random.randint(0,1000000)
-        kwargsnew['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        kwargs['reservation_id'] = 'r-%06d' % random.randint(0,1000000)
+        kwargs['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         l = []
-        for num in range(int(kwargsnew['max_count'])):
-            kwargsnew['instance_id'] = 'i-%06d' % random.randint(0,1000000)
-            kwargsnew['launch_index'] = num 
+        for num in range(int(kwargs['max_count'])):
+            kwargs['instance_id'] = 'i-%06d' % random.randint(0,1000000)
+            kwargs['launch_index'] = num 
             l.append(calllib.cast('node', 
                                   {"method": "run_instance", 
-                                   "args" : kwargsnew 
+                                   "args" : kwargs 
                                             }))
-        d = defer.gatherResults(l)
-        logging.debug(d)
         #TODO(Vish):return proper info
-        return d
+        return defer.succeed(True)
     
-    def terminate_instances(self, context, **kwargs):
-        # TODO: Support multiple instances
-        # TODO(termie): API layer
-        instance_id = kwargs['InstanceId.1'][0]
-        calllib.cast('node', {"method": "terminate_instance",
-                              "args" : {"instance_id": instance_id}})
+    def terminate_instances(self, context, instance_id, **kwargs):
+        for i in instance_id:
+            calllib.cast('node', {"method": "terminate_instance",
+                              "args" : {"instance_id": i}})
         return defer.succeed(True)
         
-    def delete_volume(self, context, **kwargs):
-        # TODO(termie): API layer
-        volume_id = kwargs['VolumeId'][0]
+    def delete_volume(self, context, volume_id, **kwargs):
         calllib.cast('storage', {"method": "delete_volume",
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
@@ -240,10 +227,8 @@ class CloudController(object):
         
         return defer.succeed(images)
     
-    def deregister_image(self, context, **kwargs):
+    def deregister_image(self, context, image_id, **kwargs):
         # TODO: Make sure context.user has permission to deregister.
-        
-        image_id = kwargs['ImageId'][0]
         bucket = self.boto_conn().get_bucket(image_id)
         k = boto.s3.key.Key(bucket)
         k.key = 'info.json'
@@ -253,8 +238,7 @@ class CloudController(object):
 
         return defer.succeed({'imageId': image_id})
             
-    def register_image(self, context, **kwargs):
-        image_location = kwargs['ImageLocation'][0]
+    def register_image(self, context, image_location, **kwargs):
         image_id = 'ami-%06d' % random.randint(0,1000000)
         
         info = {
@@ -302,19 +286,20 @@ class CloudController(object):
             debug=0,
             port=FLAGS.s3_port,
             host='localhost')
-            
-    def _parse_list_param(self, name, params):
-        """
-        Describe methods take an array of names for parameters.
-        For example, DescribeKeyPairs can have:
-        KeyName.1, KeyName.2, ... KeyName.N        
-        This helper will return a list of values for 'KeyName'.
-        """
-        values = []
-        i = 1
-        key = '%s.%d' % (name, i)
-        while key in params:
-            values.append(params[key][0])
-            i += 1
-            key = '%s.%d' % (name, i)
-        return values  
+
+# vish: obsoleted by apirequest processing            
+#    def _parse_list_param(self, name, params):
+#        """
+#        Describe methods take an array of names for parameters.
+#        For example, DescribeKeyPairs can have:
+#        KeyName.1, KeyName.2, ... KeyName.N        
+#        This helper will return a list of values for 'KeyName'.
+#        """
+#        values = []
+#        i = 1
+#        key = '%s.%d' % (name, i)
+#        while key in params:
+#            values.append(params[key][0])
+#            i += 1
+#            key = '%s.%d' % (name, i)
+#        return values  

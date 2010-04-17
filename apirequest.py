@@ -61,8 +61,7 @@ class APIRequest(object):
                     args[key] = [v for k, v in s]
         d = defer.maybeDeferred(method,
                                 context, 
-                                kwargsnew=args, 
-                                **kwargs)
+                                **args)
         d.addCallback(self._render_response, context.request_id)
         
         return d
