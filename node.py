@@ -41,8 +41,8 @@ flags.DEFINE_string('instances_path', '/root/pinet/instances',
                     'where instances are stored on disk')
 flags.DEFINE_string('images_path', '/root/pinet/images',
                     'where images are stored on disk')
-flags.DEFINE_string('bridge_dev', 'virbr0',
-                    'network bridge for nodes')
+flags.DEFINE_string('bridge_dev', 'eth0',
+                    'network device for bridges')
 flags.DEFINE_string('libvirt_xml_template', 'libvirt.xml.template',
                     'template file to use for libvirt xml')
 flags.DEFINE_string('default_image',
@@ -74,14 +74,11 @@ INSTANCE_TYPES['m1.large'] = {'memory_mb': 4096, 'vcpus': 4, 'disk_mb': 4096}
 INSTANCE_TYPES['c1.medium'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 4096}
 
 
-class Node(object):
-    """ The node is in charge of running instances.  """
-
-    def __init__(self):
-        """ load configuration options for this node and connect to libvirt """
-        self._instances = {}
-        self._conn = self._get_connection()
-
+class GenericNode(object):
+    """ Generic Nodes have a libvirt connection """
+    def __init__(self, **kwargs):
+        super(GenericNode, self).__init__()
+    
     def _get_connection(self):
         # TODO(termie): maybe lazy load after initial check for permissions
         # TODO(termie): check whether we can be disconnected
@@ -96,6 +93,19 @@ class Node(object):
                 logging.error('Failed to open connection to the hypervisor')
                 sys.exit(1)
         return conn
+
+    def noop(self):
+        return defer.succeed('PONG')
+    
+
+class Node(GenericNode):
+    """ The node is in charge of running instances.  """
+
+    def __init__(self):
+        super(Node, self).__init__()
+        """ load configuration options for this node and connect to libvirt """
+        self._instances = {}
+        self._conn = self._get_connection()
     
     @exception.wrap_exception
     def adopt_instances(self):
@@ -119,9 +129,6 @@ class Node(object):
                                        "value": instances
                                        }
                              })
-    
-    def noop(self):
-        return defer.succeed('PONG')
     
     @exception.wrap_exception
     def describe_instances(self):
@@ -241,6 +248,7 @@ class Instance(object):
         self._s['basepath'] = kwargs.get(
                 'basepath', os.path.join(FLAGS.instances_path, self.name))
         self._s['memory_kb'] = int(self._s['memory_mb']) * 1024
+        # TODO - Get this from network controller
         self._s['bridge_dev'] = kwargs.get('bridge_dev', FLAGS.bridge_dev)
         self._s['image_id'] = kwargs.get('image_id', FLAGS.default_image)
         self._s['kernel_id'] = kwargs.get('kernel_id', FLAGS.default_kernel)
@@ -301,9 +309,10 @@ class Instance(object):
         if not FLAGS.fake_libvirt:
             # TODO(termie): what to do when this already exists?
             # TODO(termie): clean up on exit?
-            
-            os.makedirs(self._s['basepath'])
-            
+            try:
+                os.makedirs(self._s['basepath'])
+            except:
+                pass
             def _out_of_band(deferred):
                 logging.info('Creating image for: %s', self.name)
                 f = open(self.basepath('libvirt.xml'), 'w')

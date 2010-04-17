@@ -73,16 +73,13 @@ class APIRequestHandler(tornado.web.RequestHandler):
         if not user:
             raise tornado.web.HTTPError(403)
 
-        # Add user object to args
-        args['user'] = user
-
         _log.debug('action: %s' % action)
 
         for key, value in args.items():
             _log.debug('arg: %s\t\tval: %s' % (key, value))
 
         request = APIRequest(controller, action)
-        d = request.send(**args)
+        d = request.send(user, **args)
         d.addCallback(lambda response: _log.debug(response) and response or response)
         # d.addErrback(self.senderror)
 
