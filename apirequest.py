@@ -9,8 +9,16 @@ from twisted.internet import defer
 _log = logging.getLogger()
 
 
-camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
+_c2u = re.compile('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))')
+def _camelcase_to_underscore(str):
+    return _c2u.sub(r'_\1', str).lower().strip('_')
 
+def _underscore_to_camelcase(str):
+    return ''.join([x.capitalize() for x in str.split('_')])
+
+def _underscore_to_xmlcase(str):
+    res = _underscore_to_camelcase(str)
+    return res[:1].lower() + res[1:]
 
 class APIRequest(object):
     def __init__(self, controller, action):
@@ -18,18 +26,39 @@ class APIRequest(object):
         self.action = action
         self.request_id = None
 
-    def send(self, **kwargs):
+    def send(self, user, **kwargs):
         self.request_id = ''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-') for x in xrange(20)])
     
         try:
-            method = getattr(self.controller, camelcase_to_underscore(self.action))
+            method = getattr(self.controller, _camelcase_to_underscore(self.action))
         except AttributeError:
             _error = 'Unsupported API request: controller = %s, action = %s' % (self.controller, self.action)
             _log.warning(_error)
             # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
             raise Exception(_error)
-
-        d = defer.maybeDeferred(method, self.request_id, **kwargs)
+        args = {}
+        for key, value in kwargs.items():
+            parts = key.split(".")
+            key = _camelcase_to_underscore(parts[0])
+            if len(parts) > 1:
+                d = args.get(key, {})
+                d[parts[1]] = value[0]
+                value = d
+            else:
+                value = value[0]
+            args[key] = value
+            
+        for key in args.keys():
+            if isinstance(args[key], dict):
+                if args[key] != {} and args[key].keys()[0].isdigit():
+                    s = args[key].items()
+                    s.sort()
+                    args[key] = [v for k, v in s]
+        d = defer.maybeDeferred(method,
+                                request_id=self.request_id,
+                                user=user, 
+                                kwargsnew=args, 
+                                **kwargs)
         d.addCallback(self._render_response)
 
         return d
@@ -72,6 +101,7 @@ class APIRequest(object):
             raise
 
     def _render_data(self, xml, el_name, data):
+        el_name = _underscore_to_xmlcase(el_name)
         data_el = xml.createElement(el_name)
     
         if isinstance(data, list):
@@ -79,6 +109,8 @@ class APIRequest(object):
                 data_el.appendChild(self._render_data(xml, 'item', item))
         elif isinstance(data, dict):
             self._render_dict(xml, data_el, data)
+        elif hasattr(data, '__dict__'):
+            self._render_dict(xml, data_el, data.__dict__)
         elif data != None:
             data_el.appendChild(xml.createTextNode(str(data)))
         
