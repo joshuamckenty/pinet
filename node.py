@@ -37,12 +37,12 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
-flags.DEFINE_string('instances_path', '../instances',
+flags.DEFINE_string('instances_path', '/root/pinet/instances',
                     'where instances are stored on disk')
-flags.DEFINE_string('images_path', '../images',
+flags.DEFINE_string('images_path', '/root/pinet/images',
                     'where images are stored on disk')
-flags.DEFINE_string('bridge_dev', 'eth0',
-                    'network device for bridges')
+flags.DEFINE_string('bridge_dev', 'virbr0',
+                    'network bridge for nodes')
 flags.DEFINE_string('libvirt_xml_template', 'libvirt.xml.template',
                     'template file to use for libvirt xml')
 flags.DEFINE_string('default_image',
@@ -58,14 +58,6 @@ flags.DEFINE_string('default_instance_type',
                     'm1.small',
                     'default instance type to use, testing only')
 
-flags.DEFINE_string('node_name',
-                    'node_foo',
-                    'name of this node')
-flags.DEFINE_string('node_availability_zone',
-                    'zone_bar',
-                    'availability zone of this node')
-
-
 
 INSTANCE_TYPES = {}
 INSTANCE_TYPES['m1.small'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 4096}
@@ -74,11 +66,14 @@ INSTANCE_TYPES['m1.large'] = {'memory_mb': 4096, 'vcpus': 4, 'disk_mb': 4096}
 INSTANCE_TYPES['c1.medium'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 4096}
 
 
-class GenericNode(object):
-    """ Generic Nodes have a libvirt connection """
-    def __init__(self, **kwargs):
-        super(GenericNode, self).__init__()
-    
+class Node(object):
+    """ The node is in charge of running instances.  """
+
+    def __init__(self):
+        """ load configuration options for this node and connect to libvirt """
+        self._instances = {}
+        self._conn = self._get_connection()
+
     def _get_connection(self):
         # TODO(termie): maybe lazy load after initial check for permissions
         # TODO(termie): check whether we can be disconnected
@@ -93,19 +88,6 @@ class GenericNode(object):
                 logging.error('Failed to open connection to the hypervisor')
                 sys.exit(1)
         return conn
-
-    def noop(self):
-        return defer.succeed('PONG')
-    
-
-class Node(GenericNode):
-    """ The node is in charge of running instances.  """
-
-    def __init__(self):
-        super(Node, self).__init__()
-        """ load configuration options for this node and connect to libvirt """
-        self._instances = {}
-        self._conn = self._get_connection()
     
     @exception.wrap_exception
     def adopt_instances(self):
@@ -122,13 +104,33 @@ class Node(GenericNode):
         logging.debug("Reporting State")
         instances = []
         rv = yield self.describe_instances()
-        instances = {FLAGS.node_name: rv}
+
+        if rv:
+            for instance in rv:
+                instances.append(
+                    {"item": 
+                       {"reservation_id": "foo",
+                        "ownerId" : "tim",
+                        "groupSet" : {"item" : {"groupId": "default"}},
+                        "instancesSet" : {
+                            "item": {"instanceId" : instance,
+                                     "imageId" : "emi-foo",
+                                     "instanceState" : {"code": 0,
+                                                        "name" : "pending"}
+                                     }
+                            }
+                        }
+                    })
+        instances = {"node-foo" : instances}
         calllib.cast("cloud",  
                             {"method": "update_state",
                              "args" : {"topic": "instances",
                                        "value": instances
                                        }
                              })
+    
+    def noop(self):
+        return defer.succeed('PONG')
     
     @exception.wrap_exception
     def describe_instances(self):
@@ -142,7 +144,7 @@ class Node(GenericNode):
         if instance_id in self._instances:
             raise exception.Error(
                     'attempting to use existing instance_id: %s' % instance_id)
-        # TODO(vish) check to make sure the availability zone matches
+
         new_inst = Instance(self._conn, name=instance_id, **kwargs)
         self._instances[instance_id] = new_inst
         d = new_inst.spawn()
@@ -199,17 +201,8 @@ class Node(GenericNode):
         runthis("Detached Volume: %s", "sudo virsh detach-disk %s %s "
                 % (instance_id, mountpoint))
 
-class Group(object):
-    def __init__(self, group_id):
-        self.group_id = group_id
-
-class ProductCode(object):
-    def __init__(self, product_code):
-        self.product_code = product_code
-
 
 class Instance(object):
-
     NOSTATE = 0x00
     RUNNING = 0x01
     BLOCKED = 0x02
@@ -218,15 +211,6 @@ class Instance(object):
     SHUTOFF = 0x05
     CRASHED = 0x06
 
-    def is_pending(self):
-        return self.state == Instance.NOSTATE
-
-    def is_destroyed(self):
-        return self.state == Instance.SHUTOFF
-
-    def is_running(self):
-        return self.state == Instance.RUNNING
-    
     def __init__(self, conn, name, **kwargs):
         """ spawn an instance with a given name """
         self._conn = conn
@@ -240,35 +224,18 @@ class Instance(object):
 
         self._s.update(INSTANCE_TYPES[size])
 
+        # TODO: We need to verify that user in context can access kernel, ramdisk, keypair, security group, etc.
         self._s['name'] = name
-        self._s['instance_id'] = name
-        self._s['instance_type'] = size
         self._s['mac_address'] = kwargs.get(
                 'mac_address', self.generate_mac())
         self._s['basepath'] = kwargs.get(
                 'basepath', os.path.join(FLAGS.instances_path, self.name))
         self._s['memory_kb'] = int(self._s['memory_mb']) * 1024
-        # TODO - Get this from network controller
         self._s['bridge_dev'] = kwargs.get('bridge_dev', FLAGS.bridge_dev)
         self._s['image_id'] = kwargs.get('image_id', FLAGS.default_image)
-        self._s['kernel_id'] = kwargs.get('kernel_id', FLAGS.default_kernel)
-        self._s['ramdisk_id'] = kwargs.get('ramdisk_id', FLAGS.default_ramdisk)
-        self._s['owner_id'] = kwargs.get('owner_id', None)
-        self._s['user_data'] = kwargs.get('user_data', None)
-        self._s['launch_index'] = kwargs.get('launch_index', None)
-        self._s['launch_time'] = kwargs.get('launch_time', None)
-        self._s['reservation_id'] = kwargs.get('reservation_id', None)
+        self._s['kernel'] = kwargs.get('kernel', FLAGS.default_kernel)
+        self._s['ramdisk'] = kwargs.get('ramdisk', FLAGS.default_ramdisk)
         self._s['state'] = Instance.NOSTATE
-        # TODO: we may not need to save the next few
-        self._s['groups'] = kwargs.get('security_group', ['default'])
-        self._s['product_codes'] = kwargs.get('product_code', [])
-        self._s['key_name'] = kwargs.get('key_name', None)
-        self._s['addressing_type'] = kwargs.get('addressing_type', None)
-        self._s['availability_zone'] = kwargs.get('availability_zone', None)
-
-        #TODO: put real dns items here
-        self._s['dns_name'] = 'fixme'
-        self._s['private_dns_name'] = 'fixme' 
 
     def toXml(self):
         # TODO(termie): cache?
@@ -300,7 +267,7 @@ class Instance(object):
         # TODO(termie): this code is duplicated in __init__
         basepath = os.path.join(FLAGS.instances_path, name)
         libvirt_xml = open(os.path.join(basepath, 'libvirt.xml')).read()
-        return cls.fromXml(conn, libvirt_xml)
+        return cls.fromXml(conn, xml)
 
     def _createImage(self, libvirt_xml):
         """ create libvirt.xml and copy files into instance path """
@@ -309,20 +276,19 @@ class Instance(object):
         if not FLAGS.fake_libvirt:
             # TODO(termie): what to do when this already exists?
             # TODO(termie): clean up on exit?
-            try:
-                os.makedirs(self._s['basepath'])
-            except:
-                pass
+            
+            os.makedirs(self._s['basepath'])
+            
             def _out_of_band(deferred):
                 logging.info('Creating image for: %s', self.name)
                 f = open(self.basepath('libvirt.xml'), 'w')
                 f.write(libvirt_xml)
                 f.close()
                 
-                shutil.copyfile(self.imagepath(self._s['kernel_id']),
-                                self.basepath('kernel_id'))
-                shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
-                                self.basepath('ramdisk_id'))
+                shutil.copyfile(self.imagepath(self._s['kernel']),
+                                self.basepath('kernel'))
+                shutil.copyfile(self.imagepath(self._s['ramdisk']),
+                                self.basepath('ramdisk'))
                 partition2disk.convert(self.imagepath(self._s['image_id']),
                                        self.basepath('disk'))
 
@@ -351,64 +317,17 @@ class Instance(object):
     def imagepath(self, s=''):
         return os.path.join(FLAGS.images_path, s)
 
+    def is_pending(self):
+        return self.state == Instance.NOSTATE
+
+    def is_destroyed(self):
+        return self.state == Instance.SHUTOFF
+
+    def is_running(self):
+        return self.state == Instance.RUNNING
+
     def describe(self):
-        """<DescribeInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2007-08-29">
-      <reservationSet>
-        <item>
-          <reservationId>r-44a5402d</reservationId>
-          <ownerId>UYY3TLBUXIEON5NQVUUX6OMPWBZIQNFM</ownerId>
-          <groupSet>
-            <item>
-              <groupId>default</groupId>
-            </item>
-          </groupSet>
-          <instancesSet>
-            <item>
-              <instanceId>i-28a64341</instanceId>
-              <imageId>ami-6ea54007</imageId>
-              <instanceState>
-                <code>0</code>
-                <name>running</name>
-              </instanceState>
-              <privateDnsName>domU-12-31-35-00-1E-01.compute-1.internal</privateDnsName>
-              <dnsName>ec2-72-44-33-4.compute-1.amazonaws.com</dnsName>
-              <keyName>example-key-name</keyName>
-              <productCodesSet>
-                <item><productCode>774F4FF8</productCode></item>
-              </productCodesSet>
-              <InstanceType>m1.small</InstanceType>
-              <launchTime>2007-08-07T11:54:42.000Z</launchTime>             
-            </item>
-          </instancesSet>
-        </item>
-      </reservationSet>
-    </DescribeInstancesResponse>"""
-        return self._s
-        """
-               {"reservation_set": [{
-                        "reservation_id": self._s['reservation_id'],
-                        "owner_id" : self._s['owner_id'],
-                        "group_set" : [{
-                            "group_id" : self._s['group_id']
-                        }],
-                        "instances_set" : [{
-                                "instance_id" : self.name,
-                                "image_id" : self._s['image_id'],
-                                "instance_state" : {
-                                    "code" : self.state,
-                                    "name" : Instance.state_names[self.state]
-                                },
-                                "private_dns_name": 'fixme',
-                                "dns_name": 'fixme',
-                                "key_name": self._s['key_name'],
-                                "product_codes_set" : [{
-                                        "product_code" : 'fixme'
-                                }],
-                                "instance_type": self._s['instance_type'],
-                                "launch_time": self._s['launch_time'],
-                        }]
-                }]}
-        """
+        return self.name
 
     def info(self):
         virt_dom = self._conn.lookupByName(self.name)

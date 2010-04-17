@@ -77,8 +77,12 @@ class CloudController(object):
         return True
         
     def describe_security_groups(self, context, **kwargs):
-        pass
-    
+        group_names = self._parse_list_param('GroupName', kwargs)
+        groups = { 'securityGroupSet': [] }
+
+        # Stubbed for now to unblock other things.
+        return groups
+        
     def create_security_group(self, context, **kwargs):
         pass
         
@@ -92,10 +96,12 @@ class CloudController(object):
                                      "args" : {"instance_id": instance_id}})
 
     def describe_volumes(self, context, **kwargs):
+        # TODO: Evil - this returns every volume for every user.
         return defer.succeed(self.volumes)
 
     def create_volume(self, context, **kwargs):
         # TODO(termie): API layer
+        # TODO: We need to pass in context.user so we can associate the volume with the user.
         size = kwargs['Size'][0]
         calllib.cast('storage', {"method": "create_volume", 
                                  "args" : {"size": size}})
@@ -110,6 +116,7 @@ class CloudController(object):
 
     def attach_volume(self, context, **kwargs):
         # TODO(termie): API layer
+        # TODO: We need to verify that context.user owns both the volume and the instance before attaching.
         volume_id = kwargs['VolumeId'][0]
         instance_id = kwargs['InstanceId'][0]
         mountpoint = kwargs['Device'][0]
@@ -129,6 +136,7 @@ class CloudController(object):
     def detach_volume(self, context, **kwargs):
         # TODO(termie): API layer
         # TODO(jmc): Make sure the updated state has been received first
+        # TODO: We need to verify that context.user owns both the volume and the instance before dettaching.
         volume_id = kwargs['VolumeId'][0]
         volume = self._get_volume(volume_id)
         mountpoint = volume['mountpoint']
@@ -218,6 +226,7 @@ class CloudController(object):
         return defer.succeed(True)
 
     def describe_images(self, context, **kwargs):
+        # TODO: Make this aware of the difference between private and public images.
         images = { 'imagesSet': [] }
 
         for bucket in self.boto_conn().get_all_buckets():
@@ -232,6 +241,8 @@ class CloudController(object):
         return defer.succeed(images)
     
     def deregister_image(self, context, **kwargs):
+        # TODO: Make sure context.user has permission to deregister.
+        
         image_id = kwargs['ImageId'][0]
         bucket = self.boto_conn().get_bucket(image_id)
         k = boto.s3.key.Key(bucket)
@@ -282,6 +293,7 @@ class CloudController(object):
         return defer.succeed(True)
 
     def boto_conn(self):
+        # TODO: User context.user for the access and secret keys.
         return boto.s3.connection.S3Connection (
             aws_secret_access_key="fixme",
             aws_access_key_id="fixme",
