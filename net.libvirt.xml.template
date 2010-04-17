@@ -1,6 +1,7 @@
 <network>
   <name>%(name)s</name>
   <forward mode="route" dev="%(device)s"/>
+  <!-- <forward mode="nat"/> -->
   <bridge name='%(bridge_name)s' stp='on' delay='0' />
   <ip address='%(gateway)s' netmask='%(netmask)s'>
     <dhcp>

@@ -23,7 +23,7 @@ FLAGS = flags.FLAGS
 
 class NetworkTestCase(unittest.TestCase):
     def setUp(self):
-        FLAGS.fake_libvirt = True
+        FLAGS.fake_libvirt = False
         FLAGS.fake_network = True
         FLAGS.fake_rabbit = True
         FLAGS.fake_users = True

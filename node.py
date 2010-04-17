@@ -37,9 +37,9 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
-flags.DEFINE_string('instances_path', '/root/pinet/instances',
+flags.DEFINE_string('instances_path', '../instances',
                     'where instances are stored on disk')
-flags.DEFINE_string('images_path', '/root/pinet/images',
+flags.DEFINE_string('images_path', '../images',
                     'where images are stored on disk')
 flags.DEFINE_string('bridge_dev', 'eth0',
                     'network device for bridges')

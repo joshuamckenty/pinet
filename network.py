@@ -7,6 +7,7 @@ import exception
 from exception import *
 import node
 from node import GenericNode
+from utils import runthis
 
 import contrib
 import flags
@@ -19,7 +20,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('fake_network', False, 'should we use fake network devices and addresses')
 flags.DEFINE_string('net_libvirt_xml_template', 'net.libvirt.xml.template', 'Template file for libvirt networks')
 flags.DEFINE_string('networks_path', '../networks', 'Location to keep network XML files')
-flags.DEFINE_integer('public_vlan', 108, 'VLAN for public IP addresses')
+flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
 KEEPER = datastore.keeper("net-")
 
 
@@ -36,15 +37,17 @@ class Network(object):
         self.assigned = [self.network[0], self.network[1], self.network[-1]]
         self._s['gateway'] = str(self.network[1])
         self._s['netmask'] = str(self.network.netmask())
+        self._s['broadcast'] = str(self.network[-1])
         self._s['rangestart'] = str(self.network[2])
         self._s['rangeend'] = str(self.network[-2])
-        self._s['bridge_name'] = "br%s" % (vlan)
-        self._s['device'] = "%s.%s" % (FLAGS.bridge_dev, vlan)
-        self._s['name'] = "pinet-%s" % (vlan)
+        self._s['bridge_name'] = "br%s" % (self.vlan)
+        self._s['device'] = "vlan%s" % (self.vlan)
+        self._s['name'] = "pinet-%s" % (self.vlan)
         try:
             os.makedirs(FLAGS.networks_path)
         except Exception, err:
-            logging.debug("Couldn't make directory, b/c %s" % (str(err)))
+            pass
+            # logging.debug("Couldn't make directory, b/c %s" % (str(err)))
         
         # Do we want these here, or in the controller?
         self.allocations = [{'address' : self.network[0], 'user_id' : 'net'}, 
@@ -55,7 +58,7 @@ class Network(object):
         for ip in self.network:
             if not ip in self.assigned:
                 self.assigned.append(ip)
-                logging.debug("Allocating IP %s" % (ip))
+                # logging.debug("Allocating IP %s" % (ip))
                 self.allocations.append( {
                     "address" : ip, "user_id" : user_id
                 })
@@ -89,31 +92,48 @@ class Network(object):
         return libvirt_xml
 
     # NEED A FROMXML for roundtripping?
+    # TODO - Need to be able to remove interfaces when they're not needed
             
     def express(self, conn):
         # ON ALL THE NODES:
         # Create VLAN interface
         
+        if self._s['name'] in conn.listNetworks():
+            logging.debug("Skipping network %s cause it's already running" % (self._s['name']))
+            return # Reboot the network here
+
+        runthis("Configuring VLAN type: %s", "sudo vconfig set_name_type VLAN_PLUS_VID_NO_PAD")
+        runthis("Adding VLAN %s: %%s" % (self.vlan) , "sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
+        #runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
+        runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s %s netmask %s broadcast %s up" % 
+                  (self.vlan, "192.168.0.%s" % ((self.vlan % 1000)), "255.255.255.0", "192.168.0.255"))
+        
         # create virsh interface to bridge to the vlan interface
-        # Setup DHCP server for private addressing
         xml = self.toXml()
-        logging.debug(xml)                
+        # logging.debug(xml)                
         f = open(os.path.join(FLAGS.networks_path, self._s['name']), 'w')
         f.write(xml)
         f.close()
+        try:
+            conn.networkCreateXML(xml)
+        except Exception, err:
+            logging.debug("libvirt threw %s" % str(err))
+            pass
+
+    def is_running(self, conn):
         pass
 
 
 class PrivateNetwork(Network):
     def __init__(self, vlan, network=None):
-        super(PrivateNetwork, self).__init__(vlan, network)
+        super(PrivateNetwork, self).__init__(vlan=vlan, network=network)
         self.natted = False
         self.proxyarp = False
 
         
 class PublicNetwork(Network):
-    def __init__(self, vlan, network="192.168.216.0/24"):
-        super(PublicNetwork, self).__init__(vlan, network)
+    def __init__(self, vlan=None, network="192.168.216.0/24"):
+        super(PublicNetwork, self).__init__(vlan=vlan, network=network)
         self.natted = True
         self.proxyarp = False
     
@@ -127,7 +147,7 @@ class PublicNetwork(Network):
 class NetworkPool(Network):
     # TODO - Allocations need to be system global
     
-    def __init__(self, netsize=64, network="192.168.0.0/17", vlan=1000):
+    def __init__(self, netsize=64, network="192.168.0.0/17", vlan=2000):
         super(NetworkPool, self).__init__(vlan=vlan, network=network)
         if not netsize in [4,8,16,32,64,128,256,512,1024]:
             raise NotValidNetworkSize
@@ -142,7 +162,8 @@ class NetworkPool(Network):
         self.allocations.append(self.network[start])
         self.vlans.append(vlan)
         self.next_vlan += 1
-        return Network(vlan, network="%s-%s" % (self.network[start], self.network[start + self.netsize - 1]))
+        logging.debug("Constructing network with vlan %s" % (vlan))
+        return Network(vlan=vlan, network="%s-%s" % (self.network[start], self.network[start + self.netsize - 1]))
         
 
 class NetworkController(GenericNode):
