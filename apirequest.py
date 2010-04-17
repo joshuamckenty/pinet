@@ -14,7 +14,7 @@ def _camelcase_to_underscore(str):
     return _c2u.sub(r'_\1', str).lower().strip('_')
 
 def _underscore_to_camelcase(str):
-    return ''.join([x.capitalize() for x in str.split('_')])
+    return ''.join([x[:1].upper() + x[1:] for x in str.split('_')])
 
 def _underscore_to_xmlcase(str):
     res = _underscore_to_camelcase(str)
@@ -94,8 +94,7 @@ class APIRequest(object):
         try:
             for key in data.keys():
                 val = data[key]
-                if val:
-                    el.appendChild(self._render_data(xml, key, val))
+                el.appendChild(self._render_data(xml, key, val))
         except:
             _log.debug(data)
             raise

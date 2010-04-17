@@ -149,6 +149,8 @@ class CloudController(object):
         return defer.succeed(self.format_instances(context.user.id))
 
     def format_instances(self, owner_id = None):
+        if self.instances == None:
+            return {'reservationSet': []}
         reservations = {}
         for node in self.instances.values():
             for instance in node:
