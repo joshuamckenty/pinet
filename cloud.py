@@ -14,6 +14,8 @@ import users
 import urllib
 import time
 import node
+import network
+import utils
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
@@ -35,6 +37,7 @@ class CloudController(object):
         self.volumes = {"result": "uninited"}
         self.instances = None
         self.images = {"result":"uninited"}
+        self.network = network.NetworkController()
 
     def __str__(self):
         return 'CloudController'
@@ -194,7 +197,9 @@ class CloudController(object):
         l = []
         for num in range(int(kwargs['max_count'])):
             kwargs['instance_id'] = 'i-%06d' % random.randint(0,1000000)
+            kwargs['mac_address'] = utils.generate_mac()
             #TODO(joshua) - Allocate IP based on security group
+            kwargs['private_dns_name'] = str(self.network.allocate_address(kwargs['owner_id'], kwargs['mac_address']))
             kwargs['launch_index'] = num 
             l.append(calllib.cast('node', 
                                   {"method": "run_instance", 
