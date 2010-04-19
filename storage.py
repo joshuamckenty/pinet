@@ -67,21 +67,21 @@ class BlockStore(object):
         self.report_state()
 
     def describe_volumes(self):
-        set = []
+        volumes = {}
         for volume_id in self.loop_volumes():
             try:
                 vol = self.volume_class(volume_id = volume_id)
             except:
                 continue # volume is not exported
-            set.append({"user_id": vol.get_user_id(),
+            volumes[volume_id] = {"user_id": vol.get_user_id(),
                         "volume_id": volume_id, 
                         "size" : vol.get_size(), 
                         "aoe_device" : vol.get_aoe_device(),
                         "availability_zone" : "pinet", 
                         "status" : vol.get_status(), 
                         "create_time" : "1", 
-                        "attachment_set" : []})
-        return {FLAGS.storage_name : set}
+                        "attachment_set" : []}
+        return {FLAGS.storage_name : volumes}
 
     def loop_volumes(self):
         for lv in subprocess.Popen(["sudo", "lvs", "--noheadings"], stdout=subprocess.PIPE).communicate()[0].split("\n"):

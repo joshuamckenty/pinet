@@ -121,21 +121,20 @@ class CloudController(object):
                                            "user_id": user_id}})
         return defer.succeed(True)
 
-    def _get_by_id(self, dict, id_string, id):
-        if dict == {}:
-            raise exception.ApiError("%s not found in %s", id, dict)
-        for worker in dict.values():
-            for item in worker:
-                if item[id_string] == id:
-                    return item
-        raise exception.ApiError("%s not found in %s", id, dict)
+    def _get_by_id(self, workers, id):
+        if workers == {}:
+            raise exception.ApiError("%s not found in %s", id, workers)
+        for worker in workers.values():
+            if worker.has_key(id):
+                return worker[id]
+        raise exception.ApiError("%s not found in %s", id, workers)
 
     def _get_volume(self, volume_id):
-        return self._get_by_id(self.volumes, 'volume_id', volume_id)
+        return self._get_by_id(self.volumes, volume_id)
 
 
     def _get_instance(self, instance_id):
-        return self._get_by_id(self.instances, 'instance_id', instance_id)
+        return self._get_by_id(self.instances, instance_id)
 
 
     def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
