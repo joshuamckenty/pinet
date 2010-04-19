@@ -23,7 +23,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('storage_dev', '/dev/sdb1', 'Physical device to use for volumes')
 flags.DEFINE_string('volume_group', 'pinet-volumes', 'Name for the VG that will contain exported volumes')
 flags.DEFINE_string('aoe_eth_dev', 'eth0', 'Which device to export the volumes on')
-flags.DEFINE_boolean('fake_storage', False, 'Should we make real storage volumes to attach?')
+flags.DEFINE_boolean('fake_storage', True, 'Should we make real storage volumes to attach?')
 
 KEEPER = datastore.keeper(prefix="storage")
 
@@ -41,6 +41,7 @@ class BlockStore(object):
     def create_volume(self, size):
         logging.debug("Creating volume of size: %s" % (size))
         volume = self.volume_class(size = size)
+        time.sleep(5)
         self._restart_exports()
         return volume
         
@@ -87,7 +88,6 @@ class BlockStore(object):
 
     def _restart_exports(self):
         runthis("Setting exports to auto: %s", "sudo vblade-persist auto all")
-        time.sleep(10)
         runthis("Starting all exports: %s", "sudo vblade-persist start all")
         # Do this twice
         

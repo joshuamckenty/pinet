@@ -19,7 +19,7 @@ from IPy import IP
 FLAGS = flags.FLAGS
 flags.DEFINE_string('fake_network', False, 'should we use fake network devices and addresses')
 flags.DEFINE_string('net_libvirt_xml_template', 'net.libvirt.xml.template', 'Template file for libvirt networks')
-flags.DEFINE_string('networks_path', '../networks', 'Location to keep network XML files')
+flags.DEFINE_string('networks_path', '/etc/libvirt/qemu/networks', 'Location to keep network XML files')
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
 KEEPER = datastore.keeper("net-")
 
@@ -80,10 +80,11 @@ class Network(object):
             yield self.allocations[index]
             
     def hostXml(self, allocation):
+        idx = self.allocations.index(allocation) - 2 # Logically, the idx of instances they've launched in this net
         mac = allocation['mac']
         ip = allocation['address']
         user_id = allocation['user_id']
-        return "      <host mac=\"%s\" name=\"%s.pinetlocal\" ip=\"%s\" />" % (mac, "%s-%s-%s" % (user_id, self.vlan, ip), ip)
+        return "      <host mac=\"%s\" name=\"%s.pinetlocal\" ip=\"%s\" />" % (mac, "%s-%s-%s" % (user_id, self.vlan, idx), ip)
     
     def toXml(self):
         self._s['hosts'] = "\n".join(map(self.hostXml, self.allocations))
@@ -96,25 +97,22 @@ class Network(object):
     # TODO - Need to be able to remove interfaces when they're not needed
             
     def express(self, conn):
-        # ON ALL THE NODES:
-        # Create VLAN interface
-        
-        if self._s['name'] in conn.listNetworks():
-            logging.debug("Skipping network %s cause it's already running" % (self._s['name']))
-            return # Reboot the network here
 
-        runthis("Configuring VLAN type: %s", "sudo vconfig set_name_type VLAN_PLUS_VID_NO_PAD")
-        runthis("Adding VLAN %s: %%s" % (self.vlan) , "sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
-        runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
-        #runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s %s netmask %s broadcast %s up" % 
-        #          (self.vlan, "192.168.0.%s" % ((self.vlan % 1000)), "255.255.255.0", "192.168.0.255"))
-        
-        # create virsh interface to bridge to the vlan interface
         xml = self.toXml()
-        # logging.debug(xml)                
         f = open(os.path.join(FLAGS.networks_path, self._s['name']), 'w')
         f.write(xml)
         f.close()
+        
+        if not self._s['name'] in conn.listNetworks():
+            logging.debug("Starting VLAN inteface for %s network" % (self._s['name']))
+            runthis("Configuring VLAN type: %s", "sudo vconfig set_name_type VLAN_PLUS_VID_NO_PAD")
+            runthis("Adding VLAN %s: %%s" % (self.vlan) , "sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
+            runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
+            #runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s %s netmask %s broadcast %s up" % 
+            #          (self.vlan, "192.168.0.%s" % ((self.vlan % 1000)), "255.255.255.0", "192.168.0.255"))
+        else:
+            net = conn.networkLookupByName(self._s['name'])
+            net.destroy()
         try:
             conn.networkCreateXML(xml)
         except Exception, err:
@@ -203,15 +201,23 @@ class NetworkController(GenericNode):
         
     def allocate_address(self, user_id, mac=None, type=PrivateNetwork):
         if type == PrivateNetwork:
-            return self.get_users_network(user_id).allocate_ip(user_id, mac)
-        return self._public.allocate_ip(user_id, mac)
+            ip = self.get_users_network(user_id).allocate_ip(user_id, mac)
+            self.get_users_network(user_id).express(self._conn)
+            return ip
+        ip = self._public.allocate_ip(user_id, mac)
+        self._public.express(self._conn)
+        return ip
         
     def deallocate_address(self, address):
         if address in self._public.network:
-            return self._public.deallocate_ip(address)
+            rv = self._public.deallocate_ip(address)
+            self._public.express(self._conn)
+            return rv
         for user_id in self._private.keys(): 
             if address in self.get_users_network(user_id).network:
-                return self.get_users_network(user_id).deallocate_ip(address)
+                rv = self.get_users_network(user_id).deallocate_ip(address)
+                self.get_users_network(user_id).express(self._conn)
+                return rv
         raise NotAllocated
 
     def describe_addresses(self, type=PrivateNetwork):
