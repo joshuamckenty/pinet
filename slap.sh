@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-apt-get install slapd ldap-utils
+apt-get install slapd ldap-utils python-ldap
 
 cat >/etc/ldap/schema/openssh-lpk_openldap.schema <<LPK_SCHEMA_EOF
 #

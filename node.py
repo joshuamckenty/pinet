@@ -62,7 +62,7 @@ flags.DEFINE_string('node_name',
                     'node_foo',
                     'name of this node')
 flags.DEFINE_string('node_availability_zone',
-                    'zone_bar',
+                    'pinet',
                     'availability zone of this node')
 
 

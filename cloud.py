@@ -13,6 +13,8 @@ import flags
 import users
 import time
 import node
+import network
+import utils
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
@@ -31,9 +33,10 @@ _STATE_NAMES = {
 
 class CloudController(object):
     def __init__(self):
-        self.volumes = {"result": "uninited"}
+        self.volumes = {}
         self.instances = {}
         self.images = {"result":"uninited"}
+        self.network = network.NetworkController()
 
     def __str__(self):
         return 'CloudController'
@@ -91,14 +94,21 @@ class CloudController(object):
                                      "args" : {"instance_id": instance_id}})
 
     def describe_volumes(self, context, **kwargs):
-        # TODO: Evil - this returns every volume for every user.
+        if self.volumes == {}:
+            return {'volume_set': [] } 
+        volumes = {}
+        for storage in self.volumes.values():
+            for volume in storage.values():
         return defer.succeed(self.volumes)
 
     def create_volume(self, context, size, **kwargs):
-        # TODO(termie): API layer
-        # TODO: We need to pass in context.user so we can associate the volume with the user.
+        if context and context.user:
+            user = context.user.id
+        else:
+            user = None
         calllib.cast('storage', {"method": "create_volume", 
-                                 "args" : {"size": size}})
+                                 "args" : {"size": size,
+                                           "user": user}})
         return defer.succeed(True)
     
     def _get_volume(self, volume_id):
@@ -126,7 +136,7 @@ class CloudController(object):
 
     def detach_volume(self, context, volume_id, **kwargs):
         # TODO(termie): API layer
-        # TODO(jmc): Make sure the updated state has been received first
+        # TODO(joshua): Make sure the updated state has been received first
         # TODO: We need to verify that context.user owns both the volume and the instance before dettaching.
         volume = self._get_volume(volume_id)
         mountpoint = volume['mountpoint']
@@ -199,6 +209,9 @@ class CloudController(object):
         pending = {}
         for num in range(int(kwargs['max_count'])):
             kwargs['instance_id'] = 'i-%06d' % random.randint(0,1000000)
+            kwargs['mac_address'] = utils.generate_mac()
+            #TODO(joshua) - Allocate IP based on security group
+            kwargs['private_dns_name'] = str(self.network.allocate_address(kwargs['owner_id'], kwargs['mac_address']))
             kwargs['ami_launch_index'] = num 
             calllib.cast('node', 
                                   {"method": "run_instance", 
@@ -285,6 +298,7 @@ class CloudController(object):
         logging.debug("Updating state for %s" % (topic))
         # TODO(termie): do something smart here to aggregate this data
         # TODO(jmc): This is fugly
+        # TODO(jmc): if an instance has disappeared from the node, call instance_death
         if "node" == topic:
             getattr(self, topic)[value.keys()[0]] = value.values()[0]
         else:

@@ -1,12 +1,11 @@
 <network>
   <name>%(name)s</name>
-  <forward mode="route" dev="%(device)s"/>
-  <!-- <forward mode="nat"/> -->
   <bridge name='%(bridge_name)s' stp='on' delay='0' />
+  <forward mode="route" dev="%(device)s"/>
   <ip address='%(gateway)s' netmask='%(netmask)s'>
     <dhcp>
       <range start='%(rangestart)s' end='%(rangeend)s' />
+%(hosts)s
     </dhcp>
   </ip>
-  <pinet>%(pinet)s</pinet>
 </network>

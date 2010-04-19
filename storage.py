@@ -23,8 +23,14 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('storage_dev', '/dev/sdb1', 'Physical device to use for volumes')
 flags.DEFINE_string('volume_group', 'pinet-volumes', 'Name for the VG that will contain exported volumes')
 flags.DEFINE_string('aoe_eth_dev', 'eth0', 'Which device to export the volumes on')
-flags.DEFINE_boolean('fake_storage', False, 'Should we make real storage volumes to attach?')
+flags.DEFINE_boolean('fake_storage', True, 'Should we make real storage volumes to attach?')
 
+flags.DEFINE_string('storage_name',
+                    'storage_foo',
+                    'name of this node')
+flags.DEFINE_string('storage_availability_zone',
+                    'pinet',
+                    'availability zone of this node')
 KEEPER = datastore.keeper(prefix="storage")
 
 class BlockStore(object):
@@ -38,9 +44,10 @@ class BlockStore(object):
         self._init_volume_group()
         pass
 
-    def create_volume(self, size):
+    def create_volume(self, size, user_id):
         logging.debug("Creating volume of size: %s" % (size))
-        volume = self.volume_class(size = size)
+        volume = self.volume_class(size = size, user_id = user_id)
+        time.sleep(5)
         self._restart_exports()
         return volume
         
@@ -66,15 +73,15 @@ class BlockStore(object):
                 vol = self.volume_class(volume_id = volume_id)
             except:
                 continue # volume is not exported
-            set.append({"item": 
-                           {"volumeId": volume_id, 
-                            "size" : vol.get_size(), 
-                            "aoe_device" : vol.get_aoe_device(),
-                            "availabilityZone" : "pinet", 
-                            "status" : vol.get_status(), 
-                            "createTime" : "1", 
-                            "attachmentSet" : []}})
-        return {"volumeSet" : set}
+            set.append({"user_id": vol.get_user_id(),
+                        "volume_id": volume_id, 
+                        "size" : vol.get_size(), 
+                        "aoe_device" : vol.get_aoe_device(),
+                        "availability_zone" : "pinet", 
+                        "status" : vol.get_status(), 
+                        "create_time" : "1", 
+                        "attachment_set" : []})
+        return {FLAGS.storage_name : set}
 
     def loop_volumes(self):
         for lv in subprocess.Popen(["sudo", "lvs", "--noheadings"], stdout=subprocess.PIPE).communicate()[0].split("\n"):
@@ -87,7 +94,6 @@ class BlockStore(object):
 
     def _restart_exports(self):
         runthis("Setting exports to auto: %s", "sudo vblade-persist auto all")
-        time.sleep(10)
         runthis("Starting all exports: %s", "sudo vblade-persist start all")
         # Do this twice
         
@@ -125,13 +131,15 @@ class Volume(object):
     """Volumes represent a single logical persistent iSCSI target.
     """
     
-    def __init__(self, volume_id = None, size = None):
+    def __init__(self, volume_id = None, size = None, user_id = None):
         self.volume_id = None
         self.status = 'unknown'
         self.mountpoint = None
         self.instance_id = None
         self.aoe_device = None
         self.size = 0
+        # TODO: do we need to make sure user_id isn't changed for existing volumes?
+        self.user_id = user_id
         if volume_id:
             self.load(volume_id)
             if self.get_aoe_device() is None:
@@ -158,7 +166,8 @@ class Volume(object):
         self.save()
 
     def save(self):
-        KEEPER[self.volume_id] = {'status' : self.status,
+        KEEPER[self.volume_id] = {'user_id' : self.user_id,
+                                  'status' : self.status,
                                   'size' : self.size,
                                   'mountpoint' : self.mountpoint,
                                   'instance_id' : self.instance_id,
@@ -167,6 +176,7 @@ class Volume(object):
     def load(self, volume_id):
         state = KEEPER[volume_id]
         if state:
+            self.user_id = state['user_id']
             self.status = state['status']
             self.size = state['size']
             self.mountpoint = state['mountpoint']
@@ -179,6 +189,10 @@ class Volume(object):
         self.load(self.volume_id)
         return self.status
 
+    def get_user_id(self):
+        self.load(self.volume_id)
+        return self.user_id
+    
     def get_size(self):
         self.load(self.volume_id)
         return self.size
@@ -220,8 +234,11 @@ class Volume(object):
                 (shelf_id, blade_id, FLAGS.aoe_eth_dev, FLAGS.volume_group, self.volume_id))
 
     def _remove_export(self):
+        pass
+        # TODO: update the following code
+        """
         runthis("Destroyed AOE export: %s", "sudo vblade-persist destroy %s %s" % (aoe[1], aoe[3]))
-
+"""
 class FakeVolume(Volume):
     #def delete(self):
     #    pass
@@ -259,4 +276,3 @@ def get_next_aoe_numbers():
         shelf_id += 1
         blade_id = 0
     return (shelf_id, blade_id)
-        
