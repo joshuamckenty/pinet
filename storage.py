@@ -7,6 +7,7 @@ import logging
 import subprocess
 import random
 import exception
+import time
 
 from utils import runthis
 import calllib
@@ -21,7 +22,7 @@ from twisted.internet import defer
 FLAGS = flags.FLAGS
 flags.DEFINE_string('storage_dev', '/dev/sdb1', 'Physical device to use for volumes')
 flags.DEFINE_string('volume_group', 'pinet-volumes', 'Name for the VG that will contain exported volumes')
-flags.DEFINE_string('aoe_eth_dev', 'br0', 'Which device to export the volumes on')
+flags.DEFINE_string('aoe_eth_dev', 'eth0', 'Which device to export the volumes on')
 flags.DEFINE_boolean('fake_storage', False, 'Should we make real storage volumes to attach?')
 
 KEEPER = datastore.keeper(prefix="storage")
@@ -61,7 +62,10 @@ class BlockStore(object):
     def describe_volumes(self):
         set = []
         for volume_id in self.loop_volumes():
-            vol = self.volume_class(volume_id = volume_id)
+            try:
+                vol = self.volume_class(volume_id = volume_id)
+            except:
+                continue # volume is not exported
             set.append({"item": 
                            {"volumeId": volume_id, 
                             "size" : vol.get_size(), 
@@ -83,7 +87,9 @@ class BlockStore(object):
 
     def _restart_exports(self):
         runthis("Setting exports to auto: %s", "sudo vblade-persist auto all")
+        time.sleep(10)
         runthis("Starting all exports: %s", "sudo vblade-persist start all")
+        # Do this twice
         
     def _init_volume_group(self):
         runthis("PVCreate returned: %s", "sudo pvcreate %s" % (FLAGS.storage_dev))
@@ -234,19 +240,21 @@ class FakeVolume(Volume):
         pass
 
 def get_aoe_devices():
-    aoes = subprocess.Popen(["sudo", "ls",  "-al", "/dev/etherd/"], stdout=subprocess.PIPE).communicate()[0]
+    runthis("Discovering AOE devices: %s", "sudo aoe-discover")
+    aoes = subprocess.Popen("sudo ls -al /dev/etherd/e*.*", shell=True, stdout=subprocess.PIPE).communicate()[0]
     for aoe in aoes.strip().split("\n"):
         bits = aoe.split(" ")
         yield (bits[-1], bits[-3])
 
 def get_next_aoe_numbers():
     # TODO - Guarantee these are in the right order, and make sure they're only the en.n listings
-    aoes = subprocess.Popen(["sudo", "ls",  "-1", "/dev/etherd/"], stdout=subprocess.PIPE).communicate()[0]
+    aoes = subprocess.Popen("sudo ls -1 /var/lib/vblade-persist/vblades/", shell=True, stdout=subprocess.PIPE).communicate()[0]
     last_aoe = aoes.strip().split("\n")[-1]
     if last_aoe == '':
         last_aoe = 'e0.0'
-    shelf_id = int(last_aoe[1])
-    blade_id = int(last_aoe[3]) + 1
+    logging.debug("Last aoe is %s" % (last_aoe))
+    shelf_id = int(last_aoe[-3])
+    blade_id = int(last_aoe[-1]) + 1
     if (blade_id > 8):
         shelf_id += 1
         blade_id = 0

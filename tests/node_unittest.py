@@ -60,7 +60,7 @@ class NodeFakeConnectionTestCase(test.BaseTestCase):
         rv = yield self.node.run_instance(instance_id)
         
         rv = yield self.node.describe_instances()
-        self.assertEqual(rv, [instance_id])
+        self.assertEqual(rv[0]['name'], instance_id)
 
         rv = yield self.node.terminate_instance(instance_id)
 
@@ -73,12 +73,12 @@ class NodeFakeConnectionTestCase(test.BaseTestCase):
         yield self.node.run_instance(instance_id)
         
         rv = yield self.node.describe_instances()
-        self.assertEqual(rv, [instance_id])
+        self.assertEqual(rv[0]['name'], instance_id)
         
         yield self.node.reboot_instance(instance_id)
 
         rv = yield self.node.describe_instances()
-        self.assertEqual(rv, [instance_id])
+        self.assertEqual(rv[0]['name'], instance_id)
 
     def test_console_output(self):
         instance_id = 'foo'
@@ -92,6 +92,6 @@ class NodeFakeConnectionTestCase(test.BaseTestCase):
         yield self.node.run_instance(instance_id)
 
         rv = yield self.node.describe_instances()
-        self.assertEqual(rv, [instance_id])
+        self.assertEqual(rv[0]['name'], instance_id)
         
         self.assertRaises(exception.Error, self.node.run_instance, instance_id)

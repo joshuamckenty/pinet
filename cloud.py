@@ -12,23 +12,34 @@ import calllib
 import flags
 import users
 import urllib
+import time
+import node
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
 flags.DEFINE_integer('s3_port', 3333, 'the port we connect to s3 on')
 
-        
+
+_STATE_NAMES = {
+    node.Instance.NOSTATE: 'nostate',
+    node.Instance.RUNNING: 'running',
+    node.Instance.BLOCKED: 'blocked',
+    node.Instance.PAUSED: 'paused',
+    node.Instance.SHUTDOWN: 'shutdown',
+    node.Instance.SHUTOFF: 'shutoff',
+    node.Instance.CRASHED: 'crashed',
+}
+
 class CloudController(object):
     def __init__(self):
         self.volumes = {"result": "uninited"}
-        self.instances = {"result": "uninited"}
+        self.instances = None
         self.images = {"result":"uninited"}
 
     def __str__(self):
         return 'CloudController'
                           
-    def describe_key_pairs(self, context, **kwargs):
-        key_names = self._parse_list_param('KeyName', kwargs)
+    def describe_key_pairs(self, context, key_names, **kwargs):
         key_pairs = { 'keypairsSet': [] }
 
         if len(key_names) > 0:
@@ -48,9 +59,7 @@ class CloudController(object):
 
         return key_pairs
 
-    def create_key_pair(self, context, **kwargs):
-        key_name = kwargs['KeyName'][0]
-
+    def create_key_pair(self, context, key_name, **kwargs):
         try:
             private_key, fingerprint = context.user.generate_key_pair(key_name)
             return {'keyName': key_name,
@@ -59,33 +68,36 @@ class CloudController(object):
         except users.UserError, e:
             raise
 
-    def delete_key_pair(self, context, **kwargs):
-        key_name = kwargs['KeyName'][0]
-        # aws returns true even if the key doens't exist
+    def delete_key_pair(self, context, key_name, **kwargs):
         context.user.delete_key_pair(key_name)
+        # aws returns true even if the key doens't exist
         return True
         
-    def describe_security_groups(self, context, **kwargs):
-        pass
-    
-    def create_security_group(self, context, **kwargs):
+    def describe_security_groups(self, context, group_names, **kwargs):
+        groups = { 'securityGroupSet': [] }
+
+        # Stubbed for now to unblock other things.
+        return groups
+        
+    def create_security_group(self, context, group_name, **kwargs):
         pass
         
-    def delete_security_group(self, context, **kwargs):
+    def delete_security_group(self, context, group_name, **kwargs):
         pass
 
-    def get_console_output(self, context, **kwargs):
-        # TODO(termie): move this InstanceId stuff into the api layer
-        instance_id = kwargs['InstanceId.1'][0]
+    def get_console_output(self, context, instance_id, **kwargs):
+        # instance_id is passed in as a list of instances
+        instance_id = instance_id[0]
         return calllib.call('node', {"method": "get_console_output",
                                      "args" : {"instance_id": instance_id}})
 
     def describe_volumes(self, context, **kwargs):
+        # TODO: Evil - this returns every volume for every user.
         return defer.succeed(self.volumes)
 
-    def create_volume(self, context, **kwargs):
+    def create_volume(self, context, size, **kwargs):
         # TODO(termie): API layer
-        size = kwargs['Size'][0]
+        # TODO: We need to pass in context.user so we can associate the volume with the user.
         calllib.cast('storage', {"method": "create_volume", 
                                  "args" : {"size": size}})
         return defer.succeed(True)
@@ -97,28 +109,26 @@ class CloudController(object):
         return None
 
 
-    def attach_volume(self, context, **kwargs):
+    def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
         # TODO(termie): API layer
-        volume_id = kwargs['VolumeId'][0]
-        instance_id = kwargs['InstanceId'][0]
-        mountpoint = kwargs['Device'][0]
+        # TODO: We need to verify that context.user owns both the volume and the instance before attaching.
         aoe_device = self._get_volume(volume_id)['aoe_device']
         # Needs to get right node controller for attaching to
         # TODO: Maybe have another exchange that goes to everyone?
         calllib.cast('node', {"method": "attach_volume",
                                  "args" : {"aoe_device": aoe_device,
                                            "instance_id" : instance_id,
-                                           "mountpoint" : mountpoint}})
+                                           "mountpoint" : device}})
         calllib.cast('storage', {"method": "attach_volume",
                                  "args" : {"volume_id": volume_id,
                                            "instance_id" : instance_id,
-                                           "mountpoint" : mountpoint}})
+                                           "mountpoint" : device}})
         return defer.succeed(True)
 
-    def detach_volume(self, context, **kwargs):
+    def detach_volume(self, context, volume_id, **kwargs):
         # TODO(termie): API layer
         # TODO(jmc): Make sure the updated state has been received first
-        volume_id = kwargs['VolumeId'][0]
+        # TODO: We need to verify that context.user owns both the volume and the instance before dettaching.
         volume = self._get_volume(volume_id)
         mountpoint = volume['mountpoint']
         instance_id = volume['instance_id']
@@ -129,50 +139,82 @@ class CloudController(object):
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed({'result': 'ok'})
 
-    def describe_instances(self, context, **kwargs):
-        return defer.succeed(self.format_instances())
+    def _convert_to_set(self, lst, str):
+        if lst == None or lst == []:
+            return None
+        return [{str: x} for x in lst]
 
-    def format_instances(self, instance_list = []):
-        instances = []
+    def describe_instances(self, context, **kwargs):
+        return defer.succeed(self.format_instances(context.user.id))
+
+    def format_instances(self, owner_id = None):
+        if self.instances == None:
+            return {'reservationSet': []}
+        reservations = {}
         for node in self.instances.values():
             for instance in node:
-                instances.append(instance)
-        instance_response = {'reservationSet' : instances}
+                if owner_id == None or owner_id == instance['owner_id']:
+                    i = {}
+                    i['instance_id'] = instance['instance_id']
+                    i['image_id'] = instance['image_id']
+                    i['instance_state'] = {
+                        'code': instance['state'],
+                        'name': _STATE_NAMES[instance['state']]
+                    }
+                    i['private_dns_name'] = instance['private_dns_name']
+                    i['dns_name'] = instance['dns_name']
+                    i['key_name'] = instance['key_name']
+                    i['product_codes_set'] = self._convert_to_set(
+                        instance['product_codes'], 'product_code')
+                    i['instance_type'] = instance['instance_type']
+                    i['launch_time'] = instance['launch_time']
+                    if not reservations.has_key(instance['reservation_id']):
+                        r = {}
+                        r['reservation_id'] = instance['reservation_id']
+                        r['owner_id'] = instance['owner_id']
+                        r['group_set'] = self._convert_to_set(
+                            instance['groups'], 'group_id')
+                        r['instance_set'] = []
+                        reservations[instance['reservation_id']] = r
+                    reservations[instance['reservation_id']]['instance_set'].append(i)
+
+        instance_response = {'reservationSet' : list(reservations.values()) }
         return instance_response
 
     def run_instances(self, context, **kwargs):
-        # TODO(termie): API layer
-        image_id = kwargs['ImageId'][0]
-        instance_type = kwargs['InstanceType'][0]
-        reservation_id = 'r-%06d' % random.randint(0,1000000)
+        # passing all of the kwargs on to node.py
+        logging.debug(kwargs)
+        if context and context.user:
+            kwargs['owner_id'] = context.user.id
+        else:
+            kwargs['owner_id'] = None
+
+        kwargs['reservation_id'] = 'r-%06d' % random.randint(0,1000000)
+        kwargs['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         l = []
-        for num in range(int(kwargs['MaxCount'][0])):
-            instance_id = 'i-%06d' % random.randint(0,1000000)
-            l.append(calllib.call('node', 
+        for num in range(int(kwargs['max_count'])):
+            kwargs['instance_id'] = 'i-%06d' % random.randint(0,1000000)
+            kwargs['launch_index'] = num 
+            l.append(calllib.cast('node', 
                                   {"method": "run_instance", 
-                                   "args" : {"instance_id": instance_id, 
-                                             "image_id" : image_id, 
-                                             "instance_type": instance_type}}))
-        d = defer.gatherResults(l)
-        logging.debug(d)
-        return d
+                                   "args" : kwargs 
+                                            }))
+        #TODO(Vish):return proper info
+        return defer.succeed(True)
     
-    def terminate_instances(self, context, **kwargs):
-        # TODO: Support multiple instances
-        # TODO(termie): API layer
-        instance_id = kwargs['InstanceId.1'][0]
-        calllib.cast('node', {"method": "terminate_instance",
-                              "args" : {"instance_id": instance_id}})
+    def terminate_instances(self, context, instance_id, **kwargs):
+        for i in instance_id:
+            calllib.cast('node', {"method": "terminate_instance",
+                              "args" : {"instance_id": i}})
         return defer.succeed(True)
         
-    def delete_volume(self, context, **kwargs):
-        # TODO(termie): API layer
-        volume_id = kwargs['VolumeId'][0]
+    def delete_volume(self, context, volume_id, **kwargs):
         calllib.cast('storage', {"method": "delete_volume",
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 
     def describe_images(self, context, **kwargs):
+        # TODO: Make this aware of the difference between private and public images.
         images = { 'imagesSet': [] }
 
         for bucket in self.boto_conn().get_all_buckets():
@@ -186,9 +228,7 @@ class CloudController(object):
         
         return defer.succeed(images)
     
-    def deregister_image(self, context, **kwargs):
-        image_id = kwargs['ImageId'][0]
-
+    def deregister_image(self, context, image_id, **kwargs):
         self.boto_conn().make_request(
                 method='DELETE', 
                 bucket='_images', 
@@ -196,8 +236,7 @@ class CloudController(object):
                 
         return defer.succeed({'imageId': image_id})
             
-    def register_image(self, context, **kwargs):
-        image_location = kwargs['ImageLocation'][0]
+    def register_image(self, context, image_location, **kwargs):
         image_id = 'ami-%06d' % random.randint(0,1000000)
         
         rval = self.boto_conn().make_request(
@@ -222,6 +261,7 @@ class CloudController(object):
         return defer.succeed(True)
 
     def boto_conn(self):
+        # TODO: User context.user for the access and secret keys.
         return boto.s3.connection.S3Connection (
             aws_secret_access_key="fixme",
             aws_access_key_id="fixme",
@@ -246,7 +286,6 @@ class CloudController(object):
             i += 1
             key = '%s.%d' % (name, i)
         return values  
-
 
 def qs(params):
     pairs = []
