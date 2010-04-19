@@ -5,6 +5,7 @@
   <ip address='%(gateway)s' netmask='%(netmask)s'>
     <dhcp>
       <range start='%(rangestart)s' end='%(rangeend)s' />
+      <host mac="00:16:3e:77:e2:ed" name="foo.example.com" ip="192.168.122.10" />
     </dhcp>
   </ip>
   <pinet>%(pinet)s</pinet>
