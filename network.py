@@ -17,7 +17,7 @@ from IPy import IP
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('fake_network', False, 'should we use fake network devices and addresses')
+flags.DEFINE_bool('fake_network', False, 'should we use fake network devices and addresses')
 flags.DEFINE_string('net_libvirt_xml_template', 'net.libvirt.xml.template', 'Template file for libvirt networks')
 flags.DEFINE_string('networks_path', '/etc/libvirt/qemu/networks', 'Location to keep network XML files')
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
@@ -105,11 +105,12 @@ class Network(object):
         
         if not self._s['name'] in conn.listNetworks():
             logging.debug("Starting VLAN inteface for %s network" % (self._s['name']))
-            runthis("Configuring VLAN type: %s", "sudo vconfig set_name_type VLAN_PLUS_VID_NO_PAD")
-            runthis("Adding VLAN %s: %%s" % (self.vlan) , "sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
-            runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
-            #runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s %s netmask %s broadcast %s up" % 
-            #          (self.vlan, "192.168.0.%s" % ((self.vlan % 1000)), "255.255.255.0", "192.168.0.255"))
+            if not FLAGS.fake_network:
+                runthis("Configuring VLAN type: %s", "sudo vconfig set_name_type VLAN_PLUS_VID_NO_PAD")
+                runthis("Adding VLAN %s: %%s" % (self.vlan) , "sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
+                runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
+                #runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s %s netmask %s broadcast %s up" % 
+                #          (self.vlan, "192.168.0.%s" % ((self.vlan % 1000)), "255.255.255.0", "192.168.0.255"))
         else:
             net = conn.networkLookupByName(self._s['name'])
             net.destroy()
