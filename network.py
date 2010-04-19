@@ -17,7 +17,7 @@ from IPy import IP
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('fake_network', False, 'should we use fake network devices and addresses')
+flags.DEFINE_bool('fake_network', False, 'should we use fake network devices and addresses')
 flags.DEFINE_string('net_libvirt_xml_template', 'net.libvirt.xml.template', 'Template file for libvirt networks')
 flags.DEFINE_string('networks_path', '/etc/libvirt/qemu/networks', 'Location to keep network XML files')
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
