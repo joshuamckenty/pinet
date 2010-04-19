@@ -6,6 +6,7 @@
   <ip address='%(gateway)s' netmask='%(netmask)s'>
     <dhcp>
       <range start='%(rangestart)s' end='%(rangeend)s' />
+%(hosts)s
     </dhcp>
   </ip>
   <pinet>%(pinet)s</pinet>
