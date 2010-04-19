@@ -20,7 +20,7 @@ flags.DEFINE_integer('s3_port', 3333, 'the port we connect to s3 on')
 
 
 _STATE_NAMES = {
-    node.Instance.NOSTATE: 'nostate',
+    node.Instance.NOSTATE: 'pending',
     node.Instance.RUNNING: 'running',
     node.Instance.BLOCKED: 'blocked',
     node.Instance.PAUSED: 'paused',
@@ -32,7 +32,7 @@ _STATE_NAMES = {
 class CloudController(object):
     def __init__(self):
         self.volumes = {"result": "uninited"}
-        self.instances = None
+        self.instances = {}
         self.images = {"result":"uninited"}
 
     def __str__(self):
@@ -146,36 +146,42 @@ class CloudController(object):
     def describe_instances(self, context, **kwargs):
         return defer.succeed(self.format_instances(context.user.id))
 
-    def format_instances(self, owner_id = None):
-        if self.instances == None:
+    def format_instances(self, owner_id = None, reservation_id = None):
+        if self.instances == {}:
             return {'reservationSet': []}
         reservations = {}
         for node in self.instances.values():
-            for instance in node:
-                if owner_id == None or owner_id == instance['owner_id']:
+            for instance in node.values():
+                res_id = instance.get('reservation_id', 'Unknown')
+                if ((owner_id == None
+                    or owner_id == instance.get('owner_id', None))
+                    and (reservation_id == None
+                    or reservation_id == res_id)):
                     i = {}
-                    i['instance_id'] = instance['instance_id']
-                    i['image_id'] = instance['image_id']
+                    i['instance_id'] = instance.get('instance_id', None)
+                    i['image_id'] = instance.get('image_id', None)
                     i['instance_state'] = {
-                        'code': instance['state'],
-                        'name': _STATE_NAMES[instance['state']]
+                        'code': instance.get('state', None),
+                        'name': _STATE_NAMES[instance.get('state', None)]
                     }
-                    i['private_dns_name'] = instance['private_dns_name']
-                    i['dns_name'] = instance['dns_name']
-                    i['key_name'] = instance['key_name']
+                    i['private_dns_name'] = instance.get('private_dns_name', None)
+                    i['dns_name'] = instance.get('dns_name', None)
+                    i['key_name'] = instance.get('key_name', None)
                     i['product_codes_set'] = self._convert_to_set(
-                        instance['product_codes'], 'product_code')
-                    i['instance_type'] = instance['instance_type']
-                    i['launch_time'] = instance['launch_time']
-                    if not reservations.has_key(instance['reservation_id']):
+                        instance.get('product_codes', None), 'product_code')
+                    i['instance_type'] = instance.get('instance_type', None)
+                    i['launch_time'] = instance.get('launch_time', None)
+                    i['ami_launch_index'] = instance.get('ami_launch_index',
+                                                         None)
+                    if not reservations.has_key(res_id):
                         r = {}
-                        r['reservation_id'] = instance['reservation_id']
-                        r['owner_id'] = instance['owner_id']
+                        r['reservation_id'] = res_id
+                        r['owner_id'] = instance.get('owner_id', None)
                         r['group_set'] = self._convert_to_set(
-                            instance['groups'], 'group_id')
-                        r['instance_set'] = []
-                        reservations[instance['reservation_id']] = r
-                    reservations[instance['reservation_id']]['instance_set'].append(i)
+                            instance.get('groups', None), 'group_id')
+                        r['instances_set'] = []
+                        reservations[res_id] = r
+                    reservations[res_id]['instances_set'].append(i)
 
         instance_response = {'reservationSet' : list(reservations.values()) }
         return instance_response
@@ -190,16 +196,25 @@ class CloudController(object):
 
         kwargs['reservation_id'] = 'r-%06d' % random.randint(0,1000000)
         kwargs['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-        l = []
+        pending = {}
         for num in range(int(kwargs['max_count'])):
             kwargs['instance_id'] = 'i-%06d' % random.randint(0,1000000)
-            kwargs['launch_index'] = num 
-            l.append(calllib.cast('node', 
+            kwargs['ami_launch_index'] = num 
+            calllib.cast('node', 
                                   {"method": "run_instance", 
                                    "args" : kwargs 
-                                            }))
-        #TODO(Vish):return proper info
-        return defer.succeed(True)
+                                            })
+            pending[kwargs['instance_id']] = kwargs
+            pending[kwargs['instance_id']]['state'] = node.Instance.NOSTATE
+
+        
+        # TODO(vish): pending instances will be lost on crash
+        if(not self.instances.has_key('pending')):
+            self.instances['pending'] = {}
+
+        self.instances['pending'].update(pending)
+        return defer.succeed(self.format_instances(kwargs['owner_id'],
+                                                   kwargs['reservation_id']))
     
     def terminate_instances(self, context, instance_id, **kwargs):
         for i in instance_id:
@@ -273,6 +288,12 @@ class CloudController(object):
         if "node" == topic:
             getattr(self, topic)[value.keys()[0]] = value.values()[0]
         else:
+            # TODO(vish): refactor this
+            if "instances" == topic:
+                for instance_id in value.values()[0].keys():
+                    if (self.instances.has_key('pending') and
+                        self.instances['pending'].has_key(instance_id)):
+                        del self.instances['pending'][instance_id]
             setattr(self, topic, value)
         return defer.succeed(True)
 

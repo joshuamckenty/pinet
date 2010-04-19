@@ -132,8 +132,11 @@ class Node(GenericNode):
     
     @exception.wrap_exception
     def describe_instances(self):
-        """ return a list of instances on this node """
-        return defer.succeed([x.describe() for x in self._instances.values()])
+        """ return a dictionary of instances on this node """
+        d = {}
+        for i in self._instances.values():
+            d[i.name] = i.describe()
+        return defer.succeed(d)
     
     @exception.wrap_exception
     def run_instance(self, instance_id, **kwargs):
@@ -255,7 +258,7 @@ class Instance(object):
         self._s['ramdisk_id'] = kwargs.get('ramdisk_id', FLAGS.default_ramdisk)
         self._s['owner_id'] = kwargs.get('owner_id', None)
         self._s['user_data'] = kwargs.get('user_data', None)
-        self._s['launch_index'] = kwargs.get('launch_index', None)
+        self._s['ami_launch_index'] = kwargs.get('ami_launch_index', None)
         self._s['launch_time'] = kwargs.get('launch_time', None)
         self._s['reservation_id'] = kwargs.get('reservation_id', None)
         self._s['state'] = Instance.NOSTATE
