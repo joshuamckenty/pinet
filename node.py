@@ -110,10 +110,10 @@ class Node(GenericNode):
     @exception.wrap_exception
     def adopt_instances(self):
         """ if there are instances already running, adopt them """
-        instance_names = [self._conn.lookupByID(x).name
+        instance_names = [self._conn.lookupByID(x).name()
                           for x in self._conn.listDomainsID()]
         for name in instance_names:
-            new_inst = Instance.fromName(name)
+            new_inst = Instance.fromName(self._conn, name)
             self._instances[name] = new_inst
         return defer.succeed(len(self._instances))
     
