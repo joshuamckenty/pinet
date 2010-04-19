@@ -20,6 +20,7 @@ import exception
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
+flags.DEFINE_string('keys_path', '/var/pinet/keys', 'Where we keep our keys and certs')
 flags.DEFINE_integer('s3_port', 3333, 'the port we connect to s3 on')
 
 
@@ -42,6 +43,9 @@ class CloudController(object):
 
     def __str__(self):
         return 'CloudController'
+    
+    def setup(self):
+        pass
                           
     def describe_key_pairs(self, context, key_names, **kwargs):
         key_pairs = { 'keypairsSet': [] }
