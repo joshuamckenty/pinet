@@ -21,12 +21,13 @@ import test
 FLAGS = flags.FLAGS
 
 
-class NetworkTestCase(unittest.TestCase):
+class NetworkFakeTestCase(unittest.TestCase):
     def setUp(self):
-        FLAGS.fake_libvirt = False
+        FLAGS.fake_libvirt = True
         FLAGS.fake_network = True
         FLAGS.fake_rabbit = True
         FLAGS.fake_users = True
+        FLAGS.networks_path = '/tmp/net'
         super(NetworkTestCase, self).setUp()
         self.network = network.NetworkController()
         logging.getLogger().setLevel(logging.DEBUG)
