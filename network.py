@@ -43,6 +43,7 @@ class Network(object):
         self._s['bridge_name'] = "br%s" % (self.vlan)
         self._s['device'] = "vlan%s" % (self.vlan)
         self._s['name'] = "pinet-%s" % (self.vlan)
+        self.name = self._s['name']
         try:
             os.makedirs(FLAGS.networks_path)
         except Exception, err:
@@ -201,12 +202,13 @@ class NetworkController(GenericNode):
         
     def allocate_address(self, user_id, mac=None, type=PrivateNetwork):
         if type == PrivateNetwork:
-            ip = self.get_users_network(user_id).allocate_ip(user_id, mac)
-            self.get_users_network(user_id).express(self._conn)
-            return ip
+            net = self.get_users_network(user_id)
+            ip = net.allocate_ip(user_id, mac)
+            net.express(self._conn)
+            return (str(ip), net.name)
         ip = self._public.allocate_ip(user_id, mac)
         self._public.express(self._conn)
-        return ip
+        return (str(ip), net.name)
         
     def deallocate_address(self, address):
         if address in self._public.network:

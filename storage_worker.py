@@ -22,7 +22,7 @@ flags.DEFINE_integer('storage_report_state_interval', 10,
                      lower_bound=1)
 
 def main(argv):
-    bs = storage.BlockStore(FLAGS)
+    bs = storage.BlockStore()
     
     conn = calllib.Connection.instance()
     consumer = calllib.AdapterConsumer(

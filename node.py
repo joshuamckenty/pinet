@@ -37,9 +37,9 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
-flags.DEFINE_string('instances_path', '../instances',
+flags.DEFINE_string('instances_path', '/home/jmckenty/instances',
                     'where instances are stored on disk')
-flags.DEFINE_string('images_path', '../images',
+flags.DEFINE_string('images_path', '/home/jmckenty/images',
                     'where images are stored on disk')
 flags.DEFINE_string('bridge_dev', 'eth0',
                     'network device for bridges')
@@ -244,12 +244,13 @@ class Instance(object):
         self._s['instance_id'] = name
         self._s['instance_type'] = size
         self._s['mac_address'] = kwargs.get(
-                'mac_address', self.generate_mac())
+                'mac_address', 'uhoh')
         self._s['basepath'] = kwargs.get(
                 'basepath', os.path.join(FLAGS.instances_path, self.name))
         self._s['memory_kb'] = int(self._s['memory_mb']) * 1024
         # TODO - Get this from network controller
-        self._s['bridge_dev'] = kwargs.get('bridge_dev', FLAGS.bridge_dev)
+        self._s['network_name'] = kwargs.get('network_name', 'virbr0')
+        # self._s['bridge_dev'] = kwargs.get('bridge_dev', FLAGS.bridge_dev)
         self._s['image_id'] = kwargs.get('image_id', FLAGS.default_image)
         self._s['kernel_id'] = kwargs.get('kernel_id', FLAGS.default_kernel)
         self._s['ramdisk_id'] = kwargs.get('ramdisk_id', FLAGS.default_ramdisk)
@@ -320,9 +321,9 @@ class Instance(object):
                 f.close()
                 
                 shutil.copyfile(self.imagepath(self._s['kernel_id']),
-                                self.basepath('kernel_id'))
+                                self.basepath('kernel'))
                 shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
-                                self.basepath('ramdisk_id'))
+                                self.basepath('ramdisk'))
                 partition2disk.convert(self.imagepath(self._s['image_id']),
                                        self.basepath('disk'))
 
