@@ -9,7 +9,16 @@ from twisted.internet import defer
 _log = logging.getLogger()
 
 
-camelcase_to_underscore = lambda str: re.sub('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))', '_\\1', str).lower().strip('_')
+_c2u = re.compile('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))')
+def _camelcase_to_underscore(str):
+    return _c2u.sub(r'_\1', str).lower().strip('_')
+
+def _underscore_to_camelcase(str):
+    return ''.join([x[:1].upper() + x[1:] for x in str.split('_')])
+
+def _underscore_to_xmlcase(str):
+    res = _underscore_to_camelcase(str)
+    return res[:1].lower() + res[1:]
 
 class APIRequestContext(object):
     def __init__(self, user):
@@ -23,18 +32,38 @@ class APIRequest(object):
         
     def send(self, user, **kwargs):
         context = APIRequestContext(user)
-
+    
         try:
-            method = getattr(self.controller, camelcase_to_underscore(self.action))
+            method = getattr(self.controller, _camelcase_to_underscore(self.action))
         except AttributeError:
             _error = 'Unsupported API request: controller = %s, action = %s' % (self.controller, self.action)
             _log.warning(_error)
             # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
             raise Exception(_error)
         
-        d = defer.maybeDeferred(method, context, **kwargs)
+        args = {}
+        for key, value in kwargs.items():
+            parts = key.split(".")
+            key = _camelcase_to_underscore(parts[0])
+            if len(parts) > 1:
+                d = args.get(key, {})
+                d[parts[1]] = value[0]
+                value = d
+            else:
+                value = value[0]
+            args[key] = value
+            
+        for key in args.keys():
+            if isinstance(args[key], dict):
+                if args[key] != {} and args[key].keys()[0].isdigit():
+                    s = args[key].items()
+                    s.sort()
+                    args[key] = [v for k, v in s]
+        d = defer.maybeDeferred(method,
+                                context, 
+                                **args)
         d.addCallback(self._render_response, context.request_id)
-
+        
         return d
 
     def _render_response(self, response_data, request_id):
@@ -64,13 +93,13 @@ class APIRequest(object):
         try:
             for key in data.keys():
                 val = data[key]
-                if val:
-                    el.appendChild(self._render_data(xml, key, val))
+                el.appendChild(self._render_data(xml, key, val))
         except:
             _log.debug(data)
             raise
 
     def _render_data(self, xml, el_name, data):
+        el_name = _underscore_to_xmlcase(el_name)
         data_el = xml.createElement(el_name)
     
         if isinstance(data, list):
@@ -78,6 +107,8 @@ class APIRequest(object):
                 data_el.appendChild(self._render_data(xml, 'item', item))
         elif isinstance(data, dict):
             self._render_dict(xml, data_el, data)
+        elif hasattr(data, '__dict__'):
+            self._render_dict(xml, data_el, data.__dict__)
         elif data != None:
             data_el.appendChild(xml.createTextNode(str(data)))
         

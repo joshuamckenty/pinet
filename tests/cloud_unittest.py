@@ -49,17 +49,16 @@ class CloudTestCase(test.BaseTestCase):
         instance_id = 'foo'
         inst = yield self.node.run_instance(instance_id)
 
-        kwargs = {'InstanceId.1': [instance_id]}
-        output = yield self.cloud.get_console_output(None, **kwargs)
+        output = yield self.cloud.get_console_output(None, [instance_id])
         self.assert_(output)
 
     def test_run_instances(self):
         image_id = FLAGS.default_image
         instance_type = FLAGS.default_instance_type
         max_count = 2
-        kwargs = {'ImageId': [image_id],
-                  'InstanceType': [instance_type],
-                  'MaxCount': [max_count]}
-
+        kwargs = {'image_id': image_id,
+                  'instance_type': instance_type,
+                  'max_count': max_count}
         rv = yield self.cloud.run_instances(None, **kwargs)
-        self.assertEqual(len(rv), 2)
+        # TODO: check for proper response
+        self.assert_(rv)
