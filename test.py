@@ -48,7 +48,7 @@ class BaseTestCase(unittest.TestCase):
         if FLAGS.fake_rabbit:
             fakerabbit.reset_all()
 
-    def _waitForTest(self, timeout=5):
+    def _waitForTest(self, timeout=60):
         """ Push the ioloop along to wait for our test to complete. """
         self._waiting = self.ioloop.add_timeout(time.time() + timeout,
                                                 self._timeout)

@@ -239,8 +239,8 @@ class CloudController(object):
             kwargs['instance_id'] = 'i-%06d' % random.randint(0,1000000)
             kwargs['mac_address'] = utils.generate_mac()
             #TODO(joshua) - Allocate IP based on security group
-            kwargs['private_dns_name'] = str(self.network.allocate_address(kwargs['owner_id'], kwargs['mac_address']))
             kwargs['ami_launch_index'] = num 
+            (kwargs['private_dns_name'], kwargs['network_name']) = self.network.allocate_address(kwargs['owner_id'], mac=kwargs['mac_address'])
             calllib.cast('node', 
                                   {"method": "run_instance", 
                                    "args" : kwargs 

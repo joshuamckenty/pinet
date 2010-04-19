@@ -20,7 +20,7 @@ from tornado import ioloop
 from twisted.internet import defer
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('storage_dev', '/dev/sdb1', 'Physical device to use for volumes')
+flags.DEFINE_string('storage_dev', '/dev/sdb', 'Physical device to use for volumes')
 flags.DEFINE_string('volume_group', 'pinet-volumes', 'Name for the VG that will contain exported volumes')
 flags.DEFINE_string('aoe_eth_dev', 'eth0', 'Which device to export the volumes on')
 flags.DEFINE_boolean('fake_storage', True, 'Should we make real storage volumes to attach?')

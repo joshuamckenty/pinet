@@ -17,8 +17,8 @@
             <source file='%(basepath)s/disk'/>
             <target dev='vda' bus='virtio'/>
         </disk>
-        <interface type='bridge'>
-            <source bridge='%(bridge_dev)s'/>
+        <interface type='network'>
+            <source network='%(network_name)s'/>
             <mac address='%(mac_address)s'/>
             <model type='virtio'/>
         </interface>

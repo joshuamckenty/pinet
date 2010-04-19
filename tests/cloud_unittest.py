@@ -25,7 +25,7 @@ class CloudTestCase(test.BaseTestCase):
     def setUp(self):
         super(CloudTestCase, self).setUp()
         FLAGS.fake_libvirt = False
-        FLAGS.fake_rabbit = True
+        FLAGS.fake_rabbit = False
 
         self.conn = calllib.Connection.instance()
 
