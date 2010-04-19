@@ -50,17 +50,17 @@ class Network(object):
             # logging.debug("Couldn't make directory, b/c %s" % (str(err)))
         
         # Do we want these here, or in the controller?
-        self.allocations = [{'address' : self.network[0], 'user_id' : 'net'}, 
-                            {'address' : self.network[1], 'user_id' : 'gateway'},
-                            {'address' : self.network[-1], 'user_id' : 'broadcast'},]
+        self.allocations = [{'address' : self.network[0], 'user_id' : 'net', 'mac' : '00:00:00:00:00:00'}, 
+                            {'address' : self.network[1], 'user_id' : 'gateway', 'mac' : '00:00:00:00:00:00'},
+                            {'address' : self.network[-1], 'user_id' : 'broadcast', 'mac' : '00:00:00:00:00:00'},]
     
-    def allocate_ip(self, user_id):
+    def allocate_ip(self, user_id, mac):
         for ip in self.network:
             if not ip in self.assigned:
                 self.assigned.append(ip)
                 # logging.debug("Allocating IP %s" % (ip))
                 self.allocations.append( {
-                    "address" : ip, "user_id" : user_id
+                    "address" : ip, "user_id" : user_id, 'mac' : mac
                 })
                 return ip
         raise NoMoreAddresses
@@ -78,17 +78,18 @@ class Network(object):
     def list_addresses(self):
         for index, item in enumerate(self.assigned):
             yield self.allocations[index]
+            
+    def hostXml(self, allocation):
+        mac = allocation['mac']
+        ip = allocation['address']
+        user_id = allocation['user_id']
+        return "      <host mac=\"%s\" name=\"%s.pinetlocal\" ip=\"%s\" />" % (mac, "%s-%s-%s" % (user_id, self.vlan, ip), ip)
     
     def toXml(self):
-        # TODO(termie): cache?
+        self._s['hosts'] = "\n".join(map(self.hostXml, self.allocations))
         libvirt_xml = open(FLAGS.net_libvirt_xml_template).read()
         xml_info = self._s.copy()
-        #xml_info.update(self._s)
-
-        # TODO(termie): lazy lazy hack because xml is annoying
-        xml_info['pinet'] = anyjson.serialize(self._s)
         libvirt_xml = libvirt_xml % xml_info
-
         return libvirt_xml
 
     # NEED A FROMXML for roundtripping?
@@ -104,9 +105,9 @@ class Network(object):
 
         runthis("Configuring VLAN type: %s", "sudo vconfig set_name_type VLAN_PLUS_VID_NO_PAD")
         runthis("Adding VLAN %s: %%s" % (self.vlan) , "sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
-        #runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
-        runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s %s netmask %s broadcast %s up" % 
-                  (self.vlan, "192.168.0.%s" % ((self.vlan % 1000)), "255.255.255.0", "192.168.0.255"))
+        runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
+        #runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s %s netmask %s broadcast %s up" % 
+        #          (self.vlan, "192.168.0.%s" % ((self.vlan % 1000)), "255.255.255.0", "192.168.0.255"))
         
         # create virsh interface to bridge to the vlan interface
         xml = self.toXml()
@@ -200,10 +201,10 @@ class NetworkController(GenericNode):
         for user_id in self._private.keys():
             self._gateway[user_id] = self._private[user_id].network[1]
         
-    def allocate_address(self, user_id, type=PrivateNetwork):
+    def allocate_address(self, user_id, mac=None, type=PrivateNetwork):
         if type == PrivateNetwork:
-            return self.get_users_network(user_id).allocate_ip(user_id)
-        return self._public.allocate_ip(user_id)
+            return self.get_users_network(user_id).allocate_ip(user_id, mac)
+        return self._public.allocate_ip(user_id, mac)
         
     def deallocate_address(self, address):
         if address in self._public.network:

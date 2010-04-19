@@ -91,7 +91,7 @@ class CloudController(object):
                                      "args" : {"instance_id": instance_id}})
 
     def describe_volumes(self, context, **kwargs):
-        # TODO: Evil - this returns every volume for every user.
+        # TODO(joshua) - this returns every volume for every user.
         return defer.succeed(self.volumes)
 
     def create_volume(self, context, size, **kwargs):
@@ -126,7 +126,7 @@ class CloudController(object):
 
     def detach_volume(self, context, volume_id, **kwargs):
         # TODO(termie): API layer
-        # TODO(jmc): Make sure the updated state has been received first
+        # TODO(joshua): Make sure the updated state has been received first
         # TODO: We need to verify that context.user owns both the volume and the instance before dettaching.
         volume = self._get_volume(volume_id)
         mountpoint = volume['mountpoint']
@@ -193,6 +193,7 @@ class CloudController(object):
         l = []
         for num in range(int(kwargs['max_count'])):
             kwargs['instance_id'] = 'i-%06d' % random.randint(0,1000000)
+            #TODO(joshua) - Allocate IP based on security group
             kwargs['launch_index'] = num 
             l.append(calllib.cast('node', 
                                   {"method": "run_instance", 
@@ -270,6 +271,7 @@ class CloudController(object):
         logging.debug("Updating state for %s" % (topic))
         # TODO(termie): do something smart here to aggregate this data
         # TODO(jmc): This is fugly
+        # TODO(jmc): if an instance has disappeared from the node, call instance_death
         if "node" == topic:
             getattr(self, topic)[value.keys()[0]] = value.values()[0]
         else:
