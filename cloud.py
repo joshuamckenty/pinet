@@ -16,6 +16,7 @@ import time
 import node
 import network
 import utils
+import exception
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
@@ -94,35 +95,59 @@ class CloudController(object):
         return calllib.call('node', {"method": "get_console_output",
                                      "args" : {"instance_id": instance_id}})
 
+    def _get_user_id(self, context):
+        if context and context.user:
+            return context.user.id
+        else:
+            return None
+
     def describe_volumes(self, context, **kwargs):
+        user_id = self._get_user_id(context)
         if self.volumes == {}:
-            return {'volume_set': [] } 
-        volumes = {}
+            return {'volumeSet': [] } 
+        volumes = []
         for storage in self.volumes.values():
             for volume in storage.values():
-        return defer.succeed(self.volumes)
+                if user_id == None or user_id == volume['user_id']:
+                    v = volumes.copy()
+                    del v['user_id']
+                    volumes.append(v)
+        return defer.succeed({'volumeSet': volumes})
 
     def create_volume(self, context, size, **kwargs):
-        if context and context.user:
-            user = context.user.id
-        else:
-            user = None
+        user_id = self._get_user_id(context)
         calllib.cast('storage', {"method": "create_volume", 
                                  "args" : {"size": size,
-                                           "user": user}})
+                                           "user_id": user_id}})
         return defer.succeed(True)
-    
+
+    def _get_by_id(self, dict, id_string, id):
+        if dict == {}:
+            raise exception.ApiError("%s not found in %s", id, dict)
+        for worker in dict.values():
+            for item in worker:
+                if item[id_string] == id:
+                    return item
+        raise exception.ApiError("%s not found in %s", id, dict)
+
     def _get_volume(self, volume_id):
-        for item in self.volumes['volumeSet']:
-            if item['item']['volumeId'] == volume_id:
-                return item['item']
-        return None
+        return self._get_by_id(self.volumes, 'volume_id', volume_id)
+
+
+    def _get_instance(self, instance_id):
+        return self._get_by_id(self.instances, 'instance_id', instance_id)
 
 
     def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
-        # TODO(termie): API layer
-        # TODO: We need to verify that context.user owns both the volume and the instance before attaching.
-        aoe_device = self._get_volume(volume_id)['aoe_device']
+        user_id = self._get_user_id(context)
+        volume = self._get_volume(volume_id)
+        if volume['user_id'] != user_id:
+            raise exception.ApiError("%s doesn't own %s", user_id, volume_id)
+        instance = self._get_instance(instance_id)
+        if instance['user_id'] != user_id:
+            raise exception.ApiError("%s doesn't own %s", user_id, instance_id)
+            
+        aoe_device = volume['aoe_device']
         # Needs to get right node controller for attaching to
         # TODO: Maybe have another exchange that goes to everyone?
         calllib.cast('node', {"method": "attach_volume",
@@ -136,18 +161,22 @@ class CloudController(object):
         return defer.succeed(True)
 
     def detach_volume(self, context, volume_id, **kwargs):
-        # TODO(termie): API layer
+        user_id = self._get_user_id(context)
         # TODO(joshua): Make sure the updated state has been received first
-        # TODO: We need to verify that context.user owns both the volume and the instance before dettaching.
         volume = self._get_volume(volume_id)
-        mountpoint = volume['mountpoint']
+        if volume['user_id'] != user_id:
+            raise exception.ApiError("%s doesn't own %s", user_id, volume_id)
         instance_id = volume['instance_id']
+        instance = self._get_instance(instance_id)
+        if instance['user_id'] != user_id:
+            raise exception.ApiError("%s doesn't own %s", user_id, instance_id)
+        mountpoint = volume['mountpoint']
         calllib.cast('node', {"method": "detach_volume",
                                  "args" : {"instance_id": instance_id,
                                            "mountpoint": mountpoint}})
         calllib.cast('storage', {"method": "detach_volume",
                                  "args" : {"volume_id": volume_id}})
-        return defer.succeed({'result': 'ok'})
+        return defer.succeed(True)
 
     def _convert_to_set(self, lst, str):
         if lst == None or lst == []:
@@ -155,7 +184,8 @@ class CloudController(object):
         return [{str: x} for x in lst]
 
     def describe_instances(self, context, **kwargs):
-        return defer.succeed(self.format_instances(context.user.id))
+        user_id = self._get_user_id(context)
+        return defer.succeed(self.format_instances(user_id))
 
     def format_instances(self, owner_id = None, reservation_id = None):
         if self.instances == {}:
@@ -200,10 +230,7 @@ class CloudController(object):
     def run_instances(self, context, **kwargs):
         # passing all of the kwargs on to node.py
         logging.debug(kwargs)
-        if context and context.user:
-            kwargs['owner_id'] = context.user.id
-        else:
-            kwargs['owner_id'] = None
+        kwargs['owner_id'] = self._get_user_id(context)
 
         kwargs['reservation_id'] = 'r-%06d' % random.randint(0,1000000)
         kwargs['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
