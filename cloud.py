@@ -11,6 +11,7 @@ from twisted.internet import defer
 import calllib
 import flags
 import users
+import urllib
 import time
 import node
 import network
@@ -234,39 +235,22 @@ class CloudController(object):
         return defer.succeed(images)
     
     def deregister_image(self, context, image_id, **kwargs):
-        # TODO: Make sure context.user has permission to deregister.
-        bucket = self.boto_conn().get_bucket(image_id)
-        k = boto.s3.key.Key(bucket)
-        k.key = 'info.json'
-        bucket.delete_key(k)
-        k.key = 'image'
-        bucket.delete_key(k)
-
+        self.boto_conn().make_request(
+                method='DELETE', 
+                bucket='_images', 
+                query_args=qs({'image_id': image_id}))
+                
         return defer.succeed({'imageId': image_id})
             
     def register_image(self, context, image_location, **kwargs):
         image_id = 'ami-%06d' % random.randint(0,1000000)
         
-        info = {
-            'imageId': image_id,
-            'imageLocation': image_location,
-            'imageOwnerId': kwargs['user'].id,
-            'imageState': 'available',
-            'isPublic': 'true', # grab from bundle manifest
-            'architecture': 'x86_64', # grab from bundle manifest
-        }
-        
-        # FIXME: grab kernelId and ramdiskId from bundle manifest
-        
-        # FIXME: unbundle the image using the cloud private key
-        #        saving it to "%s/image" % emi_id
-        
-        bucket = self.boto_conn().create_bucket(image_id)
-        k = boto.s3.key.Key(bucket)
-        k.key = 'info.json'
-        k.set_contents_from_string(anyjson.serialize(info))
-        k.key = 'image'
-        k.set_contents_from_string('FIXME: decrypt image')
+        rval = self.boto_conn().make_request(
+                method='PUT', 
+                bucket='_images', 
+                query_args=qs({'image_location': image_location,
+                               'image_id': image_id,
+                               'user_id': kwargs['user'].id}))		
         
         logging.debug("Registering %s" % image_location)
         return defer.succeed({'imageId': image_id})
@@ -293,20 +277,25 @@ class CloudController(object):
             debug=0,
             port=FLAGS.s3_port,
             host='localhost')
+            
+    def _parse_list_param(self, name, params):
+        """
+        Describe methods take an array of names for parameters.
+        For example, DescribeKeyPairs can have:
+        KeyName.1, KeyName.2, ... KeyName.N        
+        This helper will return a list of values for 'KeyName'.
+        """
+        values = []
+        i = 1
+        key = '%s.%d' % (name, i)
+        while key in params:
+            values.append(params[key][0])
+            i += 1
+            key = '%s.%d' % (name, i)
+        return values  
 
-# vish: obsoleted by apirequest processing            
-#    def _parse_list_param(self, name, params):
-#        """
-#        Describe methods take an array of names for parameters.
-#        For example, DescribeKeyPairs can have:
-#        KeyName.1, KeyName.2, ... KeyName.N        
-#        This helper will return a list of values for 'KeyName'.
-#        """
-#        values = []
-#        i = 1
-#        key = '%s.%d' % (name, i)
-#        while key in params:
-#            values.append(params[key][0])
-#            i += 1
-#            key = '%s.%d' % (name, i)
-#        return values  
+def qs(params):
+    pairs = []
+    for key in params.keys():
+        pairs.append(key + '=' + urllib.quote(params[key]))
+    return '&'.join(pairs)

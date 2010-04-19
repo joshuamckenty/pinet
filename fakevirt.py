@@ -5,6 +5,9 @@ from xml.etree import ElementTree
 
 
 class FakeVirtConnection(object):
+    # FIXME: networkCreateXML, listNetworks don't do anything since 
+    # they aren't exercised in tests yet
+    
     def __init__(self):
         self.next_index = 0
         self.instances = {}
@@ -20,12 +23,18 @@ class FakeVirtConnection(object):
 
     def listDomainsID(self):
         return self.instances.keys()
+        
+    def listNetworks(self):
+        return []
 
     def lookupByName(self, instance_id):
         for x in self.instances.values():
             if x.name() == instance_id:
                 return x
         raise Exception('no instance found for instance_id: %s' % instance_id)
+
+    def networkCreateXML(self, xml):
+        pass
 
     def createXML(self, xml, flags):
         # parse the xml :(

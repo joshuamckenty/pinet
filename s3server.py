@@ -42,6 +42,7 @@ import os.path
 import urllib
 from tornado import web
 import crypto
+import anyjson
 
 
 class S3Application(web.Application):
@@ -54,6 +55,7 @@ class S3Application(web.Application):
     def __init__(self, root_directory, bucket_depth=0):
         web.Application.__init__(self, [
             (r"/", RootHandler),
+            (r"/_images/", ImageHandler),
             (r"/([^/]+)/(.+)", ObjectHandler),
             (r"/([^/]+)/", BucketHandler),
         ])
@@ -200,6 +202,68 @@ class BucketHandler(BaseRequestHandler):
         os.rmdir(path)
         self.set_status(204)
         self.finish()
+
+
+class ImageHandler(BaseRequestHandler):
+    def get(self):
+        print 'returing image'
+
+    def put(self):
+        image_location = self.get_argument('image_location', u'')
+        image_owner_id = self.get_argument('image_owner_id', u'')
+        image_id       = self.get_argument('image_id',       u'')
+        
+        
+        # FIXME: grab kernelId and ramdiskId from bundle manifest
+        
+        # FIXME: unbundle the image using the cloud private key
+        #        saving it to "%s/image" % emi_id
+
+        # FIXME: this should be put somewhere outside of the 
+        #        real bucket system?
+
+        path = os.path.abspath(os.path.join(
+            self.application.directory, image_id))
+        if not path.startswith(self.application.directory) or \
+           os.path.exists(path):
+            raise web.HTTPError(403)
+        os.makedirs(path)
+
+        info = {
+            'imageId': image_id,
+            'imageLocation': image_location,
+            'imageOwnerId': image_owner_id,
+            'imageState': 'available',
+            'isPublic': 'true', # grab from bundle manifest
+            'architecture': 'x86_64', # grab from bundle manifest
+        }
+
+        object_file = open(self._object_path(image_id, 'info.json'), "w")
+        object_file.write(anyjson.serialize(info))
+        object_file.close()
+
+        object_file = open(self._object_path(image_id, 'image'), "w")
+        object_file.write('FIXME: decrypt image here')
+        object_file.close()
+        
+        self.finish()
+        
+
+    def delete(self):
+        image_id = self.get_argument("image_id", u"")
+        
+        for object_name in ['info.json', 'image']:
+            path = self._object_path(image_id, object_name)
+            if not path.startswith(self.application.directory) or \
+               not os.path.isfile(path):
+                raise web.HTTPError(404)
+            os.unlink(path)
+            
+        path = os.path.abspath(os.path.join(
+            self.application.directory, image_id))
+        os.rmdir(path)
+
+        self.set_status(204)
 
 
 class ObjectHandler(BaseRequestHandler):
