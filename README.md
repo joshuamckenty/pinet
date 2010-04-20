@@ -88,7 +88,7 @@ Wow
 Installation
 ============
 
-    apt-get install python-libvirt libvirt-bin kvm rabbitmq-server python-dev python-pycurl python-simplejson m2crypto boto
+    apt-get install python-libvirt libvirt-bin kvm rabbitmq-server python-dev python-pycurl python-simplejson python-m2crypto
     apt-get install iscsitarget aoetools vblade-persist
     # optional packages
     apt-get install euca2ools 
