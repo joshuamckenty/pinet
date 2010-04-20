@@ -317,9 +317,9 @@ class Instance(object):
             # TODO(termie): what to do when this already exists?
             # TODO(termie): clean up on exit?
             shutil.copyfile(self.imagepath(self._s['kernel_id']),
-                           self.basepath('kernel'))
+                            self.basepath('kernel'))
             shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
-                           self.basepath('ramdisk'))
+                            self.basepath('ramdisk'))
             partition2disk.convert(self.imagepath(self._s['image_id']),
                            self.basepath('disk'))
         else:
