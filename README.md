@@ -10,8 +10,14 @@ DEPENDENCIES
 * OpenLDAP: users, groups (maybe cut)
 * Tornado: scalable non blocking web server for api requests
 * Twisted: just for the twisted.internet.defer package
-* M2Crypto: boto has a dependency on it, yup
+* boto: python api for aws api
+* M2Crypto: python library interface for openssl
 * IPy: library for managing ip addresses
+
+Recommended
+-----------------
+* euca2ools: python implementation of aws ec2-tools and ami tools
+* build tornado to use C module for evented section
 
 COMPONENTS
 ----------
@@ -21,7 +27,7 @@ COMPONENTS
                       |                / [ Storage ] - ( ATAoE )
 [ API server ] -> [ Cloud ]  < AMQP >   
                       |                \ [ Nodes ]   - ( libvirt/kvm )
-                    <HTTP>
+                   < HTTP >
                       |
                   [   S3  ]
 </pre>
@@ -82,19 +88,14 @@ Wow
 Installation
 ============
 
-    apt-get install python-libvirt libvirt-bin kvm rabbitmq-server python-dev python-pycurl python-simplejson
+    apt-get install python-libvirt libvirt-bin kvm rabbitmq-server python-dev python-pycurl python-simplejson m2crypto boto
     apt-get install iscsitarget aoetools vblade-persist
-    
-    # fix ec2 metadata/userdata uri
-    iptables -t nat -A PREROUTING -s 0.0.0.0/0 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination 10.0.0.2:8773
-    
-    # install tornado
-    wget http://www.tornadoweb.org/static/tornado-0.2.tar.gz
-    tar xvzf tornado-0.2.tar.gz
-    cd tornado-0.2
-    python setup.py build
-    sudo python setup.py install
-    
+    # optional packages
+    apt-get install euca2ools 
+
+    # fix ec2 metadata/userdata uri - where $IP is the IP of the cloud
+    iptables -t nat -A PREROUTING -s 0.0.0.0/0 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination $IP:8773
+
     # setup ldap 
     # run rabbitmq-server
     # start api_worker, s3_worker, node_worker, storage_worker
