@@ -25,6 +25,17 @@ flags.DEFINE_string('user_dn', 'cn=Manager,dc=example,dc=com', 'DN of admin user
 flags.DEFINE_string('user_unit', 'Users', 'OID for Users')
 flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users')
 
+
+flags.DEFINE_string('credentials_template',
+                    'pinetrc.template',
+                    'Template for creating users rc file')
+flags.DEFINE_string('ec2_url',
+                    'http://127.0.0.1:8773/services/Cloud',
+                    'Url to ec2 api server')
+flags.DEFINE_string('s3_url',
+                    'http://127.0.0.1:3333/',
+                    'Url to s3 api server')
+
 class UserError(exception.ApiError):
     pass
 
@@ -48,6 +59,16 @@ class User:
     def secret(self):
         return self.ldap_user_object[1]['secretKey'][0]
     
+    def get_credentials(self):
+        rc = open(FLAGS.credentials_template).read()
+        rc = rc % { 'access': self.access,
+                    'secret': self.secret,
+                    'id': self.id,
+                    'ec2': FLAGS.ec2_url,
+                    's3': FLAGS.s3_url,
+            }
+        return rc
+
     def generate_key_pair(self, name):
         return self.manager.generate_key_pair(self.id, name)
 
@@ -96,7 +117,7 @@ class UserManager:
         expected_signature = signer.Signer(user.secret).generate(params, verb, server_string, path)
         if signature == expected_signature:
             return user
-
+        
     def get_user(self, name):
         with LDAPWrapper() as conn:
             ldap_user_object = conn.find_user(name)
@@ -287,7 +308,7 @@ class LDAPWrapper(object):
                                           FLAGS.ldap_subtree))
 
 def usage():
-    print 'usage: %s -c username (access_key) (secret_key) | -d username' % sys.argv[0]
+    print 'usage: %s -c username (access_key) (secret_key) | [-d -k -e] username' % sys.argv[0]
 
 if __name__ == "__main__":
     manager = UserManager()
@@ -306,7 +327,12 @@ if __name__ == "__main__":
             manager.delete_user(sys.argv[2])
         elif sys.argv[1] == '-k':
             user = manager.get_user(sys.argv[2])
-            print user.access, user.secret
+            if user:
+                print user.access, user.secret
+        elif sys.argv[1] == '-e':
+            user = manager.get_user(sys.argv[2])
+            if user:
+                print user.get_credentials()
         else:
             usage()
             sys.exit(2)

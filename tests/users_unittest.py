@@ -6,11 +6,13 @@ from users import UserManager
 from M2Crypto import RSA, BIO
 
 FLAGS = flags.FLAGS
-FLAGS.fake_libvirt = True
-FLAGS.fake_users = True
 
 class UserTestCase(test.BaseTestCase):
-    users = UserManager()
+    def setUp(self):
+        FLAGS.fake_libvirt = True
+        FLAGS.fake_storage = True
+        self.users = UserManager()
+        super(UserTestCase, self).setUp()
     
     def test_001_can_create_user(self):
         self.users.create_user('test1', 'access', 'secret')
@@ -28,8 +30,15 @@ class UserTestCase(test.BaseTestCase):
         #self.assertTrue(self.users.authenticate( **boto.generate_url ... ? ? ? ))
         raise NotImplementedError
 
-    def test_005_can_download_credentials(self):
-        raise NotImplementedError
+    def test_005_can_get_credentials(self):
+        credentials = self.users.get_user('test1').get_credentials()
+        self.assertEqual(credentials,
+        'export EC2_ACCESS_KEY="access"\n' +
+        'export EC2_SECRET_KEY="secret"\n' +
+        'export EC2_URL="http://127.0.0.1:8773/services/Cloud"\n' +
+        'export S3_URL="http://127.0.0.1:3333/"\n' +
+        'export EC2_USER_ID="test1"\n')
+
     
     def test_006_test_key_storage(self):
         user = self.users.get_user('test1')
