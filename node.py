@@ -12,6 +12,7 @@ from xml.etree import ElementTree
 
 import contrib
 import anyjson
+import tornado
 
 try:
     import libvirt
@@ -31,6 +32,7 @@ import calllib
 
 from tornado import ioloop
 from twisted.internet import defer
+from twisted.internet import threads, reactor
 
 
 FLAGS = flags.FLAGS
@@ -271,8 +273,8 @@ class Instance(object):
         self._s['availability_zone'] = kwargs.get('availability_zone', None)
 
         #TODO: put real dns items here
-        self._s['dns_name'] = 'fixme'
-        self._s['private_dns_name'] = 'fixme' 
+        self._s['dns_name'] = kwargs.get('dns_name', 'fixme')
+        self._s['private_dns_name'] = kwargs.get('private_dns_name', 'fixme') 
 
     def toXml(self):
         # TODO(termie): cache?
@@ -306,10 +308,8 @@ class Instance(object):
         libvirt_xml = open(os.path.join(basepath, 'libvirt.xml')).read()
         return cls.fromXml(conn, libvirt_xml)
 
-    def _createImage(self, libvirt_xml):
+    def _createImage(self, libvirt_xml, conn):
         """ create libvirt.xml and copy files into instance path """
-        
-        d = defer.Deferred()
         if not FLAGS.fake_libvirt:
             # TODO(termie): what to do when this already exists?
             # TODO(termie): clean up on exit?
@@ -317,29 +317,21 @@ class Instance(object):
                 os.makedirs(self._s['basepath'])
             except:
                 pass
-            def _out_of_band(deferred):
-                logging.info('Creating image for: %s', self.name)
-                f = open(self.basepath('libvirt.xml'), 'w')
-                f.write(libvirt_xml)
-                f.close()
-                
-                shutil.copyfile(self.imagepath(self._s['kernel_id']),
-                                self.basepath('kernel'))
-                shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
-                                self.basepath('ramdisk'))
-                partition2disk.convert(self.imagepath(self._s['image_id']),
-                                       self.basepath('disk'))
-
-                logging.info('Done create image for: %s', self.name)
-                
-                deferred.callback(True)
-                
-            proc = multiprocessing.Process(target=_out_of_band, args=(d,))
-            proc.start()
+	    logging.info('Creating image for: %s', self.name)
+	    f = open(self.basepath('libvirt.xml'), 'w')
+	    f.write(libvirt_xml)
+	    f.close()
+            shutil.copyfile(self.imagepath(self._s['kernel_id']),
+                           self.basepath('kernel'))
+            shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
+                           self.basepath('ramdisk'))
+            partition2disk.convert(self.imagepath(self._s['image_id']),
+                           self.basepath('disk'))
+	    logging.info('Done create image for: %s', self.name)
         else:
-            d.callback(True)
-        
-        return d
+            pass
+        conn.send("ready")
+        return
 
     @property
     def state(self):
@@ -481,15 +473,23 @@ class Instance(object):
                     'instance: %s (state: %s)' % (self.name, self.state))
 
         xml = self.toXml()
-        d = self._createImage(xml)
+        d = defer.Deferred()
 
-        def _launch(_):
+        def _launch(fd,events):
+            self.ioloop.remove_handler(fd)
+            logging.debug("Arrived in _launch, thanks to callback on deferred.")
+            logging.debug("Self is %s" % (self))
             self._conn.createXML(self.toXml(), 0)
             # TODO(termie): this should actually register a callback to check
             #               for successful boot
             self._s['state'] = Instance.RUNNING
 
-        d.addCallback(_launch)
+        self.ioloop = tornado.ioloop.IOLoop.instance()
+        (conn1, conn2) = multiprocessing.Pipe()
+        proc = multiprocessing.Process(target=self._createImage, args=(xml, conn1))
+        self.pipe = conn1
+        self.ioloop.add_handler(conn2.fileno(), _launch, self.ioloop.READ )
+        proc.start()
         return d
     
     @exception.wrap_exception

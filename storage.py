@@ -84,7 +84,8 @@ class BlockStore(object):
         return {FLAGS.storage_name : volumes}
 
     def loop_volumes(self):
-        for lv in subprocess.Popen(["sudo", "lvs", "--noheadings"], stdout=subprocess.PIPE).communicate()[0].split("\n"):
+        volumes = subprocess.Popen(["sudo", "lvs", "--noheadings"], stdout=subprocess.PIPE).communicate()[0].split("\n")
+        for lv in volumes:
             if len(lv.split(" ")) > 1:
                 yield lv.split(" ")[2]
 

@@ -232,7 +232,8 @@ class CloudController(object):
 
     def run_instances(self, context, **kwargs):
         # passing all of the kwargs on to node.py
-        logging.debug(kwargs)
+        logging.debug("Going to run instances...")
+        # logging.debug(kwargs)
         kwargs['owner_id'] = self._get_user_id(context)
 
         kwargs['reservation_id'] = 'r-%06d' % random.randint(0,1000000)
@@ -244,6 +245,7 @@ class CloudController(object):
             #TODO(joshua) - Allocate IP based on security group
             kwargs['ami_launch_index'] = num 
             (kwargs['private_dns_name'], kwargs['network_name']) = self.network.allocate_address(kwargs['owner_id'], mac=kwargs['mac_address'])
+            logging.debug("Casting to node for an instance with IP of %s in the %s network" % (kwargs['private_dns_name'], kwargs['network_name']))
             calllib.cast('node', 
                                   {"method": "run_instance", 
                                    "args" : kwargs 

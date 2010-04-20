@@ -23,6 +23,7 @@ flags.DEFINE_string('networks_path', '/etc/libvirt/qemu/networks', 'Location to 
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
 KEEPER = datastore.keeper("net-")
 
+logging.getLogger().addHandler(logging.handlers.SysLogHandler("/dev/log"))
 
 class SecurityGroup(object):
     def __init__(self, **kwargs):
