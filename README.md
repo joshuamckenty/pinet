@@ -1,26 +1,35 @@
 PiNet
 =====
 
-a eucalyptus clone in python, amqp, tornado, ...
+an amazon/eucalyptus/rackspace cloud clone in python, amqp, tornado, ...
 
 DEPENDENCIES
-============
+------------
 
-RabbitMQ: messaging queue, used for all communication between components
-OpenLDAP: users, groups (maybe cut)
-Redis: data store
-Tornado: scalable non blocking web server for api requests
-Twisted: just for the twisted.internet.defer package
-M2Crypto: boto has a dependency on it, yup
-IPy: library for managing ip addresses
+* RabbitMQ: messaging queue, used for all communication between components
+* OpenLDAP: users, groups (maybe cut)
+* Tornado: scalable non blocking web server for api requests
+* Twisted: just for the twisted.internet.defer package
+* M2Crypto: boto has a dependency on it, yup
+* IPy: library for managing ip addresses
 
 COMPONENTS
-==========
+----------
 
-API: receives http requests from boto, and sends commands to other components via amqp
-Controller: global state of system and 
-Nodes: worker that spawns instances
-S3: tornado based http/s3 server
+<pre>
+                  ( LDAP )
+                      |              / [ Storage ] - ( ATAoE )
+[ API server ] -> [ Cloud ]  <AMQP>  
+                      |              \ [ Nodes ]   - ( libvirt/kvm )
+                    <HTTP>
+                      |
+                  [   S3  ]
+</pre>
+
+* API: receives http requests from boto, converts commands to/from API format, and sending requests to cloud controller
+* Cloud Controller: global state of system, talks to ldap, s3, and node/storage workers through a queue
+* Nodes: worker that spawns instances
+* S3: tornado based http/s3 server
 
 MILESTONES
 ==========
