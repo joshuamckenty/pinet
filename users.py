@@ -308,7 +308,7 @@ class LDAPWrapper(object):
                                           FLAGS.ldap_subtree))
 
 def usage():
-    print 'usage: %s -c username (access_key) (secret_key) | -d username' % sys.argv[0]
+    print 'usage: %s -c username (access_key) (secret_key) | [-d -k -e] username' % sys.argv[0]
 
 if __name__ == "__main__":
     manager = UserManager()
@@ -327,7 +327,12 @@ if __name__ == "__main__":
             manager.delete_user(sys.argv[2])
         elif sys.argv[1] == '-k':
             user = manager.get_user(sys.argv[2])
-            print user.access, user.secret
+            if user:
+                print user.access, user.secret
+        elif sys.argv[1] == '-e':
+            user = manager.get_user(sys.argv[2])
+            if user:
+                print user.get_credentials()
         else:
             usage()
             sys.exit(2)
