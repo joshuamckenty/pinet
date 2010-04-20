@@ -1,0 +1,5 @@
+export EC2_ACCESS_KEY="%(access)s"
+export EC2_SECRET_KEY="%(secret)s"
+export EC2_URL="%(ec2)s"
+export S3_URL="%(s3)s"
+export EC2_USER_ID="%(id)s"
