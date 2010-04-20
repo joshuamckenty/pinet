@@ -34,29 +34,32 @@ Alive
 Growing
 -------
 
+  [ ] Cloud init generates certs for cloud
   [ ] images stored on s3 as full files (not encrypted)
   [ ] euca-get-console-output works
   [ ] euca-terminate-instances works
-  [ ] euca-run-instances works
-  [ ] euca-describe-instances works
-  [ ] can launch from many different images
+  [X] euca-run-instances works
+  [X] euca-describe-instances works
+  [X] can launch from many different images
   [ ] can launch different sizes
+  [ ] node downloads images
 
 Works
 -----
 
-  [ ] can create volumes
-  [ ] can destroy volumes
-  [ ] can attach volumes
+  [X] can create volumes
+  [X] can destroy volumes
+  [X] can attach volumes
 
 Secure
 ------
 
   [ ] x509 certificate generation
   [ ] can list, upload and register images using real apis
-  [ ] users exist and have ec2 credentials
-  [ ] api calls are validated and ran as a user
+  [X] users exist and have ec2 credentials
+  [X] api calls are validated and ran as a user
   [ ] keypairs work
+  [X] Deliver creds to user (pinetrc, etc)
 
 Wow
 ----
@@ -71,7 +74,7 @@ Installation
 ============
 
   apt-get install python-libvirt libvirt-bin kvm rabbitmq-server python-dev python-pycurl python-simplejson
-  apt-get install iscsitarget
+  apt-get install iscsitarget aoetools vblade-persist
 
   # fix ec2 metadata/userdata uri
   iptables -t nat -A PREROUTING -s 0.0.0.0/0 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination 10.0.0.2:8773
