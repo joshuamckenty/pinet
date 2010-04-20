@@ -24,12 +24,9 @@ FLAGS = flags.FLAGS
 class CloudTestCase(test.BaseTestCase):
     def setUp(self):
         super(CloudTestCase, self).setUp()
-        FLAGS.fake_libvirt = False
-        FLAGS.fake_rabbit = False
 
         self.conn = calllib.Connection.instance()
-
-        logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.DEBUG)
 
         # set up our cloud
         self.cloud = cloud.CloudController()
@@ -46,13 +43,18 @@ class CloudTestCase(test.BaseTestCase):
         self.injected.append(self.node_consumer.attach_to_tornado(self.ioloop))
 
     def test_console_output(self):
+        if FLAGS.fake_libvirt:
+            logging.debug("Can't test instances without a real virtual env.")
+            return
         instance_id = 'foo'
         inst = yield self.node.run_instance(instance_id)
-
         output = yield self.cloud.get_console_output(None, [instance_id])
         self.assert_(output)
 
     def test_run_instances(self):
+        if FLAGS.fake_libvirt:
+            logging.debug("Can't test instances without a real virtual env.")
+            return
         image_id = FLAGS.default_image
         instance_type = FLAGS.default_instance_type
         max_count = 2
