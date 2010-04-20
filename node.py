@@ -317,17 +317,17 @@ class Instance(object):
                 os.makedirs(self._s['basepath'])
             except:
                 pass
-	    logging.info('Creating image for: %s', self.name)
-	    f = open(self.basepath('libvirt.xml'), 'w')
-	    f.write(libvirt_xml)
-	    f.close()
+            logging.info('Creating image for: %s', self.name)
+            f = open(self.basepath('libvirt.xml'), 'w')
+            f.write(libvirt_xml)
+            f.close()
             shutil.copyfile(self.imagepath(self._s['kernel_id']),
-                           self.basepath('kernel'))
+                            self.basepath('kernel'))
             shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
-                           self.basepath('ramdisk'))
+                            self.basepath('ramdisk'))
             partition2disk.convert(self.imagepath(self._s['image_id']),
-                           self.basepath('disk'))
-	    logging.info('Done create image for: %s', self.name)
+                                   self.basepath('disk'))
+            logging.info('Done create image for: %s', self.name)
         else:
             pass
         conn.send("ready")
