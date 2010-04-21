@@ -221,7 +221,7 @@ class ImageHandler(BaseRequestHandler):
             print 'fn', fn
             try:
                 info = anyjson.deserialize(open(fn).read())
-                if info['isPublic'] == 'true' or info['imageOwnerId'] == image_owner_id:
+                if info['isPublic'] or info['imageOwnerId'] == image_owner_id:
                     images.append(info)
             except:
                 pass
@@ -257,7 +257,7 @@ class ImageHandler(BaseRequestHandler):
             'imageLocation': image_location,
             'imageOwnerId': image_owner_id,
             'imageState': 'available',
-            'isPublic': 'true', # FIXME: grab from bundle manifest
+            'isPublic': False, # FIXME: grab from bundle manifest
             'architecture': 'x86_64', # FIXME: grab from bundle manifest
         }
 

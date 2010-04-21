@@ -84,8 +84,8 @@ S3 / Images
 
     [ ] euca-upload-bundle: buckets have owners and are private (only accessible by owner and admin)
     [ ] euca-register: registration works and decrypts image with cloud's cert
-    [ ] euca-describe-images: returns only images that user has access to (public or theirs)
-    [ ] images are owned by user, and private by default
+    [x] euca-describe-images: returns only images that user has access to (public or theirs)
+    [x] images are owned by user, and private by default
     [ ] api to modify private/public (image attributes) works
 
 Volumes
