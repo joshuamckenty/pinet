@@ -24,14 +24,13 @@ except Exception, e:
 import exception
 import fakevirt
 import flags
-import partition2disk
 import storage
 import utils
+import disk
 
 from utils import runthis
 import calllib
 
-from injectkey import inject_key
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
@@ -326,16 +325,12 @@ class Instance(object):
                 if not os.path.exists(self.basepath('ramdisk')):
                     shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
                                self.basepath('ramdisk'))
+                if not os.path.exists(self.basepath('disk')):
+                    disk.partition(self.imagepath(self._s['image_id']),
+                           self.basepath('disk'))
                 if self._s['key_data']:
                     logging.info('Injecting key data into image')
-                    if not os.path.exists(self.basepath('disk')):
-                        partition2disk.convert(self.imagepath(self._s['image_id']),
-                               self.basepath('disk'))
-                    inject_key(self._s['key_data'], self.basepath('disk'))
-                else:
-                    if not os.path.exists(self.basepath('disk')):
-                        partition2disk.convert(self.imagepath(self._s['image_id']),
-                               self.basepath('disk'))
+                    disk.inject_key(self._s['key_data'], self.basepath('disk'))
             else:
                 pass
             logging.info('Done create image for: %s', self.name)

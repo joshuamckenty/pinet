@@ -3,6 +3,23 @@ from utils import execute as _ex
 import os
 import tempfile
 
+def partition(infile, outfile):
+    sectors = os.path.getesize(infile) / 512
+    start = 63
+    end = start + sectors
+    # create an empty file
+    _ex('dd if=/dev/zero of=%s count=1 seek=%ds bs=512' % (outfile, end - 1))
+
+    # make dos partition
+    _ex('parted --script %s mklabel msdos' % outfile)
+
+    # make ext2 partion
+    _ex('parted --script %s mkpart primary %ds %ds' % (outfile, start, end))
+
+    # copy file into partition
+    _ex('dd if=%s of=%s bs=512 seek=%d conv=notrunc,fsync' % (infile, outfile, start))
+
+
 def inject_key(key, image):
     # try to attach to loopback multiple times
     for i in range(10):
@@ -54,5 +71,7 @@ def _inject_into_fs(key, fs):
     _ex('sudo bash -c "cat >> %s"' % keyfile, '\n' + key + '\n')
 
 if __name__ == "__main__":
-    inject_key("franky", "/home/vishvananda/nasa/instances/i-835446/disk")
+    partition("/home/vishvananda/nasa/images/emi-111111/image",
+    "/home/vishvananda/imgtest")
+    inject_key("franky", "/home/vishvananda/imgtest")
 
