@@ -44,7 +44,7 @@ class UserError(exception.ApiError):
 class InvalidKeyPair(exception.ApiError):
     pass
 
-class User:
+class User(object):
     def __init__(self, manager, ldap_user_object):
         self.manager = manager
         self.ldap_user_object = ldap_user_object
@@ -89,7 +89,7 @@ class User:
     def get_key_pairs(self):
         return self.manager.get_key_pairs(self.id)
 
-class KeyPair:
+class KeyPair(object):
     def __init__(self, ldap_key_object):
         self.ldap_key_object = ldap_key_object
 
@@ -105,7 +105,7 @@ class KeyPair:
     def fingerprint(self):
         return self.ldap_key_object[1]['keyFingerprint'][0]
 
-class UserManager:
+class UserManager(object):
     def __init__(self):
         if FLAGS.fake_users:
             try:
