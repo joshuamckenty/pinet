@@ -46,13 +46,13 @@ Todos
 General
 -------
 
-    [ ] generate cloud cert on run if it doesn't already exist (used for bundling)
+    [X] generate cloud cert on run if it doesn't already exist (used for bundling)
     [X] api calls are validated and ran as a user
 
 Users
 -----
 
-    [ ] X509 certs for users?
+    [X] X509 certs for users?
     [ ] add concept of admin
     [X] Deliver creds to user (pinetrc, x509, ...)
     [X] users exist and have ec2 credentials
