@@ -26,22 +26,25 @@ import fakevirt
 import flags
 import partition2disk
 import storage
+import utils
 
 from utils import runthis
 import calllib
 
+from injectkey import inject_key
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
-flags.DEFINE_string('instances_path', '../instances',
+flags.DEFINE_string('instances_path', utils.abspath('../instances'),
                     'where instances are stored on disk')
-flags.DEFINE_string('images_path', '../images',
+flags.DEFINE_string('images_path', utils.abspath('../images'),
                     'where images are stored on disk')
 flags.DEFINE_string('bridge_dev', 'eth0',
                     'network device for bridges')
-flags.DEFINE_string('libvirt_xml_template', 'libvirt.xml.template',
+flags.DEFINE_string('libvirt_xml_template',
+                    utils.abspath('libvirt.xml.template'),
                     'template file to use for libvirt xml')
 flags.DEFINE_string('default_image',
                     'ubuntu-karmic-x86_64.img',
@@ -260,6 +263,8 @@ class Instance(object):
         self._s['launch_time'] = kwargs.get('launch_time', None)
         self._s['reservation_id'] = kwargs.get('reservation_id', None)
         self._s['state'] = Instance.NOSTATE
+        self._s['key_data'] = kwargs.get('key_data', None)
+
         # TODO: we may not need to save the next few
         self._s['groups'] = kwargs.get('security_group', ['default'])
         self._s['product_codes'] = kwargs.get('product_code', [])
@@ -309,25 +314,40 @@ class Instance(object):
             os.makedirs(self._s['basepath'])
         except:
             pass
-    	logging.info('Creating image for: %s', self.name)
-    	f = open(self.basepath('libvirt.xml'), 'w')
-    	f.write(libvirt_xml)
-    	f.close()
-        if not FLAGS.fake_libvirt:
-            # TODO(termie): what to do when this already exists?
-            # TODO(termie): clean up on exit?
-            if not os.path.exists(self.basepath('kernel')):
-                shutil.copyfile(self.imagepath(self._s['kernel_id']),
-                            self.basepath('kernel'))
-            if not os.path.exists(self.basepath('ramdisk')):
-                shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
-                            self.basepath('ramdisk'))
-            if not os.path.exists(self.basepath('disk')):
-                partition2disk.convert(self.imagepath(self._s['image_id']),
-                           self.basepath('disk'))
-        else:
-            pass
-	    logging.info('Done create image for: %s', self.name)
+        try:
+            logging.info('Creating image for: %s', self.name)
+            f = open(self.basepath('libvirt.xml'), 'w')
+            f.write(libvirt_xml)
+            f.close()
+            if not FLAGS.fake_libvirt:
+                # TODO(termie): what to do when this already exists?
+                # TODO(termie): clean up on exit?
+                if not os.path.exists(self.basepath('kernel')):
+                    shutil.copyfile(self.imagepath(self._s['kernel_id']),
+                                self.basepath('kernel'))
+                if not os.path.exists(self.basepath('ramdisk')):
+                    shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
+                               self.basepath('ramdisk'))
+                if self._s['key_data']:
+                    logging.info('Injecting key data into image')
+                    if not os.path.exists(self.basepath('temp')):
+                        shutil.copyfile(self.imagepath(self._s['image_id']),
+                               self.basepath('temp'))
+                    inject_key(self._s['key_data'], self.basepath('temp'))
+                    partition2disk.convert(self.basepath('temp'),
+                               self.basepath('disk'))
+                    # os.remove(self.basepath('temp'))
+                else:
+                    if not os.path.exists(self.basepath('disk')):
+                        partition2disk.convert(self.imagepath(self._s['image_id']),
+                               self.basepath('disk'))
+            else:
+                pass
+            logging.info('Done create image for: %s', self.name)
+        except Exception, e:
+            # TODO(termie): we should try to actually raise the exception
+            #               out of this guy
+            logging.exception('something is awry in _createImage')
         conn.send("ready")
         return
 

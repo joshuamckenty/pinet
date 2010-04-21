@@ -8,6 +8,7 @@ except Exception, e:
 
 import fakeldap
 
+# TODO(termie): clean up these imports
 import os
 import sys
 import signer
@@ -15,6 +16,7 @@ import uuid
 import exception
 import flags
 import crypto
+import utils
 
 FLAGS = flags.FLAGS
 
@@ -27,7 +29,7 @@ flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users'
 
 
 flags.DEFINE_string('credentials_template',
-                    'pinetrc.template',
+                    utils.abspath('pinetrc.template'),
                     'Template for creating users rc file')
 flags.DEFINE_string('ec2_url',
                     'http://127.0.0.1:8773/services/Cloud',
@@ -42,7 +44,7 @@ class UserError(exception.ApiError):
 class InvalidKeyPair(exception.ApiError):
     pass
 
-class User:
+class User(object):
     def __init__(self, manager, ldap_user_object):
         self.manager = manager
         self.ldap_user_object = ldap_user_object
@@ -87,7 +89,7 @@ class User:
     def get_key_pairs(self):
         return self.manager.get_key_pairs(self.id)
 
-class KeyPair:
+class KeyPair(object):
     def __init__(self, ldap_key_object):
         self.ldap_key_object = ldap_key_object
 
@@ -103,7 +105,7 @@ class KeyPair:
     def fingerprint(self):
         return self.ldap_key_object[1]['keyFingerprint'][0]
 
-class UserManager:
+class UserManager(object):
     def __init__(self):
         if FLAGS.fake_users:
             try:
@@ -118,6 +120,9 @@ class UserManager:
         if user == None:
             return None
         expected_signature = signer.Signer(user.secret).generate(params, verb, server_string, path)
+        logging.debug('user.secret: %s', user.secret)
+        logging.debug('expected_signature: %s', expected_signature)
+        logging.debug('signature: %s', signature)
         if signature == expected_signature:
             return user
         

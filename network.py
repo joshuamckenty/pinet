@@ -2,11 +2,13 @@
 import logging
 import os
 
+# TODO(termie): clean up these imports
 import datastore
 import exception
 from exception import *
 import node
 from node import GenericNode
+import utils
 from utils import runthis
 
 import contrib
@@ -18,8 +20,11 @@ from IPy import IP
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool('fake_network', False, 'should we use fake network devices and addresses')
-flags.DEFINE_string('net_libvirt_xml_template', 'net.libvirt.xml.template', 'Template file for libvirt networks')
-flags.DEFINE_string('networks_path', '../networks', 'Location to keep network XML files')
+flags.DEFINE_string('net_libvirt_xml_template',
+                    utils.abspath('net.libvirt.xml.template'),
+                    'Template file for libvirt networks')
+flags.DEFINE_string('networks_path', utils.abspath('../networks'),
+                    'Location to keep network XML files')
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
 KEEPER = datastore.keeper("net-")
 

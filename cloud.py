@@ -47,9 +47,9 @@ class CloudController(object):
     def setup(self):
         pass
                           
-    def describe_key_pairs(self, context, key_names, **kwargs):
+    def describe_key_pairs(self, context, key_names=None, **kwargs):
         key_pairs = { 'keypairsSet': [] }
-
+        key_names = key_names and key_names or []
         if len(key_names) > 0:
             for key_name in key_names:
                 key_pair = context.user.get_key_pair(key_name)
@@ -234,8 +234,14 @@ class CloudController(object):
         # passing all of the kwargs on to node.py
         logging.debug("Going to run instances...")
         # logging.debug(kwargs)
+        
         kwargs['owner_id'] = self._get_user_id(context)
-
+        if kwargs.has_key('key_name') and context and context.user:
+            key_pair = context.user.get_key_pair(kwargs['key_name'])
+            if not key_pair:
+                raise exception.ApiError('Key Pair %s not found' %
+                                         kwargs['key_name'])
+            kwargs['key_data'] = key_pair.public_key 
         kwargs['reservation_id'] = 'r-%06d' % random.randint(0,1000000)
         kwargs['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         pending = {}
