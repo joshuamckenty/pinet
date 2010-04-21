@@ -37,8 +37,8 @@ COMPONENTS
 * Cloud Controller: global state of system, talks to ldap, s3, and node/storage workers through a queue
 * Nodes: worker that spawns instances
 * S3: tornado based http/s3 server
-User Manager: create/manage users, which are stored in ldap
-Network Controller: allocate and deallocate IPs and VLANs
+* User Manager: create/manage users, which are stored in ldap
+* Network Controller: allocate and deallocate IPs and VLANs
 
 Todos
 ====
@@ -46,25 +46,24 @@ Todos
 General
 -------
 
-    [ ] generate cloud cert on run if it doesn't already exist (used for bundling)
+    [X] generate cloud cert on run if it doesn't already exist (used for bundling)
     [X] api calls are validated and ran as a user
 
 Users
 -----
 
-    [ ] X509 certs for users?
+    [X] X509 certs for users
     [ ] add concept of admin
     [X] Deliver creds to user (pinetrc, x509, ...)
     [X] users exist and have ec2 credentials
     [X] user can create and destroy keypairs
-    [ ] fix fingerprint generation on creation of keypair
 
 Instances
 ---------
 
     [x] euca-run-instances requests nodes to spawn instances
     [ ] can only run instances that user owns or is public
-    [ ] keypair is added when running instance
+    [x] keypair is added when running instance
     [ ] nodes have a quota on # of instances
     [ ] can allocate and attach public IPs
     [x] each user gets a subnet and vlan for their instances
@@ -84,9 +83,8 @@ S3 / Images
 
     [ ] euca-upload-bundle: buckets have owners and are private (only accessible by owner and admin)
     [ ] euca-register: registration works and decrypts image with cloud's cert
-    [ ] euca-describe-images: returns only images that user has access to (public or theirs)
-    [ ] images are owned by user, and private by default
-    [ ] api to modify private/public (image attributes) works
+    [x] euca-describe-images: returns only images that user has access to (public or theirs)
+    [x] images are owned by user, and private by default
 
 Volumes
 -------
@@ -130,6 +128,9 @@ Optimizations
 Future
 ------
 
+    [ ] users have quotas
+    [ ] fix fingerprint generation on creation of keypair
+    [ ] api to modify private/public (image attributes) works
     [ ] proper security groups
     [ ] projects / groups
     [ ] RBAC - roles based control

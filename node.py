@@ -246,7 +246,7 @@ class Instance(object):
         self._s['instance_id'] = name
         self._s['instance_type'] = size
         self._s['mac_address'] = kwargs.get(
-                'mac_address', 'ff:ff:ff:ff:ff:ff')
+                'mac_address', 'df:df:df:df:df:df')
         self._s['basepath'] = kwargs.get(
                 'basepath', os.path.abspath(os.path.join(FLAGS.instances_path, self.name)))
         self._s['memory_kb'] = int(self._s['memory_mb']) * 1024
@@ -359,6 +359,7 @@ class Instance(object):
         return self._s
 
     def info(self):
+        logging.debug("Getting info for dom " % self.name)
         virt_dom = self._conn.lookupByName(self.name)
         (state, max_mem, mem, num_cpu, cpu_time) = virt_dom.info()
         return {'state': state,
@@ -430,7 +431,6 @@ class Instance(object):
         def _launch(fd,events):
             self.ioloop.remove_handler(fd)
             logging.debug("Arrived in _launch, thanks to callback on deferred.")
-            logging.debug("Self is %s" % (self))
             self._conn.createXML(self.toXml(), 0)
             # TODO(termie): this should actually register a callback to check
             #               for successful boot

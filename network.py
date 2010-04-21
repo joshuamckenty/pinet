@@ -28,6 +28,7 @@ flags.DEFINE_string('networks_path', utils.abspath('../networks'),
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
 KEEPER = datastore.keeper("net-")
 
+logging.getLogger().setLevel(logging.DEBUG)
 
 class SecurityGroup(object):
     def __init__(self, **kwargs):
@@ -115,16 +116,19 @@ class Network(object):
         if not self._s['name'] in conn.listNetworks():
             logging.debug("Starting VLAN inteface for %s network" % (self._s['name']))
             if not FLAGS.fake_network:
-                runthis("Configuring VLAN type: %s", "sudo vconfig set_name_type VLAN_PLUS_VID_NO_PAD")
-                runthis("Adding VLAN %s: %%s" % (self.vlan) , "sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
-                runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
-                #runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s %s netmask %s broadcast %s up" % 
-                #          (self.vlan, "192.168.0.%s" % ((self.vlan % 1000)), "255.255.255.0", "192.168.0.255"))
+                try:
+                    runthis("Configuring VLAN type: %s", "sudo vconfig set_name_type VLAN_PLUS_VID_NO_PAD")
+                    runthis("Adding VLAN %s: %%s" % (self.vlan) , "sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
+                    runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
+                except:
+                    pass
         else:
-            net = conn.networkLookupByName(self._s['name'])
-            net.destroy()
+            pass
         try:
-            conn.networkCreateXML(xml)
+            conn.networkDefineXML(xml)
+            net = conn.networkLookupByName(self._s['name'])
+            net.connect()
+            net.create()
         except Exception, err:
             logging.debug("libvirt threw %s" % str(err))
             pass
