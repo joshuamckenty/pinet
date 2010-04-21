@@ -237,7 +237,6 @@ class ImageHandler(BaseRequestHandler):
         images = []
     
         for fn in glob.glob("%s/*/info.json" % self.application.images_directory):
-            print 'fn', fn
             try:
                 info = anyjson.deserialize(open(fn).read())
                 if info['isPublic'] or info['imageOwnerId'] == image_owner_id:
@@ -245,7 +244,6 @@ class ImageHandler(BaseRequestHandler):
             except:
                 pass
     
-        print 'images', images
         self.finish(anyjson.serialize(images))
 
     def decrypt_image(self, encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename):

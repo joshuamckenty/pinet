@@ -364,11 +364,14 @@ class LDAPWrapper(object):
                                           FLAGS.ldap_subtree))
 
 def usage():
-    print 'usage: %s -c user (access_key) (secret_key) | [-d -k -e] user' % sys.argv[0]
+    print 'usage: %s (command)' % sys.argv[0]
+    print '   -c (username) [access] [secret] - create a user'
+    print '   -d (username)                   - delete a user'
+    print '   -k (username)                   - access & secret for user'
+    print '   -e (username) [filename.zip]    - generate new X509 cert for user'
 
 if __name__ == "__main__":
     manager = UserManager()
-    sys.exit(2)
     if len(sys.argv) > 2:
         if sys.argv[1] == '-c':
             access, secret = None, None
@@ -400,4 +403,3 @@ if __name__ == "__main__":
     else:
         usage()
         sys.exit(2)
-
