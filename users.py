@@ -23,9 +23,6 @@ import datetime
 import tempfile
 import zipfile
 import shutil
-import cloud
-
-logging.getLogger().setLevel(logging.DEBUG)
 
 FLAGS = flags.FLAGS
 
@@ -80,13 +77,14 @@ class User(object):
     def get_credentials(self):
         rc = self.generate_rc()
         private_key, signed_cert = self.generate_x509_cert()
-        tmpdir = tempfile.mkdtmp()
+        tmpdir = tempfile.mkdtemp()
         zf = os.path.join(tmpdir, "temp.zip")
         zippy = zipfile.ZipFile(zf, 'w')
         zippy.writestr(FLAGS.credential_rc_file, rc)
-        zippy.writestr(FLAGS.credential_pk_file, private_key)
+        zippy.writestr(FLAGS.credential_key_file, private_key)
         zippy.writestr(FLAGS.credential_cert_file, signed_cert)
-        zippy.write(os.path.join(FLAGS.ca_path, FLAGS.ca_file))
+        ca_file = os.path.join(FLAGS.ca_path, FLAGS.ca_file) 
+        zippy.write(ca_file, FLAGS.ca_file)
         zippy.close()
         with open(zf, 'r') as f:
             buffer = f.read()
@@ -366,11 +364,10 @@ class LDAPWrapper(object):
                                           FLAGS.ldap_subtree))
 
 def usage():
-    print 'usage: %s -c username (access_key) (secret_key) | [-d -k -e] username' % sys.argv[0]
+    print 'usage: %s -c user (access_key) (secret_key) | [-d -k -e] user' % sys.argv[0]
 
 if __name__ == "__main__":
     manager = UserManager()
-    print manager.get_user('fake').get_credentials()
     sys.exit(2)
     if len(sys.argv) > 2:
         if sys.argv[1] == '-c':
@@ -391,7 +388,11 @@ if __name__ == "__main__":
         elif sys.argv[1] == '-e':
             user = manager.get_user(sys.argv[2])
             if user:
-                print user.get_credentials()
+                if len(sys.argv) > 3:
+                    with open(sys.argv[3], 'w') as f:
+                        f.write(user.get_credentials())
+                else:
+                    print user.get_credentials()
         else:
             usage()
             sys.exit(2)

@@ -9,10 +9,13 @@ import shutil
 import logging
 import contrib
 import flags
+import utils
 
 FLAGS = flags.FLAGS
 
-logging.getLogger().setLevel(logging.DEBUG)
+flags.DEFINE_string('ca_file', 'cacert.pem', 'Filename of root CA')
+flags.DEFINE_string('keys_path', utils.abspath('keys'), 'Where we keep our keys')
+flags.DEFINE_string('ca_path', utils.abspath('CA'), 'Where we keep our root CA')
 
 def generate_keypair(bits=1024):
     # what is the magic 65537?
