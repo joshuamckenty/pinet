@@ -307,8 +307,8 @@ class CloudController(object):
     
     def deregister_image(self, context, image_id, **kwargs):
         self.boto_conn().make_request(
-                method='DELETE', 
-                bucket='_images', 
+                method='DELETE',
+                bucket='_images',
                 query_args=qs({'image_id': image_id}))
                 
         return defer.succeed({'imageId': image_id})
