@@ -20,7 +20,7 @@
         <interface type='network'>
             <source network='%(network_name)s'/>
             <mac address='%(mac_address)s'/>
-            <model type='virtio'/>
+            <!-- <model type='virtio'/> -->
         </interface>
         <serial type="file">
             <source path='%(basepath)s/console.log'/>

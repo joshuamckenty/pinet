@@ -10,13 +10,16 @@ import calllib
 import random
 
 def execute(cmd, input=None):
+    logging.debug("Running %s" % (cmd))
     obj = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE,
     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result = None
     if input != None:
         result = obj.communicate(input)
     else:
         result = obj.communicate()
     obj.stdin.close()
+    logging.debug("Result was %s" % (obj.returncode))
     return result
 
 def abspath(s):

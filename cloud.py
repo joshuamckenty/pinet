@@ -2,6 +2,7 @@
 import os
 import logging
 import random
+import copy
 
 import contrib
 import anyjson
@@ -24,7 +25,6 @@ import crypto
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
-flags.DEFINE_integer('s3_port', 3333, 'the port we connect to s3 on')
 
 
 _STATE_NAMES = {
@@ -129,7 +129,7 @@ class CloudController(object):
         for storage in self.volumes.values():
             for volume in storage.values():
                 if user_id == None or user_id == volume['user_id']:
-                    v = volumes.copy()
+                    v = copy.deepcopy(volume)
                     del v['user_id']
                     volumes.append(v)
         return defer.succeed({'volumeSet': volumes})

@@ -36,6 +36,7 @@ import bisect
 import datetime
 import tarfile
 import tempfile
+import shutil
 from tornado import escape
 import hashlib
 from tornado import httpserver
@@ -304,8 +305,8 @@ class ImageHandler(BaseRequestHandler):
 
         decrypted_filename = os.path.join(path, 'image.tar.gz')
         self.decrypt_image(encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename)
-        self.untarzip_image(path, decrypted_filename)
-
+        filenames = self.untarzip_image(path, decrypted_filename)
+        shutil.move(os.path.join(path, filenames[0]), os.path.join(path, 'image'))
         info = {
             'imageId': image_id,
             'imageLocation': image_location,
@@ -345,9 +346,14 @@ class ImageHandler(BaseRequestHandler):
             raise web.HTTPError(403)
         
         for fn in ['info.json', 'image']:
-            os.unlink(os.path.join(path, fn))
-            
-        os.rmdir(path)
+            try:
+                os.unlink(os.path.join(path, fn))
+            except:
+                pass
+        try:    
+            os.rmdir(path)
+        except:
+            pass
 
         self.set_status(204)
 

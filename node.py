@@ -27,6 +27,7 @@ import flags
 import storage
 import utils
 import disk
+import s3_worker # this is a dumb place for the images_path declaration
 
 from utils import runthis
 import calllib
@@ -38,8 +39,6 @@ flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
 flags.DEFINE_string('instances_path', utils.abspath('../instances'),
                     'where instances are stored on disk')
-flags.DEFINE_string('images_path', utils.abspath('../images'),
-                    'where images are stored on disk')
 flags.DEFINE_string('bridge_dev', 'eth0',
                     'network device for bridges')
 flags.DEFINE_string('libvirt_xml_template',
@@ -112,7 +111,10 @@ class Node(GenericNode):
         instance_names = [self._conn.lookupByID(x).name()
                           for x in self._conn.listDomainsID()]
         for name in instance_names:
-            new_inst = Instance.fromName(self._conn, name)
+            try:
+                new_inst = Instance.fromName(self._conn, name)
+            except:
+                pass
             self._instances[name] = new_inst
         return defer.succeed(len(self._instances))
     
@@ -326,7 +328,7 @@ class Instance(object):
                     shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
                                self.basepath('ramdisk'))
                 if not os.path.exists(self.basepath('disk')):
-                    disk.partition(self.imagepath(self._s['image_id']),
+                    disk.partition(self.imagepath("%s/image" % self._s['image_id']),
                            self.basepath('disk'))
                 if self._s['key_data']:
                     logging.info('Injecting key data into image')
@@ -359,7 +361,7 @@ class Instance(object):
         return self._s
 
     def info(self):
-        logging.debug("Getting info for dom " % self.name)
+        logging.debug("Getting info for dom %s" % self.name)
         virt_dom = self._conn.lookupByName(self.name)
         (state, max_mem, mem, num_cpu, cpu_time) = virt_dom.info()
         return {'state': state,
