@@ -13,6 +13,12 @@ from twisted.internet import defer
 
 import cloud
 import exception
+import flags
+import utils
+
+
+FLAGS = flags.FLAGS
+flags.DEFINE_integer('cc_port', 8773, 'cloud controller port')
 
 
 _c2u = re.compile('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))')
