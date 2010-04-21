@@ -1,12 +1,16 @@
-# vim: soft
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
 """
 Popen bits.
 
 """
 import logging
+import os.path
 import subprocess
 import calllib
 import random
+
+def abspath(s):
+  return os.path.join(os.path.dirname(__file__), s)
 
 def runthis(prompt, cmd):
     logging.debug("Running %s" % (cmd))

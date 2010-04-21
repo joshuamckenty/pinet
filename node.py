@@ -26,6 +26,7 @@ import fakevirt
 import flags
 import partition2disk
 import storage
+import utils
 
 from utils import runthis
 import calllib
@@ -35,13 +36,14 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
-flags.DEFINE_string('instances_path', '../instances',
+flags.DEFINE_string('instances_path', utils.abspath('../instances'),
                     'where instances are stored on disk')
-flags.DEFINE_string('images_path', '../images',
+flags.DEFINE_string('images_path', utils.abspath('../images'),
                     'where images are stored on disk')
 flags.DEFINE_string('bridge_dev', 'eth0',
                     'network device for bridges')
-flags.DEFINE_string('libvirt_xml_template', 'libvirt.xml.template',
+flags.DEFINE_string('libvirt_xml_template',
+                    utils.abspath('libvirt.xml.template'),
                     'template file to use for libvirt xml')
 flags.DEFINE_string('default_image',
                     'ubuntu-karmic-x86_64.img',
