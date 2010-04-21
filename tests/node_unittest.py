@@ -49,7 +49,7 @@ class InstanceXmlTestCase(test.BaseTestCase):
 class NodeConnectionTestCase(test.BaseTestCase):
     def setUp(self):
         logging.getLogger().setLevel(logging.DEBUG)
-        super(NodeFakeConnectionTestCase, self).setUp()
+        super(NodeConnectionTestCase, self).setUp()
         self.node = node.Node()
     
     def test_run_describe_terminate(self):

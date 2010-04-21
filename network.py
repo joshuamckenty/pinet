@@ -209,10 +209,10 @@ class NetworkController(GenericNode):
             net = self.get_users_network(user_id)
             ip = net.allocate_ip(user_id, mac)
             net.express(self._conn)
-            return (str(ip), net.name)
+            return (ip, net.name)
         ip = self._public.allocate_ip(user_id, mac)
         self._public.express(self._conn)
-        return (str(ip), net.name)
+        return (ip, net.name)
         
     def deallocate_address(self, address):
         if address in self._public.network:
