@@ -320,8 +320,6 @@ class Instance(object):
             f.write(libvirt_xml)
             f.close()
             if not FLAGS.fake_libvirt:
-                # TODO(termie): what to do when this already exists?
-                # TODO(termie): clean up on exit?
                 if not os.path.exists(self.basepath('kernel')):
                     shutil.copyfile(self.imagepath(self._s['kernel_id']),
                                 self.basepath('kernel'))
@@ -330,13 +328,10 @@ class Instance(object):
                                self.basepath('ramdisk'))
                 if self._s['key_data']:
                     logging.info('Injecting key data into image')
-                    if not os.path.exists(self.basepath('temp')):
-                        shutil.copyfile(self.imagepath(self._s['image_id']),
-                               self.basepath('temp'))
-                    inject_key(self._s['key_data'], self.basepath('temp'))
-                    partition2disk.convert(self.basepath('temp'),
+                    if not os.path.exists(self.basepath('disk')):
+                        partition2disk.convert(self.imagepath(self._s['image_id']),
                                self.basepath('disk'))
-                    # os.remove(self.basepath('temp'))
+                    inject_key(self._s['key_data'], self.basepath('disk'))
                 else:
                     if not os.path.exists(self.basepath('disk')):
                         partition2disk.convert(self.imagepath(self._s['image_id']),
@@ -366,63 +361,7 @@ class Instance(object):
         return os.path.join(FLAGS.images_path, s)
 
     def describe(self):
-        """<DescribeInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2007-08-29">
-      <reservationSet>
-        <item>
-          <reservationId>r-44a5402d</reservationId>
-          <ownerId>UYY3TLBUXIEON5NQVUUX6OMPWBZIQNFM</ownerId>
-          <groupSet>
-            <item>
-              <groupId>default</groupId>
-            </item>
-          </groupSet>
-          <instancesSet>
-            <item>
-              <instanceId>i-28a64341</instanceId>
-              <imageId>ami-6ea54007</imageId>
-              <instanceState>
-                <code>0</code>
-                <name>running</name>
-              </instanceState>
-              <privateDnsName>domU-12-31-35-00-1E-01.compute-1.internal</privateDnsName>
-              <dnsName>ec2-72-44-33-4.compute-1.amazonaws.com</dnsName>
-              <keyName>example-key-name</keyName>
-              <productCodesSet>
-                <item><productCode>774F4FF8</productCode></item>
-              </productCodesSet>
-              <InstanceType>m1.small</InstanceType>
-              <launchTime>2007-08-07T11:54:42.000Z</launchTime>             
-            </item>
-          </instancesSet>
-        </item>
-      </reservationSet>
-    </DescribeInstancesResponse>"""
         return self._s
-        """
-               {"reservation_set": [{
-                        "reservation_id": self._s['reservation_id'],
-                        "owner_id" : self._s['owner_id'],
-                        "group_set" : [{
-                            "group_id" : self._s['group_id']
-                        }],
-                        "instances_set" : [{
-                                "instance_id" : self.name,
-                                "image_id" : self._s['image_id'],
-                                "instance_state" : {
-                                    "code" : self.state,
-                                    "name" : Instance.state_names[self.state]
-                                },
-                                "private_dns_name": 'fixme',
-                                "dns_name": 'fixme',
-                                "key_name": self._s['key_name'],
-                                "product_codes_set" : [{
-                                        "product_code" : 'fixme'
-                                }],
-                                "instance_type": self._s['instance_type'],
-                                "launch_time": self._s['launch_time'],
-                        }]
-                }]}
-        """
 
     def info(self):
         virt_dom = self._conn.lookupByName(self.name)

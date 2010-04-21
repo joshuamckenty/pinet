@@ -1,6 +1,7 @@
 from exception import Error
 from utils import execute as _ex
 import os
+import tempfile
 
 def inject_key(key, image):
     # try to attach to loopback multiple times
@@ -14,26 +15,32 @@ def inject_key(key, image):
     else:
         raise Error('Could not attach image to loopback')
     try:
-        _ex('sudo tune2fs -c 0 -i 0 %s >/dev/null 2>&1' % device)
+        # create partition
+        out, err = _ex('sudo kpartx -a %s' % device)
+        if err:
+            raise Error('failed to load partition')
+        partition = '/dev/mapper/' + device.split('/')[-1] + 'p1'
         
-        tmp = _ex('sudo mktemp -d')[0].strip()
-        if not tmp:
-            raise Error('Failed to create temporary directory')
+        out, err = _ex('sudo tune2fs -c 0 -i 0 %s' % partition)
+        
+        tmpdir = tempfile.mkdtemp()
         try:
             # mount loopback to dir
-            out, err = _ex('sudo mount %s %s' % (device, tmp)) 
+            out, err = _ex('sudo mount %s %s' % (partition, tmpdir)) 
             if err:
                 raise Error('Failed to mount filesystem %s' % err)
 
             try:
                 # inject key file
-                _inject_into_fs(key, tmp)
+                _inject_into_fs(key, tmpdir)
             finally:
                 # unmount device
-                _ex('sudo umount %s' % device)
+                _ex('sudo umount %s' % partition)
         finally:
             # remove temporary directory
-            _ex('sudo rmdir %s' % tmp)
+            os.rmdir(tmpdir)
+            # remove partitions
+            _ex('sudo kpartx -d %s' % device)
     finally:
         # remove loopback
         _ex('sudo losetup -d %s' % device)
@@ -47,5 +54,5 @@ def _inject_into_fs(key, fs):
     _ex('sudo bash -c "cat >> %s"' % keyfile, '\n' + key + '\n')
 
 if __name__ == "__main__":
-    inject_key("franky", "/var/pinet/images/test.img")
+    inject_key("franky", "/home/vishvananda/nasa/instances/i-835446/disk")
 

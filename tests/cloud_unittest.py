@@ -58,16 +58,20 @@ class CloudTestCase(test.BaseTestCase):
             return
         image_id = FLAGS.default_image
         instance_type = FLAGS.default_instance_type
-        max_count = 2
+        max_count = 1
         kwargs = {'image_id': image_id,
                   'instance_type': instance_type,
                   'max_count': max_count}
         rv = yield self.cloud.run_instances(None, **kwargs)
         # TODO: check for proper response
         self.assert_(rv)
-        for reservations in rv['reservationSet']:
-            for res_id in reservations.keys():
+        # if not FLAGS.fake_libvirt:
+        #     time.sleep(45) # Should use boto for polling here
+        # for reservations in rv['reservationSet']:
+            #for res_id in reservations.keys():
               # logging.debug(reservations[res_id])
-              for instance in reservations[res_id]:  
-                rv = yield self.node.terminate_instance(instance['instance_id'])
+             # for instance in reservations[res_id]:  
+          #  for instance in reservations[reservations.keys()[0]]:  
+           #     logging.debug("Terminating instance %s" % instance['instance_id'])
+            #    rv = yield self.node.terminate_instance(instance['instance_id'])
 
