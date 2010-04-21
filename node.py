@@ -244,12 +244,12 @@ class Instance(object):
         self._s['instance_id'] = name
         self._s['instance_type'] = size
         self._s['mac_address'] = kwargs.get(
-                'mac_address', 'uhoh')
+                'mac_address', 'ff:ff:ff:ff:ff:ff')
         self._s['basepath'] = kwargs.get(
                 'basepath', os.path.abspath(os.path.join(FLAGS.instances_path, self.name)))
         self._s['memory_kb'] = int(self._s['memory_mb']) * 1024
         # TODO - Get this from network controller
-        self._s['network_name'] = kwargs.get('network_name', 'virbr0')
+        self._s['network_name'] = kwargs.get('network_name', 'default')
         # self._s['bridge_dev'] = kwargs.get('bridge_dev', FLAGS.bridge_dev)
         self._s['image_id'] = kwargs.get('image_id', FLAGS.default_image)
         self._s['kernel_id'] = kwargs.get('kernel_id', FLAGS.default_kernel)
@@ -316,11 +316,14 @@ class Instance(object):
         if not FLAGS.fake_libvirt:
             # TODO(termie): what to do when this already exists?
             # TODO(termie): clean up on exit?
-            shutil.copyfile(self.imagepath(self._s['kernel_id']),
+            if not os.path.exists(self.basepath('kernel')):
+                shutil.copyfile(self.imagepath(self._s['kernel_id']),
                             self.basepath('kernel'))
-            shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
+            if not os.path.exists(self.basepath('ramdisk')):
+                shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
                             self.basepath('ramdisk'))
-            partition2disk.convert(self.imagepath(self._s['image_id']),
+            if not os.path.exists(self.basepath('disk')):
+                partition2disk.convert(self.imagepath(self._s['image_id']),
                            self.basepath('disk'))
         else:
             pass

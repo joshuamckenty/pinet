@@ -50,6 +50,7 @@ class CloudTestCase(test.BaseTestCase):
         inst = yield self.node.run_instance(instance_id)
         output = yield self.cloud.get_console_output(None, [instance_id])
         self.assert_(output)
+        rv = yield self.node.terminate_instance(instance_id)
 
     def test_run_instances(self):
         if FLAGS.fake_libvirt:
@@ -64,3 +65,9 @@ class CloudTestCase(test.BaseTestCase):
         rv = yield self.cloud.run_instances(None, **kwargs)
         # TODO: check for proper response
         self.assert_(rv)
+        for reservations in rv['reservationSet']:
+            for res_id in reservations.keys():
+              # logging.debug(reservations[res_id])
+              for instance in reservations[res_id]:  
+                rv = yield self.node.terminate_instance(instance['instance_id'])
+

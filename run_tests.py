@@ -8,7 +8,7 @@ import cloud
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_bool('fake_tests', True, 'should we use everything for testing')
+flags.DEFINE_bool('fake_tests', False, 'should we use everything for testing')
 
 if FLAGS.fake_tests:
     from tests.fake_flags import *
