@@ -478,10 +478,12 @@ class Instance(object):
             # TODO(termie): this should actually register a callback to check
             #               for successful boot
             self._s['state'] = Instance.RUNNING
+            d.callback(True)
 
         self.ioloop = tornado.ioloop.IOLoop.instance()
         (conn1, conn2) = multiprocessing.Pipe()
-        proc = multiprocessing.Process(target=self._createImage, args=(xml, conn1))
+        proc = multiprocessing.Process(target=self._createImage,
+                                       args=(xml, conn1))
         self.pipe = conn1
         self.ioloop.add_handler(conn2.fileno(), _launch, self.ioloop.READ )
         proc.start()

@@ -23,7 +23,8 @@ COMPONENTS
 ----------
 
 <pre>
-                  ( LDAP )
+             [ User Manager ] ---- ( LDAP )
+                      |  
                       |                / [ Storage ] - ( ATAoE )
 [ API server ] -> [ Cloud ]  < AMQP >   
                       |                \ [ Nodes ]   - ( libvirt/kvm )
@@ -36,54 +37,105 @@ COMPONENTS
 * Cloud Controller: global state of system, talks to ldap, s3, and node/storage workers through a queue
 * Nodes: worker that spawns instances
 * S3: tornado based http/s3 server
+User Manager: create/manage users, which are stored in ldap
+Network Controller: allocate and deallocate IPs and VLANs
 
-MILESTONES
-==========
+Todos
+====
 
-Alive
------
-
-  [x] can spawn instances via python api from a single image
-  [ ] can ssh into instance spawned instances (network system mode)
-
-Growing
+General
 -------
 
-  [ ] Cloud init generates certs for cloud
-  [ ] images stored on s3 as full files (not encrypted)
-  [ ] euca-get-console-output works
-  [ ] euca-terminate-instances works
-  [X] euca-run-instances works
-  [X] euca-describe-instances works
-  [X] can launch from many different images
-  [ ] can launch different sizes
-  [ ] node downloads images
+    [ ] generate cloud cert on run if it doesn't already exist (used for bundling)
+    [X] api calls are validated and ran as a user
 
-Works
+Users
 -----
 
-  [X] can create volumes
-  [X] can destroy volumes
-  [X] can attach volumes
+    [ ] X509 certs for users?
+    [ ] add concept of admin
+    [X] Deliver creds to user (pinetrc, x509, ...)
+    [X] users exist and have ec2 credentials
+    [X] user can create and destroy keypairs
+    [ ] fix fingerprint generation on creation of keypair
 
-Secure
+Instances
+---------
+
+    [x] euca-run-instances requests nodes to spawn instances
+    [ ] can only run instances that user owns or is public
+    [ ] keypair is added when running instance
+    [ ] nodes have a quota on # of instances
+    [ ] can allocate and attach public IPs
+    [x] each user gets a subnet and vlan for their instances
+    [ ] node downloads proper image from S3 (verify image via content-md5)
+    [ ] instances can access their user-data, meta-data
+    [ ] hard code all instances for a user into 1 security group: deny except 22, 80, 443, and 1194
+    [x] euca-get-console-output works
+    [ ] euca-terminate-instances works
+    [X] euca-run-instances uses userdata, instance size, image, keypair, ... (all api params)
+    [X] euca-describe-instances works
+    [ ] euca-describe-instances only returns instances I have permissions to
+    [ ] can launch from many different images
+    [ ] can launch different sizes
+  
+S3 / Images
+-----------
+
+    [ ] euca-upload-bundle: buckets have owners and are private (only accessible by owner and admin)
+    [ ] euca-register: registration works and decrypts image with cloud's cert
+    [ ] euca-describe-images: returns only images that user has access to (public or theirs)
+    [ ] images are owned by user, and private by default
+    [ ] api to modify private/public (image attributes) works
+
+Volumes
+-------
+
+    [X] can create volumes
+    [X] can destroy volumes
+    [X] can attach volumes
+    [ ] detach on destroy?
+
+Cleanup
+-------
+
+    [ ] build debs - perhaps use git-buildpackage?
+    [ ] remove eucalyptus specific terminology in favor of amazon (emi -> ami, ?)
+    [ ] documentation/SOPs for backup, updating, ?
+    [ ] add license headers - apache license
+    [ ] rewrite code such as partition2disk that is too close to eucalyptus
+    [ ] review code for internal (nasa) info 
+    [ ] init.d scripts & location for configuration files
+    [ ] Logging clean-up: system should (default?) to using syslog
+    [ ] verify user is allowed to execute commands - for each API method!
+    [ ] when instances are terminated, IP addresses are reclaimed
+
+
+Nasa Deploy
+-----------
+
+    [ ] Port existing users, images from euca
+    [ ] Port cloudpipe and dashboard, install them
+    [ ] Remove secgroups from dashboard UI
+
+
+Optimizations
+-------------
+
+    [ ] dd warns blocksize of 512 is slow in partition2disk.convert
+    [ ] tiny (5x overcommitted CPU) shouldn't be on same nodes as regular sizes
+    [ ] lvm instead of file based disk images?
+
+
+Future
 ------
 
-  [ ] x509 certificate generation
-  [ ] can list, upload and register images using real apis
-  [X] users exist and have ec2 credentials
-  [X] api calls are validated and ran as a user
-  [ ] keypairs work
-  [X] Deliver creds to user (pinetrc, etc)
-
-Wow
-----
-
-  [ ] works with dashboard
-  [ ] network with subnets/vlans works
-  [ ] can allocate and attach public IPs
-  [ ] security groups works
-  [ ] instances can access their user-data, meta-data
+    [ ] proper security groups
+    [ ] projects / groups
+    [ ] RBAC - roles based control
+    [ ] throttling for reporting state from node/storage/... 
+        (report back at least every minute, at most once a second, only when things change)
+    [ ] support for ephemeral and swap on disk image generation
 
 Installation
 ============
