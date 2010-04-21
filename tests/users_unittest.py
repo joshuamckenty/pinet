@@ -1,9 +1,12 @@
+import os
 import unittest
 import flags
 import test
+import cloud
+import logging
 
 from users import UserManager
-from M2Crypto import RSA, BIO
+from M2Crypto import RSA, BIO, X509
 
 FLAGS = flags.FLAGS
 
@@ -75,11 +78,24 @@ class UserTestCase(test.BaseTestCase):
     def test_010_can_list_users(self):
         users = self.users.get_users()
         self.assertTrue(filter(lambda u: u.id == 'test1', users))
+
+    def test_011_can_generate_x509(self):
+        # MUST HAVE RUN CLOUD SETUP BY NOW
+        self.cloud = cloud.CloudController()
+        self.cloud.setup()
+        cloud_ca = self.cloud.fetch_ca()
+        private_key, signed_cert_string = self.users.get_user('test1').generate_x509_cert()
+        logging.debug(signed_cert_string)
+        # Need to verify that it's signed by the cloud root CA
+        signed_cert = X509.load_cert_string(signed_cert_string)
+        cloud_cert = X509.load_cert_string(cloud_ca)
+        self.assertTrue(signed_cert.verify(cloud_cert.get_pubkey()))
         
-    def test_011_can_delete_user(self):
+    def test_012_can_delete_user(self):
         self.users.delete_user('test1')
         users = self.users.get_users()
         self.assertFalse(filter(lambda u: u.id == 'test1', users))
+    
         
 if __name__ == "__main__":
     # TODO: Implement use_fake as an option
