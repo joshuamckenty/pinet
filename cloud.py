@@ -47,9 +47,9 @@ class CloudController(object):
     def setup(self):
         pass
                           
-    def describe_key_pairs(self, context, key_names, **kwargs):
+    def describe_key_pairs(self, context, key_names=None, **kwargs):
         key_pairs = { 'keypairsSet': [] }
-
+        key_names = key_names and key_names or []
         if len(key_names) > 0:
             for key_name in key_names:
                 key_pair = context.user.get_key_pair(key_name)

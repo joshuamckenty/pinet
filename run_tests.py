@@ -15,6 +15,7 @@ if FLAGS.fake_tests:
 else:
     from tests.real_flags import *
     
+from tests.api_unittest import *
 from tests.node_unittest import *
 from tests.cloud_unittest import *
 from tests.users_unittest import *
