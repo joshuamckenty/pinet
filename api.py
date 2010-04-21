@@ -129,6 +129,8 @@ class APIRequest(object):
             self._render_dict(xml, data_el, data)
         elif hasattr(data, '__dict__'):
             self._render_dict(xml, data_el, data.__dict__)
+        elif isinstance(data, bool):
+            data_el.appendChild(xml.createTextNode(str(data).lower()))
         elif data != None:
             data_el.appendChild(xml.createTextNode(str(data)))
         

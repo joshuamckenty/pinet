@@ -42,6 +42,7 @@ import os.path
 import urllib
 from tornado import web
 import crypto
+import glob
 import anyjson
 
 
@@ -52,16 +53,19 @@ class S3Application(web.Application):
     to prevent hitting file system limits for number of files in each
     directories. 1 means one level of directories, 2 means 2, etc.
     """
-    def __init__(self, root_directory, bucket_depth=0):
+    def __init__(self, buckets_directory, images_directory, bucket_depth=0):
         web.Application.__init__(self, [
             (r"/", RootHandler),
             (r"/_images/", ImageHandler),
             (r"/([^/]+)/(.+)", ObjectHandler),
             (r"/([^/]+)/", BucketHandler),
         ])
-        self.directory = os.path.abspath(root_directory)
+        self.directory = os.path.abspath(buckets_directory)
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
+        self.images_directory = os.path.abspath(images_directory)
+        if not os.path.exists(self.images_directory):
+            os.makedirs(self.images_directory)
         self.bucket_depth = bucket_depth
 
 
@@ -206,61 +210,80 @@ class BucketHandler(BaseRequestHandler):
 
 class ImageHandler(BaseRequestHandler):
     def get(self):
-        print 'returing image'
+        """ returns a json listing of all images 
+            that a user has permissions to see """
+        
+        image_owner_id = self.get_argument('image_owner_id', u'')
+    
+        images = []
+    
+        for fn in glob.glob("%s/*/info.json" % self.application.images_directory):
+            print 'fn', fn
+            try:
+                info = anyjson.deserialize(open(fn).read())
+                if info['isPublic'] or info['imageOwnerId'] == image_owner_id:
+                    images.append(info)
+            except:
+                pass
+    
+        print 'images', images
+        self.finish(anyjson.serialize(images))
 
     def put(self):
+        """ create a new registered image """
         image_location = self.get_argument('image_location', u'')
         image_owner_id = self.get_argument('image_owner_id', u'')
         image_id       = self.get_argument('image_id',       u'')
-        
-        
+
         # FIXME: grab kernelId and ramdiskId from bundle manifest
         
         # FIXME: unbundle the image using the cloud private key
         #        saving it to "%s/image" % emi_id
+        
+        # FIXME: multiprocess here!
 
-        # FIXME: this should be put somewhere outside of the 
-        #        real bucket system?
-
-        path = os.path.abspath(os.path.join(
-            self.application.directory, image_id))
-        if not path.startswith(self.application.directory) or \
+        path = os.path.join(self.application.images_directory, image_id)
+        if not path.startswith(self.application.images_directory) or \
            os.path.exists(path):
             raise web.HTTPError(403)
         os.makedirs(path)
+
+        object_file = open(os.path.join(path, 'image'), "w")
+        object_file.write('FIXME: decrypt image here')
+        object_file.close()
 
         info = {
             'imageId': image_id,
             'imageLocation': image_location,
             'imageOwnerId': image_owner_id,
             'imageState': 'available',
-            'isPublic': 'true', # grab from bundle manifest
-            'architecture': 'x86_64', # grab from bundle manifest
+            'isPublic': False, # FIXME: grab from bundle manifest
+            'architecture': 'x86_64', # FIXME: grab from bundle manifest
         }
 
-        object_file = open(self._object_path(image_id, 'info.json'), "w")
+        object_file = open(os.path.join(path, 'info.json'), "w")
         object_file.write(anyjson.serialize(info))
-        object_file.close()
-
-        object_file = open(self._object_path(image_id, 'image'), "w")
-        object_file.write('FIXME: decrypt image here')
         object_file.close()
         
         self.finish()
         
+    def post(self):
+        """ update image attributes """
+        pass
+        
 
     def delete(self):
+        """ delete a registered image """
         image_id = self.get_argument("image_id", u"")
         
-        for object_name in ['info.json', 'image']:
-            path = self._object_path(image_id, object_name)
-            if not path.startswith(self.application.directory) or \
-               not os.path.isfile(path):
-                raise web.HTTPError(404)
-            os.unlink(path)
+        path = os.path.join(self.application.images_directory, image_id)
+        if not path.startswith(self.application.images_directory) or \
+           not os.path.exists(path):
+            raise web.HTTPError(403)
+        
+        for fn in ['info.json', 'image']:
+            os.unlink(os.path.join(path, fn))
             
-        path = os.path.abspath(os.path.join(
-            self.application.directory, image_id))
         os.rmdir(path)
 
         self.set_status(204)

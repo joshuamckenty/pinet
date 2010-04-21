@@ -8,7 +8,7 @@ def partition(infile, outfile):
     start = 63
     end = start + sectors
     # create an empty file
-    _ex('dd if=/dev/zero of=%s count=1 seek=%ds bs=512' % (outfile, end - 1))
+    _ex('dd if=/dev/zero of=%s count=1 seek=%d bs=512' % (outfile, end))
 
     # make dos partition
     _ex('parted --script %s mklabel msdos' % outfile)

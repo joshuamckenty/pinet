@@ -298,18 +298,12 @@ class CloudController(object):
 
     def describe_images(self, context, **kwargs):
         # TODO: Make this aware of the difference between private and public images.
-        images = { 'imagesSet': [] }
-
-        for bucket in self.boto_conn().get_all_buckets():
-            try:
-                k = boto.s3.key.Key(bucket)
-                k.key = 'info.json'
-                images['imagesSet'].append(
-                        anyjson.deserialize(k.get_contents_as_string()))
-            except Exception:
-                pass
+        response = self.boto_conn().make_request(
+                method='GET', 
+                bucket='_images',
+                query_args=qs({'image_owner_id': context.user.id}))
         
-        return defer.succeed(images)
+        return defer.succeed({'imagesSet': anyjson.deserialize(response.read())})
     
     def deregister_image(self, context, image_id, **kwargs):
         self.boto_conn().make_request(
@@ -322,14 +316,15 @@ class CloudController(object):
     def register_image(self, context, image_location, **kwargs):
         image_id = 'ami-%06d' % random.randint(0,1000000)
         
-        rval = self.boto_conn().make_request(
-                method='PUT', 
-                bucket='_images', 
-                query_args=qs({'image_location': image_location,
-                               'image_id': image_id,
-                               'user_id': kwargs['user'].id}))
+        logging.debug("Registering %s as %s" % (image_location, image_id))
         
-        logging.debug("Registering %s" % image_location)
+        rval = self.boto_conn().make_request(
+                method='PUT',
+                bucket='_images',
+                query_args=qs({'image_location': image_location,
+                               'image_owner_id': context.user.id,
+                               'image_id': image_id}))
+        
         return defer.succeed({'imageId': image_id})
 
     def update_state(self, topic, value):
