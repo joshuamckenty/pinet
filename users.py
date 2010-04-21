@@ -20,6 +20,10 @@ import utils
 import logging
 import random
 import datetime
+import tempfile
+import zipfile
+import shutil
+import cloud
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -42,6 +46,13 @@ flags.DEFINE_string('ec2_url',
 flags.DEFINE_string('s3_url',
                     'http://127.0.0.1:3333/',
                     'Url to s3 api server')
+
+flags.DEFINE_string('credential_key_file', 'pk.pem',
+                    'Filename of private key in credentials zip')
+flags.DEFINE_string('credential_cert_file', 'cert.pem',
+                    'Filename of certificate in credentials zip')
+flags.DEFINE_string('credential_rc_file', 'pinetrc',
+                    'Filename of rc in credentials zip')
 
 class UserError(exception.ApiError):
     pass
@@ -67,12 +78,33 @@ class User(object):
         return self.ldap_user_object[1]['secretKey'][0]
     
     def get_credentials(self):
+        rc = self.generate_rc()
+        private_key, signed_cert = self.generate_x509_cert()
+        tmpdir = tempfile.mkdtmp()
+        zf = os.path.join(tmpdir, "temp.zip")
+        zippy = zipfile.ZipFile(zf, 'w')
+        zippy.writestr(FLAGS.credential_rc_file, rc)
+        zippy.writestr(FLAGS.credential_pk_file, private_key)
+        zippy.writestr(FLAGS.credential_cert_file, signed_cert)
+        zippy.write(os.path.join(FLAGS.ca_path, FLAGS.ca_file))
+        zippy.close()
+        with open(zf, 'r') as f:
+            buffer = f.read()
+         
+        shutil.rmtree(tmpdir)
+        return buffer
+
+
+    def generate_rc(self):
         rc = open(FLAGS.credentials_template).read()
         rc = rc % { 'access': self.access,
                     'secret': self.secret,
                     'id': self.id,
                     'ec2': FLAGS.ec2_url,
                     's3': FLAGS.s3_url,
+                    'pinet': FLAGS.ca_file,
+                    'cert': FLAGS.credential_cert_file,
+                    'key': FLAGS.credential_key_file,
             }
         return rc
 
@@ -338,7 +370,8 @@ def usage():
 
 if __name__ == "__main__":
     manager = UserManager()
-    
+    print manager.get_user('fake').get_credentials()
+    sys.exit(2)
     if len(sys.argv) > 2:
         if sys.argv[1] == '-c':
             access, secret = None, None

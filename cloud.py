@@ -24,6 +24,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
 flags.DEFINE_string('keys_path', './keys', 'Where we keep our keys')
 flags.DEFINE_string('ca_path', './CA', 'Where we keep our root CA')
+flags.DEFINE_string('ca_file', 'cacert.pem', 'Filename of root CA')
 flags.DEFINE_integer('s3_port', 3333, 'the port we connect to s3 on')
 
 
@@ -52,7 +53,7 @@ class CloudController(object):
         if not os.path.exists(FLAGS.keys_path):
             os.makedirs(os.path.abspath(FLAGS.keys_path))
         # Gen root CA, if we don't have one
-        root_ca_path = os.path.join(FLAGS.ca_path, 'cacert.pem')
+        root_ca_path = os.path.join(FLAGS.ca_path, FLAGS.ca_file)
         if not os.path.exists(root_ca_path):
             start = os.getcwd()
             os.chdir(FLAGS.ca_path)
