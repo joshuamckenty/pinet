@@ -1,13 +1,29 @@
 import M2Crypto
 import time
 import hashlib
+import os
+from utils import execute
 
 def generate_keypair(bits=1024):
     # what is the magic 65537?
-    key = M2Crypto.RSA.gen_key(bits, 65537, callback=lambda: None)
-    bio = M2Crypto.BIO.MemoryBuffer()
-    key.save_pub_key_bio(bio)
-    return (key.as_pem(cipher=None), bio.read())
+    
+    tmp = execute('mktemp -d')[0].strip()
+    if not tmp:
+        raise Error('Failed to create temporary directory')
+    keyfile = os.path.join(tmp, 'temp')
+    execute('ssh-keygen -q -b %d -N "" -f %s' % (bits, keyfile))
+    private_key, err = execute('cat %s' % keyfile)
+    public_key, err = execute('cat %s.pub' % keyfile)
+    execute ('rm -rf %s' % tmp)
+    # code below returns public key in pem format
+    # key = M2Crypto.RSA.gen_key(bits, 65537, callback=lambda: None)
+    # private_key = key.as_pem(cipher=None)
+    # bio = M2Crypto.BIO.MemoryBuffer()
+    # key.save_pub_key_bio(bio)
+    # public_key = bio.read()
+    # public_key, err = execute('ssh-keygen -y -f /dev/stdin', private_key)
+
+    return (private_key, public_key)
 
 def compute_md5(fp):
     """
@@ -84,7 +100,10 @@ def mkcacert(subject='pinet', years=1):
     print pk.get_rsa().as_pem()
     
     return cert, pk, pkey
-    
+
+if __name__ == '__main__':
+    private_key, public_key = generate_keypair()
+    print private_key + '\n' + public_key   
     
 # 
 # if __name__ == '__main__':

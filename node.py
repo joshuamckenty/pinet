@@ -34,14 +34,15 @@ from tornado import ioloop
 from twisted.internet import defer
 from twisted.internet import threads, reactor
 
+from injectkey import inject_key
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
-flags.DEFINE_string('instances_path', '/home/jmckenty/instances',
+flags.DEFINE_string('instances_path', '/var/pinet/instances',
                     'where instances are stored on disk')
-flags.DEFINE_string('images_path', '/home/jmckenty/images',
+flags.DEFINE_string('images_path', '/var/pinet/images',
                     'where images are stored on disk')
 flags.DEFINE_string('bridge_dev', 'eth0',
                     'network device for bridges')
@@ -265,6 +266,8 @@ class Instance(object):
         self._s['launch_time'] = kwargs.get('launch_time', None)
         self._s['reservation_id'] = kwargs.get('reservation_id', None)
         self._s['state'] = Instance.NOSTATE
+        self._s['key_data'] = kwargs.get('key_data', None)
+
         # TODO: we may not need to save the next few
         self._s['groups'] = kwargs.get('security_group', ['default'])
         self._s['product_codes'] = kwargs.get('product_code', [])
@@ -325,7 +328,16 @@ class Instance(object):
                            self.basepath('kernel'))
             shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
                            self.basepath('ramdisk'))
-            partition2disk.convert(self.imagepath(self._s['image_id']),
+            if self._s['key_data']:
+                logging.info('Injecting key data into image')
+                shutil.copyfile(self.imagepath(self._s['image_id']),
+                           self.basepath('temp'))
+                inject_key(self._s['key_data'], self.basepath('temp'))
+                partition2disk.convert(self.basepath('temp'),
+                           self.basepath('disk'))
+                # os.remove(self.basepath('temp'))
+            else:
+                partition2disk.convert(self.imagepath(self._s['image_id']),
                            self.basepath('disk'))
 	    logging.info('Done create image for: %s', self.name)
         else:

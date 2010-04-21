@@ -1,16 +1,6 @@
 from exception import Error
-import subprocess
+from utils import execute as _ex
 import os
-
-def _ex(cmd, input=None):
-    obj = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE,
-    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if input != None:
-        result = obj.communicate(input)
-    else:
-        result = obj.communicate()
-    obj.stdin.close()
-    return result
 
 def inject_key(key, image):
     # try to attach to loopback multiple times
@@ -37,7 +27,6 @@ def inject_key(key, image):
 
             try:
                 # inject key file
-                raw_input('tmp is %s\nPress ENTER to continue' % tmp)
                 _inject_into_fs(key, tmp)
             finally:
                 # unmount device
