@@ -52,19 +52,18 @@ General
 Users
 -----
 
-    [X] X509 certs for users?
+    [X] X509 certs for users
     [ ] add concept of admin
     [X] Deliver creds to user (pinetrc, x509, ...)
     [X] users exist and have ec2 credentials
     [X] user can create and destroy keypairs
-    [ ] fix fingerprint generation on creation of keypair
 
 Instances
 ---------
 
     [x] euca-run-instances requests nodes to spawn instances
     [ ] can only run instances that user owns or is public
-    [ ] keypair is added when running instance
+    [x] keypair is added when running instance
     [ ] nodes have a quota on # of instances
     [ ] can allocate and attach public IPs
     [x] each user gets a subnet and vlan for their instances
@@ -86,7 +85,6 @@ S3 / Images
     [ ] euca-register: registration works and decrypts image with cloud's cert
     [x] euca-describe-images: returns only images that user has access to (public or theirs)
     [x] images are owned by user, and private by default
-    [ ] api to modify private/public (image attributes) works
 
 Volumes
 -------
@@ -130,6 +128,9 @@ Optimizations
 Future
 ------
 
+    [ ] users have quotas
+    [ ] fix fingerprint generation on creation of keypair
+    [ ] api to modify private/public (image attributes) works
     [ ] proper security groups
     [ ] projects / groups
     [ ] RBAC - roles based control
