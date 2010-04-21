@@ -106,7 +106,10 @@ class KeyPair:
 class UserManager:
     def __init__(self):
         if FLAGS.fake_users:
-            self.create_user('fake', 'fake', 'fake')
+            try:
+                self.create_user('fake', 'fake', 'fake')
+            except:
+                pass
 
     def authenticate(self, params, signature, verb='GET', server_string='127.0.0.1:8773', path='/'):
         # TODO: Check for valid timestamp

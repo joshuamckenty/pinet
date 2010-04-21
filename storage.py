@@ -93,11 +93,15 @@ class BlockStore(object):
         calllib.cast("cloud",  {"method": "update_state", "args" : {"topic": "volumes", "value": self.describe_volumes()}}) 
 
     def _restart_exports(self):
+        if FLAGS.fake_storage:
+            return
         runthis("Setting exports to auto: %s", "sudo vblade-persist auto all")
         runthis("Starting all exports: %s", "sudo vblade-persist start all")
         runthis("Discovering AOE devices: %s", "sudo aoe-discover")
         
     def _init_volume_group(self):
+        if FLAGS.fake_storage:
+            return
         runthis("PVCreate returned: %s", "sudo pvcreate %s" % (FLAGS.storage_dev))
         runthis("VGCreate returned: %s", "sudo vgcreate %s %s" % (FLAGS.volume_group, FLAGS.storage_dev))
 
@@ -253,6 +257,9 @@ class FakeVolume(Volume):
     def _setup_export(self):
         # TODO: This may not be good enough?
         self.aoe_device = 'e%s.%s' % (random.choice('0123456'), random.choice('0123456789'))
+
+    def _remove_export(self):
+        pass
 
     def _delete_lv(self):
         pass
