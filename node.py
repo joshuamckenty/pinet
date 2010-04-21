@@ -325,17 +325,11 @@ class Instance(object):
                             self.basepath('kernel'))
             shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
                            self.basepath('ramdisk'))
+            partition2disk.convert(self.imagepath(self._s['image_id']),
+                           self.basepath('disk'))
             if self._s['key_data']:
                 logging.info('Injecting key data into image')
-                shutil.copyfile(self.imagepath(self._s['image_id']),
-                           self.basepath('temp'))
-                inject_key(self._s['key_data'], self.basepath('temp'))
-                partition2disk.convert(self.basepath('temp'),
-                           self.basepath('disk'))
-                # os.remove(self.basepath('temp'))
-            else:
-                partition2disk.convert(self.imagepath(self._s['image_id']),
-                           self.basepath('disk'))
+                inject_key(self._s['key_data'], self.basepath('disk'))
         else:
             pass
 	    logging.info('Done create image for: %s', self.name)
