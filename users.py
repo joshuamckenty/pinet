@@ -120,6 +120,9 @@ class UserManager:
         if user == None:
             return None
         expected_signature = signer.Signer(user.secret).generate(params, verb, server_string, path)
+        logging.debug('user.secret: %s', user.secret)
+        logging.debug('expected_signature: %s', expected_signature)
+        logging.debug('signature: %s', signature)
         if signature == expected_signature:
             return user
         

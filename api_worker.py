@@ -18,9 +18,6 @@ import api
 FLAGS = flags.FLAGS
 
 
-flags.DEFINE_integer('cc_port', 8773, 'cloud controller port')
-
-
 def main(argv):
     user_manager = users.UserManager()
     controllers = { 
