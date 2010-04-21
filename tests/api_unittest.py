@@ -16,6 +16,7 @@ import api
 import cloud
 import flags
 import users
+import test
 
 
 FLAGS = flags.FLAGS
