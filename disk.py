@@ -4,11 +4,11 @@ import os
 import tempfile
 
 def partition(infile, outfile):
-    sectors = os.path.getesize(infile) / 512
+    sectors = os.path.getsize(infile) / 512
     start = 63
     end = start + sectors
     # create an empty file
-    _ex('dd if=/dev/zero of=%s count=1 seek=%ds bs=512' % (outfile, end - 1))
+    _ex('dd if=/dev/zero of=%s count=1 seek=%d bs=512' % (outfile, end))
 
     # make dos partition
     _ex('parted --script %s mklabel msdos' % outfile)
