@@ -324,7 +324,6 @@ class Instance(object):
             shutil.copyfile(self.imagepath(self._s['kernel_id']),
                             self.basepath('kernel'))
             shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
-<<<<<<< HEAD:node.py
                            self.basepath('ramdisk'))
             if self._s['key_data']:
                 logging.info('Injecting key data into image')
@@ -336,10 +335,6 @@ class Instance(object):
                 # os.remove(self.basepath('temp'))
             else:
                 partition2disk.convert(self.imagepath(self._s['image_id']),
-=======
-                            self.basepath('ramdisk'))
-            partition2disk.convert(self.imagepath(self._s['image_id']),
->>>>>>> origin/master:node.py
                            self.basepath('disk'))
         else:
             pass
