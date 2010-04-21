@@ -4,7 +4,7 @@ import os
 import tempfile
 
 def partition(infile, outfile):
-    sectors = os.path.getesize(infile) / 512
+    sectors = os.path.getsize(infile) / 512
     start = 63
     end = start + sectors
     # create an empty file
