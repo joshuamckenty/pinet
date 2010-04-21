@@ -47,7 +47,6 @@ class BlockStore(object):
     def create_volume(self, size, user_id):
         logging.debug("Creating volume of size: %s" % (size))
         volume = self.volume_class(size = size, user_id = user_id)
-        time.sleep(5)
         self._restart_exports()
         return volume
         
@@ -94,11 +93,15 @@ class BlockStore(object):
         calllib.cast("cloud",  {"method": "update_state", "args" : {"topic": "volumes", "value": self.describe_volumes()}}) 
 
     def _restart_exports(self):
+        if FLAGS.fake_storage:
+            return
         runthis("Setting exports to auto: %s", "sudo vblade-persist auto all")
         runthis("Starting all exports: %s", "sudo vblade-persist start all")
-        # Do this twice
+        runthis("Discovering AOE devices: %s", "sudo aoe-discover")
         
     def _init_volume_group(self):
+        if FLAGS.fake_storage:
+            return
         runthis("PVCreate returned: %s", "sudo pvcreate %s" % (FLAGS.storage_dev))
         runthis("VGCreate returned: %s", "sudo vgcreate %s %s" % (FLAGS.volume_group, FLAGS.storage_dev))
 
@@ -208,8 +211,11 @@ class Volume(object):
         del KEEPER[self.volume_id]
         
     def get_aoe_device(self):
+        if self.aoe_device:
+            return self.aoe_device
         for (path, aoe_device) in get_aoe_devices():
             if path == "/dev/%s/%s" % (FLAGS.volume_group, self.volume_id):
+                self.aoe_device = aoe_device
                 return aoe_device
         return None
         
@@ -235,11 +241,9 @@ class Volume(object):
                 (shelf_id, blade_id, FLAGS.aoe_eth_dev, FLAGS.volume_group, self.volume_id))
 
     def _remove_export(self):
-        pass
-        # TODO: update the following code
-        """
-        runthis("Destroyed AOE export: %s", "sudo vblade-persist destroy %s %s" % (aoe[1], aoe[3]))
-"""
+        runthis("Destroyed AOE export: %s", "sudo vblade-persist stop %s %s" % (self.aoe_device[1], self.aoe_device[3]))
+        runthis("Destroyed AOE export: %s", "sudo vblade-persist destroy %s %s" % (self.aoe_device[1], self.aoe_device[3]))
+
 class FakeVolume(Volume):
     #def delete(self):
     #    pass
@@ -254,11 +258,13 @@ class FakeVolume(Volume):
         # TODO: This may not be good enough?
         self.aoe_device = 'e%s.%s' % (random.choice('0123456'), random.choice('0123456789'))
 
+    def _remove_export(self):
+        pass
+
     def _delete_lv(self):
         pass
 
 def get_aoe_devices():
-    runthis("Discovering AOE devices: %s", "sudo aoe-discover")
     aoes = subprocess.Popen("sudo ls -al /dev/etherd/e*.*", shell=True, stdout=subprocess.PIPE).communicate()[0]
     for aoe in aoes.strip().split("\n"):
         bits = aoe.split(" ")

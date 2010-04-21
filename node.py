@@ -13,6 +13,8 @@ from xml.etree import ElementTree
 import contrib
 import anyjson
 import tornado
+from tornado import ioloop
+from twisted.internet import defer
 
 try:
     import libvirt
@@ -24,15 +26,10 @@ import fakevirt
 import flags
 import partition2disk
 import storage
+import utils
 
 from utils import runthis
-
-
 import calllib
-
-from tornado import ioloop
-from twisted.internet import defer
-from twisted.internet import threads, reactor
 
 from injectkey import inject_key
 
@@ -40,13 +37,14 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
-flags.DEFINE_string('instances_path', '/var/pinet/instances',
+flags.DEFINE_string('instances_path', utils.abspath('../instances'),
                     'where instances are stored on disk')
-flags.DEFINE_string('images_path', '/var/pinet/images',
+flags.DEFINE_string('images_path', utils.abspath('../images'),
                     'where images are stored on disk')
 flags.DEFINE_string('bridge_dev', 'eth0',
                     'network device for bridges')
-flags.DEFINE_string('libvirt_xml_template', 'libvirt.xml.template',
+flags.DEFINE_string('libvirt_xml_template',
+                    utils.abspath('libvirt.xml.template'),
                     'template file to use for libvirt xml')
 flags.DEFINE_string('default_image',
                     'ubuntu-karmic-x86_64.img',
@@ -67,7 +65,6 @@ flags.DEFINE_string('node_name',
 flags.DEFINE_string('node_availability_zone',
                     'pinet',
                     'availability zone of this node')
-
 
 
 INSTANCE_TYPES = {}
@@ -252,7 +249,7 @@ class Instance(object):
         self._s['mac_address'] = kwargs.get(
                 'mac_address', 'uhoh')
         self._s['basepath'] = kwargs.get(
-                'basepath', os.path.join(FLAGS.instances_path, self.name))
+                'basepath', os.path.abspath(os.path.join(FLAGS.instances_path, self.name)))
         self._s['memory_kb'] = int(self._s['memory_mb']) * 1024
         # TODO - Get this from network controller
         self._s['network_name'] = kwargs.get('network_name', 'virbr0')
@@ -307,26 +304,27 @@ class Instance(object):
             raise Exception('this is a bit useless, eh?')
 
         # TODO(termie): this code is duplicated in __init__
-        basepath = os.path.join(FLAGS.instances_path, name)
+        basepath = os.path.abspath(os.path.join(FLAGS.instances_path, name))
         libvirt_xml = open(os.path.join(basepath, 'libvirt.xml')).read()
         return cls.fromXml(conn, libvirt_xml)
 
     def _createImage(self, libvirt_xml, conn):
-        """ create libvirt.xml and copy files into instance path """
+        """ create libvirt.xml and copy files into instance path """          
+        try:
+            os.makedirs(self._s['basepath'])
+        except:
+            pass
+    	logging.info('Creating image for: %s', self.name)
+    	f = open(self.basepath('libvirt.xml'), 'w')
+    	f.write(libvirt_xml)
+    	f.close()
         if not FLAGS.fake_libvirt:
             # TODO(termie): what to do when this already exists?
             # TODO(termie): clean up on exit?
-            try:
-                os.makedirs(self._s['basepath'])
-            except:
-                pass
-	    logging.info('Creating image for: %s', self.name)
-	    f = open(self.basepath('libvirt.xml'), 'w')
-	    f.write(libvirt_xml)
-	    f.close()
             shutil.copyfile(self.imagepath(self._s['kernel_id']),
-                           self.basepath('kernel'))
+                            self.basepath('kernel'))
             shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
+<<<<<<< HEAD:node.py
                            self.basepath('ramdisk'))
             if self._s['key_data']:
                 logging.info('Injecting key data into image')
@@ -338,10 +336,14 @@ class Instance(object):
                 # os.remove(self.basepath('temp'))
             else:
                 partition2disk.convert(self.imagepath(self._s['image_id']),
+=======
+                            self.basepath('ramdisk'))
+            partition2disk.convert(self.imagepath(self._s['image_id']),
+>>>>>>> origin/master:node.py
                            self.basepath('disk'))
-	    logging.info('Done create image for: %s', self.name)
         else:
             pass
+	    logging.info('Done create image for: %s', self.name)
         conn.send("ready")
         return
 
@@ -354,7 +356,7 @@ class Instance(object):
         return self._s['name']
 
     def basepath(self, s=''):
-        return os.path.join(self._s['basepath'], s)
+        return os.path.abspath(os.path.join(self._s['basepath'], s))
 
     def imagepath(self, s=''):
         return os.path.join(FLAGS.images_path, s)
@@ -495,10 +497,12 @@ class Instance(object):
             # TODO(termie): this should actually register a callback to check
             #               for successful boot
             self._s['state'] = Instance.RUNNING
+            d.callback(True)
 
         self.ioloop = tornado.ioloop.IOLoop.instance()
         (conn1, conn2) = multiprocessing.Pipe()
-        proc = multiprocessing.Process(target=self._createImage, args=(xml, conn1))
+        proc = multiprocessing.Process(target=self._createImage,
+                                       args=(xml, conn1))
         self.pipe = conn1
         self.ioloop.add_handler(conn2.fileno(), _launch, self.ioloop.READ )
         proc.start()

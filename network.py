@@ -2,11 +2,13 @@
 import logging
 import os
 
+# TODO(termie): clean up these imports
 import datastore
 import exception
 from exception import *
 import node
 from node import GenericNode
+import utils
 from utils import runthis
 
 import contrib
@@ -18,8 +20,11 @@ from IPy import IP
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool('fake_network', False, 'should we use fake network devices and addresses')
-flags.DEFINE_string('net_libvirt_xml_template', 'net.libvirt.xml.template', 'Template file for libvirt networks')
-flags.DEFINE_string('networks_path', '/etc/libvirt/qemu/networks', 'Location to keep network XML files')
+flags.DEFINE_string('net_libvirt_xml_template',
+                    utils.abspath('net.libvirt.xml.template'),
+                    'Template file for libvirt networks')
+flags.DEFINE_string('networks_path', utils.abspath('../networks'),
+                    'Location to keep network XML files')
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
 KEEPER = datastore.keeper("net-")
 
@@ -103,6 +108,9 @@ class Network(object):
         f = open(os.path.join(FLAGS.networks_path, self._s['name']), 'w')
         f.write(xml)
         f.close()
+        
+        if FLAGS.fake_network:
+            return
         
         if not self._s['name'] in conn.listNetworks():
             logging.debug("Starting VLAN inteface for %s network" % (self._s['name']))
@@ -206,10 +214,10 @@ class NetworkController(GenericNode):
             net = self.get_users_network(user_id)
             ip = net.allocate_ip(user_id, mac)
             net.express(self._conn)
-            return (str(ip), net.name)
+            return (ip, net.name)
         ip = self._public.allocate_ip(user_id, mac)
         self._public.express(self._conn)
-        return (str(ip), net.name)
+        return (ip, net.name)
         
     def deallocate_address(self, address):
         if address in self._public.network:
@@ -245,6 +253,8 @@ class NetworkController(GenericNode):
         
     def report_state(self):
         pass
+
+
 
 class NetworkNode(node.Node):
     pass

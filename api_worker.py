@@ -5,7 +5,6 @@ import contrib
 from tornado import httpserver
 from tornado import ioloop
 
-import apiserver
 import calllib
 import flags
 import server
@@ -14,6 +13,7 @@ import admin
 import cloud
 import users
 
+import api
 
 FLAGS = flags.FLAGS
 
@@ -27,7 +27,7 @@ def main(argv):
         'Cloud': cloud.CloudController(),
         'Admin': admin.AdminController(user_manager)
     }
-    _app = apiserver.APIServerApplication(user_manager, controllers)
+    _app = api.APIServerApplication(user_manager, controllers)
 
     conn = calllib.Connection.instance()
 
@@ -39,7 +39,7 @@ def main(argv):
     io_inst = ioloop.IOLoop.instance()
     
     # TODO: Do we need to keep track of 'injected' ?
-    injected = consumer.attachToTornado(io_inst)
+    injected = consumer.attach_to_tornado(io_inst)
 
     http_server = httpserver.HTTPServer(_app)
     http_server.listen(FLAGS.cc_port)

@@ -310,7 +310,7 @@ class CloudController(object):
                 bucket='_images', 
                 query_args=qs({'image_location': image_location,
                                'image_id': image_id,
-                               'user_id': kwargs['user'].id}))		
+                               'user_id': kwargs['user'].id}))
         
         logging.debug("Registering %s" % image_location)
         return defer.succeed({'imageId': image_id})
@@ -358,7 +358,7 @@ class CloudController(object):
             values.append(params[key][0])
             i += 1
             key = '%s.%d' % (name, i)
-        return values  
+        return values
 
 def qs(params):
     pairs = []

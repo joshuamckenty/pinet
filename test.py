@@ -52,14 +52,18 @@ class BaseTestCase(unittest.TestCase):
         """ Push the ioloop along to wait for our test to complete. """
         self._waiting = self.ioloop.add_timeout(time.time() + timeout,
                                                 self._timeout)
-        while True:
+        def _wait():
             if self._timedOut:
                 self.fail('test timed out')
                 self._done()
             if self._doneWaiting:
+                self.ioloop.stop()
                 return
-            self.ioloop.add_callback(self.ioloop.stop)
-            self.ioloop.start()
+            # we can use add_callback here but this uses less cpu when testing
+            self.ioloop.add_timeout(time.time() + 0.01, _wait)
+
+        self.ioloop.add_callback(_wait)
+        self.ioloop.start()
 
     def _done(self):
         if self._waiting:

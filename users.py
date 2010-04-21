@@ -8,6 +8,7 @@ except Exception, e:
 
 import fakeldap
 
+# TODO(termie): clean up these imports
 import os
 import sys
 import signer
@@ -15,6 +16,7 @@ import uuid
 import exception
 import flags
 import crypto
+import utils
 
 FLAGS = flags.FLAGS
 
@@ -27,7 +29,7 @@ flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users'
 
 
 flags.DEFINE_string('credentials_template',
-                    'pinetrc.template',
+                    utils.abspath('pinetrc.template'),
                     'Template for creating users rc file')
 flags.DEFINE_string('ec2_url',
                     'http://127.0.0.1:8773/services/Cloud',
@@ -106,7 +108,10 @@ class KeyPair:
 class UserManager:
     def __init__(self):
         if FLAGS.fake_users:
-            self.create_user('fake', 'fake', 'fake')
+            try:
+                self.create_user('fake', 'fake', 'fake')
+            except:
+                pass
 
     def authenticate(self, params, signature, verb='GET', server_string='127.0.0.1:8773', path='/'):
         # TODO: Check for valid timestamp
