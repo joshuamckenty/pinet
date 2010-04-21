@@ -3,18 +3,18 @@ import time
 import hashlib
 import os
 from utils import execute
+import tempfile
+import shutil
 
 def generate_keypair(bits=1024):
     # what is the magic 65537?
     
-    tmp = execute('mktemp -d')[0].strip()
-    if not tmp:
-        raise Error('Failed to create temporary directory')
-    keyfile = os.path.join(tmp, 'temp')
+    tmpdir = tempfile.mkdtemp()
+    keyfile = os.path.join(tmpdir, 'temp')
     execute('ssh-keygen -q -b %d -N "" -f %s' % (bits, keyfile))
-    private_key, err = execute('cat %s' % keyfile)
-    public_key, err = execute('cat %s.pub' % keyfile)
-    execute ('rm -rf %s' % tmp)
+    private_key = open(keyfile).read()
+    public_key = open(keyfile + '.pub').read()
+    shutil.rmtree(tmpdir)
     # code below returns public key in pem format
     # key = M2Crypto.RSA.gen_key(bits, 65537, callback=lambda: None)
     # private_key = key.as_pem(cipher=None)
