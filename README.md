@@ -37,8 +37,8 @@ COMPONENTS
 * Cloud Controller: global state of system, talks to ldap, s3, and node/storage workers through a queue
 * Nodes: worker that spawns instances
 * S3: tornado based http/s3 server
-User Manager: create/manage users, which are stored in ldap
-Network Controller: allocate and deallocate IPs and VLANs
+* User Manager: create/manage users, which are stored in ldap
+* Network Controller: allocate and deallocate IPs and VLANs
 
 Todos
 ====
