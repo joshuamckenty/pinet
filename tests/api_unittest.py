@@ -16,6 +16,7 @@ import api
 import cloud
 import flags
 import users
+import test
 
 
 FLAGS = flags.FLAGS
@@ -153,20 +154,25 @@ class ApiEc2TestCase(test.BaseTestCase):
 
         self.mox.StubOutWithMock(self.ec2, 'new_http_connection')
     
-    def fake_http(self, host=None, is_secure=False):
+    def expect_http(self, host=None, is_secure=False):
         http = FakeHttplibConnection(
                 self.app, '%s:%d' % (self.host, FLAGS.cc_port), False)
         self.ec2.new_http_connection(host, is_secure).AndReturn(http)
         return http
 
     def test_describe_instances(self):
-        self.fake_http()
+        self.expect_http()
         self.mox.ReplayAll()
-
-        logging.warning('rv: %s', self.ec2.get_all_instances())
+        
+        self.assertEqual(self.ec2.get_all_instances(), [])
+        
 
     def test_get_all_key_pairs(self):
-        self.fake_http()
+        self.expect_http()
         self.mox.ReplayAll()
-
-        logging.warning('rv: %s', self.ec2.get_all_key_pairs())
+        
+        self.users.generate_key_pair('fake', 'testkey')
+               
+        rv = self.ec2.get_all_key_pairs()
+        self.assertEqual(rv[0].name, 'testkey')
+        
