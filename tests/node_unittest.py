@@ -15,14 +15,13 @@ import flags
 import node
 import test
 
-
 FLAGS = flags.FLAGS
 
 
 class InstanceXmlTestCase(test.BaseTestCase):
     def setUp(self):
+        logging.getLogger().setLevel(logging.DEBUG)
         super(InstanceXmlTestCase, self).setUp()
-        FLAGS.fake_libvirt = True
     
     def test_serialization(self):
         instance_id = 'foo'
@@ -47,12 +46,11 @@ class InstanceXmlTestCase(test.BaseTestCase):
         self.assertEqual(new_inst.state, node.Instance.RUNNING)
         
 
-class NodeFakeConnectionTestCase(test.BaseTestCase):
+class NodeConnectionTestCase(test.BaseTestCase):
     def setUp(self):
-        super(NodeFakeConnectionTestCase, self).setUp()
-        FLAGS.fake_libvirt = True
-        self.node = node.Node()
         logging.getLogger().setLevel(logging.DEBUG)
+        super(NodeFakeConnectionTestCase, self).setUp()
+        self.node = node.Node()
     
     def test_run_describe_terminate(self):
         instance_id = 'foo'
