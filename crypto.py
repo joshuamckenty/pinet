@@ -1,13 +1,65 @@
 import M2Crypto
 import time
 import hashlib
+import os
+from utils import execute
+from utils import runthis
+import tempfile
+import shutil
+import logging
+import contrib
+import flags
+
+FLAGS = flags.FLAGS
+
+logging.getLogger().setLevel(logging.DEBUG)
 
 def generate_keypair(bits=1024):
     # what is the magic 65537?
-    key = M2Crypto.RSA.gen_key(bits, 65537, callback=lambda: None)
-    bio = M2Crypto.BIO.MemoryBuffer()
-    key.save_pub_key_bio(bio)
-    return (key.as_pem(cipher=None), bio.read())
+    
+    tmpdir = tempfile.mkdtemp()
+    keyfile = os.path.join(tmpdir, 'temp')
+    execute('ssh-keygen -q -b %d -N "" -f %s' % (bits, keyfile))
+    private_key = open(keyfile).read()
+    public_key = open(keyfile + '.pub').read()
+    shutil.rmtree(tmpdir)
+    # code below returns public key in pem format
+    # key = M2Crypto.RSA.gen_key(bits, 65537, callback=lambda: None)
+    # private_key = key.as_pem(cipher=None)
+    # bio = M2Crypto.BIO.MemoryBuffer()
+    # key.save_pub_key_bio(bio)
+    # public_key = bio.read()
+    # public_key, err = execute('ssh-keygen -y -f /dev/stdin', private_key)
+
+    return (private_key, public_key)
+
+
+def generate_x509_cert(subject="/C=US/ST=California/L=The Mission/O=CloudFed/OU=PINET/CN=foo", bits=1024):
+    tmpdir = tempfile.mkdtemp()
+    keyfile = os.path.abspath(os.path.join(tmpdir, 'temp.key'))
+    csrfile = os.path.join(tmpdir, 'temp.csr')
+    logging.debug("openssl genrsa -out %s %s" % (keyfile, bits))
+    runthis("Generating private key: %s", "openssl genrsa -out %s %s" % (keyfile, bits))
+    runthis("Generating CSR: %s", "openssl req -new -key %s -out %s -batch -subj %s" % (keyfile, csrfile, subject))
+    private_key = open(keyfile).read()
+    csr = open(csrfile).read()
+    shutil.rmtree(tmpdir)
+    return (private_key, csr)
+
+def sign_csr(csr_text):
+    tmpfolder = tempfile.mkdtemp()
+    csrfile = open("%s/inbound.csr" % (tmpfolder), "w")
+    csrfile.write(csr_text)
+    csrfile.close()
+    start = os.getcwd()
+    # Change working dir to CA
+    os.chdir(FLAGS.ca_path)
+    runthis("Signing cert: %s", "openssl ca -batch -out %s/outbound.crt -config ./openssl.cnf -infiles %s/inbound.csr" % (tmpfolder, tmpfolder)) 
+    crtfile = open("%s/outbound.crt" % (tmpfolder), "r")
+    crttext = crtfile.read()
+    crtfile.close()
+    os.chdir(start)
+    return crttext
 
 def compute_md5(fp):
     """
@@ -84,7 +136,10 @@ def mkcacert(subject='pinet', years=1):
     print pk.get_rsa().as_pem()
     
     return cert, pk, pkey
-    
+
+if __name__ == '__main__':
+    private_key, public_key = generate_keypair()
+    print private_key + '\n' + public_key   
     
 # 
 # if __name__ == '__main__':

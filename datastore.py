@@ -3,10 +3,11 @@ import contrib
 import anyjson
 
 import flags
+import utils
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('datastore_path', '../keeper',
+flags.DEFINE_string('datastore_path', utils.abspath('../keeper'),
                     'where keys are stored on disk')
 
 

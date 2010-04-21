@@ -1,4 +1,5 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
+import os
 import logging
 import random
 
@@ -16,11 +17,13 @@ import time
 import node
 import network
 import utils
+from utils import runthis
 import exception
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
-flags.DEFINE_string('keys_path', '/var/pinet/keys', 'Where we keep our keys and certs')
+flags.DEFINE_string('keys_path', './keys', 'Where we keep our keys')
+flags.DEFINE_string('ca_path', './CA', 'Where we keep our root CA')
 flags.DEFINE_integer('s3_port', 3333, 'the port we connect to s3 on')
 
 
@@ -45,11 +48,24 @@ class CloudController(object):
         return 'CloudController'
     
     def setup(self):
-        pass
-                          
-    def describe_key_pairs(self, context, key_names, **kwargs):
-        key_pairs = { 'keypairsSet': [] }
+        # Create keys folder, if it doesn't exist
+        if not os.path.exists(FLAGS.keys_path):
+            os.makedirs(os.path.abspath(FLAGS.keys_path))
+        # Gen root CA, if we don't have one
+        root_ca_path = os.path.join(FLAGS.ca_path, 'cacert.pem')
+        if not os.path.exists(root_ca_path):
+            start = os.getcwd()
+            os.chdir(FLAGS.ca_path)
+            runthis("Generating root CA: %s", "sh genrootca.sh")
+            os.chdir(start)
+            # TODO: Do this with M2Crypto instead
 
+    def fetch_ca(self):
+        return open(os.path.join(FLAGS.ca_path, 'cacert.pem')).read()
+                          
+    def describe_key_pairs(self, context, key_names=None, **kwargs):
+        key_pairs = { 'keypairsSet': [] }
+        key_names = key_names and key_names or []
         if len(key_names) > 0:
             for key_name in key_names:
                 key_pair = context.user.get_key_pair(key_name)
@@ -234,8 +250,14 @@ class CloudController(object):
         # passing all of the kwargs on to node.py
         logging.debug("Going to run instances...")
         # logging.debug(kwargs)
+        
         kwargs['owner_id'] = self._get_user_id(context)
-
+        if kwargs.has_key('key_name') and context and context.user:
+            key_pair = context.user.get_key_pair(kwargs['key_name'])
+            if not key_pair:
+                raise exception.ApiError('Key Pair %s not found' %
+                                         kwargs['key_name'])
+            kwargs['key_data'] = key_pair.public_key 
         kwargs['reservation_id'] = 'r-%06d' % random.randint(0,1000000)
         kwargs['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         pending = {}
@@ -244,7 +266,8 @@ class CloudController(object):
             kwargs['mac_address'] = utils.generate_mac()
             #TODO(joshua) - Allocate IP based on security group
             kwargs['ami_launch_index'] = num 
-            (kwargs['private_dns_name'], kwargs['network_name']) = self.network.allocate_address(kwargs['owner_id'], mac=kwargs['mac_address'])
+            (address, kwargs['network_name']) = self.network.allocate_address(kwargs['owner_id'], mac=kwargs['mac_address'])
+            kwargs['private_dns_name'] = str(address)
             logging.debug("Casting to node for an instance with IP of %s in the %s network" % (kwargs['private_dns_name'], kwargs['network_name']))
             calllib.cast('node', 
                                   {"method": "run_instance", 
@@ -347,7 +370,7 @@ class CloudController(object):
             values.append(params[key][0])
             i += 1
             key = '%s.%d' % (name, i)
-        return values  
+        return values
 
 def qs(params):
     pairs = []

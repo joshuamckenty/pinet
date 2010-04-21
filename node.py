@@ -13,6 +13,8 @@ from xml.etree import ElementTree
 import contrib
 import anyjson
 import tornado
+from tornado import ioloop
+from twisted.internet import defer
 
 try:
     import libvirt
@@ -22,30 +24,26 @@ except Exception, e:
 import exception
 import fakevirt
 import flags
-import partition2disk
 import storage
+import utils
+import disk
 
 from utils import runthis
-
-
 import calllib
-
-from tornado import ioloop
-from twisted.internet import defer
-from twisted.internet import threads, reactor
 
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
-flags.DEFINE_string('instances_path', '/home/jmckenty/instances',
+flags.DEFINE_string('instances_path', utils.abspath('../instances'),
                     'where instances are stored on disk')
-flags.DEFINE_string('images_path', '/home/jmckenty/images',
+flags.DEFINE_string('images_path', utils.abspath('../images'),
                     'where images are stored on disk')
 flags.DEFINE_string('bridge_dev', 'eth0',
                     'network device for bridges')
-flags.DEFINE_string('libvirt_xml_template', 'libvirt.xml.template',
+flags.DEFINE_string('libvirt_xml_template',
+                    utils.abspath('libvirt.xml.template'),
                     'template file to use for libvirt xml')
 flags.DEFINE_string('default_image',
                     'ubuntu-karmic-x86_64.img',
@@ -66,7 +64,6 @@ flags.DEFINE_string('node_name',
 flags.DEFINE_string('node_availability_zone',
                     'pinet',
                     'availability zone of this node')
-
 
 
 INSTANCE_TYPES = {}
@@ -249,12 +246,12 @@ class Instance(object):
         self._s['instance_id'] = name
         self._s['instance_type'] = size
         self._s['mac_address'] = kwargs.get(
-                'mac_address', 'uhoh')
+                'mac_address', 'ff:ff:ff:ff:ff:ff')
         self._s['basepath'] = kwargs.get(
-                'basepath', os.path.join(FLAGS.instances_path, self.name))
+                'basepath', os.path.abspath(os.path.join(FLAGS.instances_path, self.name)))
         self._s['memory_kb'] = int(self._s['memory_mb']) * 1024
         # TODO - Get this from network controller
-        self._s['network_name'] = kwargs.get('network_name', 'virbr0')
+        self._s['network_name'] = kwargs.get('network_name', 'default')
         # self._s['bridge_dev'] = kwargs.get('bridge_dev', FLAGS.bridge_dev)
         self._s['image_id'] = kwargs.get('image_id', FLAGS.default_image)
         self._s['kernel_id'] = kwargs.get('kernel_id', FLAGS.default_kernel)
@@ -265,6 +262,8 @@ class Instance(object):
         self._s['launch_time'] = kwargs.get('launch_time', None)
         self._s['reservation_id'] = kwargs.get('reservation_id', None)
         self._s['state'] = Instance.NOSTATE
+        self._s['key_data'] = kwargs.get('key_data', None)
+
         # TODO: we may not need to save the next few
         self._s['groups'] = kwargs.get('security_group', ['default'])
         self._s['product_codes'] = kwargs.get('product_code', [])
@@ -304,32 +303,41 @@ class Instance(object):
             raise Exception('this is a bit useless, eh?')
 
         # TODO(termie): this code is duplicated in __init__
-        basepath = os.path.join(FLAGS.instances_path, name)
+        basepath = os.path.abspath(os.path.join(FLAGS.instances_path, name))
         libvirt_xml = open(os.path.join(basepath, 'libvirt.xml')).read()
         return cls.fromXml(conn, libvirt_xml)
 
     def _createImage(self, libvirt_xml, conn):
-        """ create libvirt.xml and copy files into instance path """
-        if not FLAGS.fake_libvirt:
-            # TODO(termie): what to do when this already exists?
-            # TODO(termie): clean up on exit?
-            try:
-                os.makedirs(self._s['basepath'])
-            except:
-                pass
-	    logging.info('Creating image for: %s', self.name)
-	    f = open(self.basepath('libvirt.xml'), 'w')
-	    f.write(libvirt_xml)
-	    f.close()
-            shutil.copyfile(self.imagepath(self._s['kernel_id']),
-                           self.basepath('kernel'))
-            shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
-                           self.basepath('ramdisk'))
-            partition2disk.convert(self.imagepath(self._s['image_id']),
-                           self.basepath('disk'))
-	    logging.info('Done create image for: %s', self.name)
-        else:
+        """ create libvirt.xml and copy files into instance path """          
+        try:
+            os.makedirs(self._s['basepath'])
+        except:
             pass
+        try:
+            logging.info('Creating image for: %s', self.name)
+            f = open(self.basepath('libvirt.xml'), 'w')
+            f.write(libvirt_xml)
+            f.close()
+            if not FLAGS.fake_libvirt:
+                if not os.path.exists(self.basepath('kernel')):
+                    shutil.copyfile(self.imagepath(self._s['kernel_id']),
+                                self.basepath('kernel'))
+                if not os.path.exists(self.basepath('ramdisk')):
+                    shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
+                               self.basepath('ramdisk'))
+                if not os.path.exists(self.basepath('disk')):
+                    disk.partition(self.imagepath(self._s['image_id']),
+                           self.basepath('disk'))
+                if self._s['key_data']:
+                    logging.info('Injecting key data into image')
+                    disk.inject_key(self._s['key_data'], self.basepath('disk'))
+            else:
+                pass
+            logging.info('Done create image for: %s', self.name)
+        except Exception, e:
+            # TODO(termie): we should try to actually raise the exception
+            #               out of this guy
+            logging.exception('something is awry in _createImage')
         conn.send("ready")
         return
 
@@ -342,69 +350,13 @@ class Instance(object):
         return self._s['name']
 
     def basepath(self, s=''):
-        return os.path.join(self._s['basepath'], s)
+        return os.path.abspath(os.path.join(self._s['basepath'], s))
 
     def imagepath(self, s=''):
         return os.path.join(FLAGS.images_path, s)
 
     def describe(self):
-        """<DescribeInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2007-08-29">
-      <reservationSet>
-        <item>
-          <reservationId>r-44a5402d</reservationId>
-          <ownerId>UYY3TLBUXIEON5NQVUUX6OMPWBZIQNFM</ownerId>
-          <groupSet>
-            <item>
-              <groupId>default</groupId>
-            </item>
-          </groupSet>
-          <instancesSet>
-            <item>
-              <instanceId>i-28a64341</instanceId>
-              <imageId>ami-6ea54007</imageId>
-              <instanceState>
-                <code>0</code>
-                <name>running</name>
-              </instanceState>
-              <privateDnsName>domU-12-31-35-00-1E-01.compute-1.internal</privateDnsName>
-              <dnsName>ec2-72-44-33-4.compute-1.amazonaws.com</dnsName>
-              <keyName>example-key-name</keyName>
-              <productCodesSet>
-                <item><productCode>774F4FF8</productCode></item>
-              </productCodesSet>
-              <InstanceType>m1.small</InstanceType>
-              <launchTime>2007-08-07T11:54:42.000Z</launchTime>             
-            </item>
-          </instancesSet>
-        </item>
-      </reservationSet>
-    </DescribeInstancesResponse>"""
         return self._s
-        """
-               {"reservation_set": [{
-                        "reservation_id": self._s['reservation_id'],
-                        "owner_id" : self._s['owner_id'],
-                        "group_set" : [{
-                            "group_id" : self._s['group_id']
-                        }],
-                        "instances_set" : [{
-                                "instance_id" : self.name,
-                                "image_id" : self._s['image_id'],
-                                "instance_state" : {
-                                    "code" : self.state,
-                                    "name" : Instance.state_names[self.state]
-                                },
-                                "private_dns_name": 'fixme',
-                                "dns_name": 'fixme',
-                                "key_name": self._s['key_name'],
-                                "product_codes_set" : [{
-                                        "product_code" : 'fixme'
-                                }],
-                                "instance_type": self._s['instance_type'],
-                                "launch_time": self._s['launch_time'],
-                        }]
-                }]}
-        """
 
     def info(self):
         virt_dom = self._conn.lookupByName(self.name)
@@ -483,10 +435,12 @@ class Instance(object):
             # TODO(termie): this should actually register a callback to check
             #               for successful boot
             self._s['state'] = Instance.RUNNING
+            d.callback(True)
 
         self.ioloop = tornado.ioloop.IOLoop.instance()
         (conn1, conn2) = multiprocessing.Pipe()
-        proc = multiprocessing.Process(target=self._createImage, args=(xml, conn1))
+        proc = multiprocessing.Process(target=self._createImage,
+                                       args=(xml, conn1))
         self.pipe = conn1
         self.ioloop.add_handler(conn2.fileno(), _launch, self.ioloop.READ )
         proc.start()

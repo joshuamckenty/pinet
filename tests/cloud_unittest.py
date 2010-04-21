@@ -24,12 +24,9 @@ FLAGS = flags.FLAGS
 class CloudTestCase(test.BaseTestCase):
     def setUp(self):
         super(CloudTestCase, self).setUp()
-        FLAGS.fake_libvirt = False
-        FLAGS.fake_rabbit = False
 
         self.conn = calllib.Connection.instance()
-
-        logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger().setLevel(logging.DEBUG)
 
         # set up our cloud
         self.cloud = cloud.CloudController()
@@ -46,19 +43,35 @@ class CloudTestCase(test.BaseTestCase):
         self.injected.append(self.node_consumer.attach_to_tornado(self.ioloop))
 
     def test_console_output(self):
+        if FLAGS.fake_libvirt:
+            logging.debug("Can't test instances without a real virtual env.")
+            return
         instance_id = 'foo'
         inst = yield self.node.run_instance(instance_id)
-
         output = yield self.cloud.get_console_output(None, [instance_id])
         self.assert_(output)
+        rv = yield self.node.terminate_instance(instance_id)
 
     def test_run_instances(self):
+        if FLAGS.fake_libvirt:
+            logging.debug("Can't test instances without a real virtual env.")
+            return
         image_id = FLAGS.default_image
         instance_type = FLAGS.default_instance_type
-        max_count = 2
+        max_count = 1
         kwargs = {'image_id': image_id,
                   'instance_type': instance_type,
                   'max_count': max_count}
         rv = yield self.cloud.run_instances(None, **kwargs)
         # TODO: check for proper response
         self.assert_(rv)
+        # if not FLAGS.fake_libvirt:
+        #     time.sleep(45) # Should use boto for polling here
+        # for reservations in rv['reservationSet']:
+            #for res_id in reservations.keys():
+              # logging.debug(reservations[res_id])
+             # for instance in reservations[res_id]:  
+          #  for instance in reservations[reservations.keys()[0]]:  
+           #     logging.debug("Terminating instance %s" % instance['instance_id'])
+            #    rv = yield self.node.terminate_instance(instance['instance_id'])
+
