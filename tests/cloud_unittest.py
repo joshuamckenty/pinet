@@ -49,6 +49,7 @@ class CloudTestCase(test.BaseTestCase):
         instance_id = 'foo'
         inst = yield self.node.run_instance(instance_id)
         output = yield self.cloud.get_console_output(None, [instance_id])
+        logging.debug(output)
         self.assert_(output)
         rv = yield self.node.terminate_instance(instance_id)
 
@@ -64,6 +65,14 @@ class CloudTestCase(test.BaseTestCase):
                   'max_count': max_count}
         rv = yield self.cloud.run_instances(None, **kwargs)
         # TODO: check for proper response
+        instance = rv['reservationSet'][0][rv['reservationSet'][0].keys()[0]][0]
+        logging.debug("Need to watch instance %s until it's running..." % instance['instance_id'])
+        while True:
+            rv = yield defer.succeed(time.sleep(1))
+            info = self.cloud._get_instance(instance['instance_id'])
+            logging.debug(info['state'])
+            if info['state'] == node.Instance.RUNNING:
+                break
         self.assert_(rv)
         # if not FLAGS.fake_libvirt:
         #     time.sleep(45) # Should use boto for polling here
