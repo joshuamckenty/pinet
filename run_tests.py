@@ -7,7 +7,7 @@ import storage
 import cloud
 
 FLAGS = flags.FLAGS
-
+FLAGS.verbose = True
 flags.DEFINE_bool('fake_tests', True, 'should we use everything for testing')
 
 if FLAGS.fake_tests:
