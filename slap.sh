@@ -49,7 +49,7 @@ attributetype (
 attributetype (
     pinetAttrs:2
 	NAME 'secretKey'
-	DESC ''
+	DESC 'Secret key'
 	EQUALITY caseIgnoreMatch
 	SUBSTR caseIgnoreSubstringsMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
@@ -66,13 +66,22 @@ attributetype (
 	SINGLE-VALUE
     )
 
+attributetpye (
+    pinetAttrs:4
+    NAME 'isAdmin'
+    DESC 'Is user an administrator?'
+    EQUALITY booleanMatch
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.7
+    SINGLE-VALUE
+    )
+
 objectClass (
     pinetOCs:1
     NAME 'pinetUser'
     DESC 'access and secret keys'
     AUXILIARY
     MUST ( uid )
-    MAY  ( accessKey $ secretKey )
+    MAY  ( accessKey $ secretKey $ isAdmin )
     )
 
 objectClass (
