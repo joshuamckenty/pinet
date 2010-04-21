@@ -15,6 +15,7 @@ import users
 import urllib
 import time
 import node
+import crypto
 import network
 import utils
 from utils import runthis
@@ -22,8 +23,6 @@ import exception
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
-flags.DEFINE_string('keys_path', utils.abspath('keys'), 'Where we keep our keys')
-flags.DEFINE_string('ca_path', utils.abspath('CA'), 'Where we keep our root CA')
 flags.DEFINE_integer('s3_port', 3333, 'the port we connect to s3 on')
 
 

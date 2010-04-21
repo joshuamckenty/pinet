@@ -2,6 +2,7 @@ import M2Crypto
 import time
 import hashlib
 import os
+import utils
 from utils import execute
 from utils import runthis
 import tempfile
@@ -11,6 +12,9 @@ import contrib
 import flags
 
 FLAGS = flags.FLAGS
+
+flags.DEFINE_string('keys_path', utils.abspath('keys'), 'Where we keep our keys')
+flags.DEFINE_string('ca_path', utils.abspath('CA'), 'Where we keep our root CA')
 
 logging.getLogger().setLevel(logging.DEBUG)
 

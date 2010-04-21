@@ -34,16 +34,34 @@ S3 client with this module:
 import base64
 import bisect
 import datetime
+import tarfile
+import tempfile
 from tornado import escape
 import hashlib
 from tornado import httpserver
 import os
 import os.path
 import urllib
+from hashlib import sha1 as sha
+from M2Crypto import BN, EVP, RSA, util, Rand, m2, X509
+from binascii import hexlify, unhexlify
+
 from tornado import web
 import crypto
 import glob
 import anyjson
+import xml.etree
+from xml.etree import ElementTree
+import logging
+import flags
+
+FLAGS = flags.FLAGS
+
+logging.getLogger().setLevel(logging.DEBUG)
+
+# Got these from Euca2ools, will need to revisit them
+IMAGE_IO_CHUNK = 10 * 1024
+IMAGE_SPLIT_CHUNK = IMAGE_IO_CHUNK * 1024;
 
 
 class S3Application(web.Application):
@@ -229,18 +247,54 @@ class ImageHandler(BaseRequestHandler):
         print 'images', images
         self.finish(anyjson.serialize(images))
 
+    def decrypt_image(self, encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename):
+        user_priv_key = RSA.load_key(private_key_path)
+        key = user_priv_key.private_decrypt(unhexlify(encrypted_key), RSA.pkcs1_padding)
+        iv = user_priv_key.private_decrypt(unhexlify(encrypted_iv), RSA.pkcs1_padding)
+        k=EVP.Cipher(alg='aes_128_cbc', key=unhexlify(key), iv=unhexlify(iv), op=0)
+  
+        # decrypted_filename = encrypted_filename.replace('.enc', '')
+        decrypted_file = open(decrypted_filename, "wb")
+        encrypted_file = open(encrypted_filename, "rb")
+        self.crypt_file(k, encrypted_file, decrypted_file)
+        encrypted_file.close()
+        decrypted_file.close()
+        return decrypted_filename
+
+    def untarzip_image(self, path, filename):
+        untarred_filename = filename.replace('.tar.gz', '') 
+        tar_file = tarfile.open(filename, "r|gz")
+        tar_file.extractall(path)
+        untarred_names = tar_file.getnames()
+        tar_file.close()
+        return untarred_names 
+
     def put(self):
         """ create a new registered image """
         image_location = self.get_argument('image_location', u'')
         image_owner_id = self.get_argument('image_owner_id', u'')
         image_id       = self.get_argument('image_id',       u'')
+        
+        tmpdir = tempfile.mkdtemp()
+        rawfile = tempfile.NamedTemporaryFile(delete=False)
+        encrypted_filename = rawfile.name
+        logging.debug(image_location)
+        # TODO(joshua): FUGLY, how do I get the bucket name safely?
+        bucketname = image_location.split("/")[0]
+        #  ImageLocation           val: ['mybucket/ubuntu-karmic-x86_64.img.manifest.xml']
+        tree = ElementTree.ElementTree()
+        top = tree.parse(os.path.join(self.application.directory, image_location))
+        encrypted_key = top.find("image/ec2_encrypted_key").text
+        encrypted_iv = top.find("image/ec2_encrypted_iv").text
 
+        for a in top.find("image").getiterator("filename"):
+            filepath = os.path.join(self.application.directory, bucketname, a.text)
+            rawfile.write(open(filepath, "rb").read())
+        rawfile.close() 
         # FIXME: grab kernelId and ramdiskId from bundle manifest
         
-        # FIXME: unbundle the image using the cloud private key
-        #        saving it to "%s/image" % emi_id
-        
         # FIXME: multiprocess here!
+        private_key_path = os.path.join(FLAGS.ca_path, "private/cakey.pem")
 
         path = os.path.join(self.application.images_directory, image_id)
         if not path.startswith(self.application.images_directory) or \
@@ -248,9 +302,9 @@ class ImageHandler(BaseRequestHandler):
             raise web.HTTPError(403)
         os.makedirs(path)
 
-        object_file = open(os.path.join(path, 'image'), "w")
-        object_file.write('FIXME: decrypt image here')
-        object_file.close()
+        decrypted_filename = os.path.join(path, 'image.tar.gz')
+        self.decrypt_image(encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename)
+        self.untarzip_image(path, decrypted_filename)
 
         info = {
             'imageId': image_id,
@@ -266,6 +320,15 @@ class ImageHandler(BaseRequestHandler):
         object_file.close()
         
         self.finish()
+
+    def crypt_file(self, cipher, in_file, out_file) :
+        while True:
+            buf=in_file.read(IMAGE_IO_CHUNK)
+            if not buf:
+               break
+            out_file.write(cipher.update(buf))
+        out_file.write(cipher.final())
+
         
     def post(self):
         """ update image attributes """
