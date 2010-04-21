@@ -12,9 +12,16 @@ import random
 def abspath(s):
   return os.path.join(os.path.dirname(__file__), s)
 
+
+def debug(arg):
+    logging.debug('debug in callback: %s', arg)
+    return arg
+
+
 def runthis(prompt, cmd):
     logging.debug("Running %s" % (cmd))
     logging.debug(prompt % (subprocess.call(cmd.split(" "))))
+
 
 def generate_mac():
     mac = [0x00, 0x16, 0x3e, random.randint(0x00, 0x7f),

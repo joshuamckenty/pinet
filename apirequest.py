@@ -6,9 +6,6 @@ from xml.dom import minidom
 from twisted.internet import defer
 
 
-_log = logging.getLogger()
-
-
 _c2u = re.compile('(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))')
 def _camelcase_to_underscore(str):
     return _c2u.sub(r'_\1', str).lower().strip('_')
@@ -37,7 +34,7 @@ class APIRequest(object):
             method = getattr(self.controller, _camelcase_to_underscore(self.action))
         except AttributeError:
             _error = 'Unsupported API request: controller = %s, action = %s' % (self.controller, self.action)
-            _log.warning(_error)
+            logging.warning(_error)
             # TODO: Raise custom exception, trap in apiserver, reraise as 400 error.
             raise Exception(_error)
         
@@ -85,7 +82,7 @@ class APIRequest(object):
         response = xml.toxml()
         xml.unlink()
 
-        _log.debug(response)
+        logging.debug(response)
 
         return response
     
@@ -95,7 +92,7 @@ class APIRequest(object):
                 val = data[key]
                 el.appendChild(self._render_data(xml, key, val))
         except:
-            _log.debug(data)
+            logging.debug(data)
             raise
 
     def _render_data(self, xml, el_name, data):
