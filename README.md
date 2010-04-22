@@ -137,6 +137,9 @@ Future
     [ ] throttling for reporting state from node/storage/... 
         (report back at least every minute, at most once a second, only when things change)
     [ ] support for ephemeral and swap on disk image generation
+    [ ] windows support
+    [ ] out-of-band console - example for XEN: http://nostarch.com/xen.htm and 
+        http://book.xen.prgmr.com/mediawiki/index.php/Prgmr_menu
 
 Installation
 ============
