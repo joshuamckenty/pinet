@@ -21,18 +21,18 @@ class AdminController(object):
         return 'AdminController'
         
     def describe_user(self, context, **kwargs):
-        username = kwargs['Name'][0]
+        username = kwargs['name']
 
         return self._get_dict(self.users.get_user(username))
 
     def register_user(self, context, **kwargs):
-        username = kwargs['Name'][0]
+        username = kwargs['name']
         self.users.create_user(username)
 
         return self._get_dict(self.users.get_user(username))
         
     def deregister_user(self, context, **kwargs):
-        username = kwargs['Name'][0]
+        username = kwargs['name']
         
         self.users.delete_user(username)
         
