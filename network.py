@@ -101,7 +101,7 @@ class Network(object):
         mac = allocation['mac']
         ip = allocation['address']
         user_id = allocation['user_id']
-        return "dhcp-host=%s,%s.pinetlocal,%s" % (mac, "%s-%s-%s" % (user_id, self.vlan, idx), ip)
+        return "%s,%s.pinetlocal,%s" % (mac, "%s-%s-%s" % (user_id, self.vlan, idx), ip)
     
     def toXml(self):
         #self._s['hosts'] = "\n".join(map(self.hostXml, self.allocations))
@@ -116,20 +116,20 @@ class Network(object):
     def start_dnsmasq(self):
         conf_file = "/var/pinet/run/pinet-%s.conf" % (self.vlan)
         conf = open(conf_file, "w")
-        conf.write("dhcp-leasefile=/var/pinet/run/pinet-%s.leases\n" % (self.vlan))
         conf.write("\n".join(map(self.hostDHCP, self.allocations[2:])))
         conf.close()
 
         cmd = "sudo dnsmasq --strict-order --bind-interfaces --pid-file=/var/pinet/run/pinet-%s.pid" % (self.vlan)
-        cmd += " --conf-file=%s  --listen-address %s --except-interface lo" % (conf_file, self._s['gateway'])
+        cmd += " --conf-file=  --listen-address %s --except-interface lo" % (self._s['gateway'])
         cmd += " --dhcp-range %s,%s --dhcp-lease-max=61 " % (self._s['rangestart'], self._s['rangeend'])
-
+        cmd += " --dhcp-hostsfile=%s --dhcp-leasefile=/var/pinet/run/pinet-%s.leases" % (conf_file, self.vlan)
         pid_file = "/var/pinet/run/pinet-%s.pid" % (self.vlan)
         #if self.dnsmasq:
         #    self.dnsmasq.send_signal("SIGHUP")
         if os.path.exists(pid_file):
             try:
-                os.kill(int(open(pid_file).read()), signal.SIGTERM)
+                os.kill(int(open(pid_file).read()), signal.SIGHUP)
+                return
             except Exception, err:
                 logging.debug("Killing dnsmasq threw %s" % str(err))
         subprocess.Popen(str(cmd).split(" "))
