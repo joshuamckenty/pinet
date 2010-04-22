@@ -122,23 +122,21 @@ class CloudController(object):
             return None
 
     def describe_volumes(self, context, **kwargs):
-        user_id = self._get_user_id(context)
         if self.volumes == {}:
             return {'volumeSet': [] } 
         volumes = []
         for storage in self.volumes.values():
             for volume in storage.values():
-                if user_id == None or user_id == volume['user_id']:
+                if context.user.is_authorized(volume.get('user_id', None)):
                     v = copy.deepcopy(volume)
                     del v['user_id']
                     volumes.append(v)
         return defer.succeed({'volumeSet': volumes})
 
     def create_volume(self, context, size, **kwargs):
-        user_id = self._get_user_id(context)
         calllib.cast('storage', {"method": "create_volume", 
                                  "args" : {"size": size,
-                                           "user_id": user_id}})
+                                           "user_id": context.user.id}})
         return defer.succeed(True)
 
     def _get_by_id(self, workers, id):
@@ -158,14 +156,12 @@ class CloudController(object):
 
 
     def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
-        user_id = self._get_user_id(context)
         volume = self._get_volume(volume_id)
-        if volume['user_id'] != user_id:
-            raise exception.ApiError("%s doesn't own %s", user_id, volume_id)
+        if context.user.is_authorized(volume.get('user_id', None)):
+            raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
         instance = self._get_instance(instance_id)
-        if instance['user_id'] != user_id:
-            raise exception.ApiError("%s doesn't own %s", user_id, instance_id)
-            
+        if context.user.is_authorized(instance.get('owner_id', None)):
+            raise exception.ApiError("%s not authorized for %s", context.user.id, instance_id)
         aoe_device = volume['aoe_device']
         # Needs to get right node controller for attaching to
         # TODO: Maybe have another exchange that goes to everyone?
@@ -180,15 +176,14 @@ class CloudController(object):
         return defer.succeed(True)
 
     def detach_volume(self, context, volume_id, **kwargs):
-        user_id = self._get_user_id(context)
         # TODO(joshua): Make sure the updated state has been received first
         volume = self._get_volume(volume_id)
-        if volume['user_id'] != user_id:
-            raise exception.ApiError("%s doesn't own %s", user_id, volume_id)
+        if context.user.is_authorized(volume.get('user_id', None)):
+            raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
         instance_id = volume['instance_id']
         instance = self._get_instance(instance_id)
-        if instance['user_id'] != user_id:
-            raise exception.ApiError("%s doesn't own %s", user_id, instance_id)
+        if context.user.is_authorized(instance.get('owner_id', None)):
+            raise exception.ApiError("%s not authorized for %s", context.user.id, instance_id)
         mountpoint = volume['mountpoint']
         calllib.cast('node', {"method": "detach_volume",
                                  "args" : {"instance_id": instance_id,
@@ -203,20 +198,17 @@ class CloudController(object):
         return [{str: x} for x in lst]
 
     def describe_instances(self, context, **kwargs):
-        user_id = self._get_user_id(context)
-        return defer.succeed(self.format_instances(user_id))
+        return defer.succeed(self.format_instances(context.user))
 
-    def format_instances(self, owner_id = None, reservation_id = None):
+    def format_instances(self, user, reservation_id = None):
         if self.instances == {}:
             return {'reservationSet': []}
         reservations = {}
         for node in self.instances.values():
             for instance in node.values():
                 res_id = instance.get('reservation_id', 'Unknown')
-                if ((owner_id == None
-                    or owner_id == instance.get('owner_id', None))
-                    and (reservation_id == None
-                    or reservation_id == res_id)):
+                if (user.is_authorized(instance.get('owner_id', None))
+                    and (reservation_id == None or reservation_id == res_id)):
                     i = {}
                     i['instance_id'] = instance.get('instance_id', None)
                     i['image_id'] = instance.get('image_id', None)
@@ -250,9 +242,10 @@ class CloudController(object):
         # passing all of the kwargs on to node.py
         logging.debug("Going to run instances...")
         # logging.debug(kwargs)
+        # TODO: verify user has access to image
         
-        kwargs['owner_id'] = self._get_user_id(context)
-        if kwargs.has_key('key_name') and context and context.user:
+        kwargs['owner_id'] = context.user.id
+        if kwargs.has_key('key_name'):
             key_pair = context.user.get_key_pair(kwargs['key_name'])
             if not key_pair:
                 raise exception.ApiError('Key Pair %s not found' %
@@ -282,12 +275,15 @@ class CloudController(object):
             self.instances['pending'] = {}
 
         self.instances['pending'].update(pending)
-        return defer.succeed(self.format_instances(kwargs['owner_id'],
+        return defer.succeed(self.format_instances(context.user,
                                                    kwargs['reservation_id']))
     
     def terminate_instances(self, context, instance_id, **kwargs):
+        # TODO: return error if not authorized
         for i in instance_id:
-            calllib.cast('node', {"method": "terminate_instance",
+            instance = self._get_instance(i)
+            if context.user.is_authorized(instance.get('owner_id', None)):
+                calllib.cast('node', {"method": "terminate_instance",
                               "args" : {"instance_id": i}})
         return defer.succeed(True)
         
