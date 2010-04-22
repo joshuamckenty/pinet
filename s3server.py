@@ -312,6 +312,7 @@ class ImageHandler(BaseRequestHandler):
             'imageState': 'available',
             'isPublic': False, # FIXME: grab from bundle manifest
             'architecture': 'x86_64', # FIXME: grab from bundle manifest
+            'type' : 'machine',
         }
 
         object_file = open(os.path.join(path, 'info.json'), "w")
