@@ -16,6 +16,9 @@ import exception
 import flags
 import utils
 
+_log = logging.getLogger("api")
+_log.setLevel(logging.WARN)
+
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('cc_port', 8773, 'cloud controller port')
@@ -60,7 +63,7 @@ class APIRequest(object):
         except AttributeError:
             _error = ('Unsupported API request: controller = %s,'
                       'action = %s') % (self.controller, self.action)
-            logging.warning(_error)
+            _log.warning(_error)
             # TODO: Raise custom exception, trap in apiserver,
             #       and reraise as 400 error.
             raise Exception(_error)
@@ -106,7 +109,7 @@ class APIRequest(object):
     
         response = xml.toxml()
         xml.unlink()
-        logging.debug(response)
+        _log.debug(response)
         return response
     
     def _render_dict(self, xml, el, data):
@@ -115,7 +118,7 @@ class APIRequest(object):
                 val = data[key]
                 el.appendChild(self._render_data(xml, key, val))
         except:
-            logging.debug(data)
+            _log.debug(data)
             raise
 
     def _render_data(self, xml, el_name, data):
@@ -141,6 +144,10 @@ class RootRequestHandler(tornado.web.RequestHandler):
     def get(self):
         self.write('listening')
 
+class MetadataRequestHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.write('')
+        self.finish()
 
 class APIRequestHandler(tornado.web.RequestHandler):
     def get(self, controller_name):
@@ -191,14 +198,14 @@ class APIRequestHandler(tornado.web.RequestHandler):
         if not user:
             raise tornado.web.HTTPError(403)
 
-        logging.debug('action: %s' % action)
+        _log.debug('action: %s' % action)
 
         for key, value in args.items():
-            logging.debug('arg: %s\t\tval: %s' % (key, value))
+            _log.debug('arg: %s\t\tval: %s' % (key, value))
 
         request = APIRequest(controller, action)
         d = request.send(user, **args)
-        d.addCallback(utils.debug)
+        # d.addCallback(utils.debug)
 
         # TODO: Wrap response in AWS XML format  
         d.addCallbacks(self._write_callback, self._error_callback)
@@ -236,6 +243,11 @@ class APIServerApplication(tornado.web.Application):
         tornado.web.Application.__init__(self, [
             (r'/', RootRequestHandler),
             (r'/services/([A-Za-z0-9]+)/', APIRequestHandler),
+            (r'/latest/meta-data/', MetadataRequestHandler),
+            (r'/latest/user-data/', MetadataRequestHandler),
+            (r'/latest/user-data', MetadataRequestHandler),
+            (r'/2008-02-01/meta-data/ami-id', MetadataRequestHandler),
+            (r'/2008-02-01/meta-data/public-keys/', MetadataRequestHandler),
         ])
         self.user_manager = user_manager
         self.controllers = controllers

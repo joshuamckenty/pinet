@@ -4,7 +4,8 @@ import hmac
 import urllib
 import base64
 
-_log = logging.getLogger()
+_log = logging.getLogger('signer')
+logging.getLogger('signer').setLevel(logging.WARN)
 
 class Signer(object):
     """ hacked up code from boto/connection.py """

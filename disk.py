@@ -3,9 +3,6 @@ from utils import execute as _ex
 import os
 import tempfile
 
-import logging
-
-logging.getLogger().setLevel(logging.DEBUG)
 
 def partition(infile, outfile):
     sectors = os.path.getsize(infile) / 512

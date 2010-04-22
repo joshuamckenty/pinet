@@ -26,6 +26,9 @@ flags.DEFINE_string('rabbit_password', 'guest', 'rabbit password')
 flags.DEFINE_string('rabbit_virtual_host', '/', 'rabbit virtual host')
 flags.DEFINE_string('control_exchange', 'pinet', 'the main exchange to connect to')
 
+_log = logging.getLogger('amqplib')
+_log.setLevel(logging.WARN)
+
 class Connection(connection.BrokerConnection):
     @classmethod
     def instance(cls):
@@ -73,12 +76,12 @@ class TopicConsumer(Consumer):
 
 class AdapterConsumer(TopicConsumer):
     def __init__(self, connection=None, topic="broadcast", proxy=None):
-        logging.debug('Initing the Adapter Consumer for %s' % (topic))
+        _log.debug('Initing the Adapter Consumer for %s' % (topic))
         self.proxy = proxy
         super(AdapterConsumer, self).__init__(connection=connection, topic=topic)
  
     def receive(self, message_data, message):
-        logging.debug('received %s' % (message_data))
+        _log.debug('received %s' % (message_data))
         msg_id = message_data.pop('_msg_id', None)
 
         method = message_data.get('method')
@@ -138,10 +141,10 @@ def msg_reply(msg_id, reply):
 
 
 def call(topic, msg):
-    logging.debug("Making asynchronous call...")
+    _log.debug("Making asynchronous call...")
     msg_id = uuid.uuid4().hex
     msg.update({'_msg_id': msg_id})
-    logging.debug("MSG_ID is %s" % (msg_id))
+    _log.debug("MSG_ID is %s" % (msg_id))
     
     conn = Connection.instance()
     d = defer.Deferred()
@@ -159,7 +162,7 @@ def call(topic, msg):
 
 
 def cast(topic, msg):
-    logging.debug("Making asynchronous cast...")
+    _log.debug("Making asynchronous cast...")
     conn = Connection.instance()
     publisher = TopicPublisher(connection=conn, topic=topic)
     publisher.send(msg)

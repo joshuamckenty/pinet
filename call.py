@@ -11,18 +11,19 @@ from carrot import messaging
 
 import calllib
 
-logging.getLogger().setLevel(logging.DEBUG)
+_log = logging.getLogger('ampqlib')
+_log.setLevel(logging.WARN)
 
 def generic_response(message_data, message):
-    logging.debug('response %s', message_data)
+    _log.debug('response %s', message_data)
     message.ack()
     sys.exit(0)
 
 def send_message(topic, message, wait=True):
     msg_id = uuid.uuid4().hex
     message.update({'_msg_id': msg_id})
-    logging.debug('topic is %s', topic)
-    logging.debug('message %s', message)
+    _log.debug('topic is %s', topic)
+    _log.debug('message %s', message)
 
     if wait:
         consumer = messaging.Consumer(connection=calllib.Connection.instance(),
