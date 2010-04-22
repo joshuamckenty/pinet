@@ -73,7 +73,13 @@ class User(object):
     @property
     def secret(self):
         return self.ldap_user_object[1]['secretKey'][0]
-    
+
+    def is_admin(self):
+        return self.ldap_user_object[1]['isAdmin'][0] == 'TRUE'
+
+    def is_authorized(self, owner_id, action=None):
+        return self.is_admin() or owner_id == self.id
+         
     def get_credentials(self):
         rc = self.generate_rc()
         private_key, signed_cert = self.generate_x509_cert()
@@ -148,6 +154,8 @@ class UserManager(object):
         if FLAGS.fake_users:
             try:
                 self.create_user('fake', 'fake', 'fake')
+                self.create_user('user', 'user', 'user')
+                self.create_user('admin', 'admin', 'admin', True)
             except:
                 pass
 
@@ -185,11 +193,11 @@ class UserManager(object):
             return None
         return [User(self, o) for o in ldap_user_objects]
     
-    def create_user(self, uid, access=None, secret=None):
+    def create_user(self, uid, access=None, secret=None, admin=False):
         if access == None: access = str(uuid.uuid4())
         if secret == None: secret = str(uuid.uuid4())
         with LDAPWrapper() as conn:
-            conn.create_user(uid, access, secret)
+            conn.create_user(uid, access, secret, admin)
 
     def delete_user(self, uid):
         with LDAPWrapper() as conn:
@@ -299,7 +307,7 @@ class LDAPWrapper(object):
     def key_pair_exists(self, uid, key_name):
         return self.find_key_pair(uid, key_name) != None
         
-    def create_user(self, name, access_key, secret_key):
+    def create_user(self, name, access_key, secret_key, is_admin):
         if self.user_exists(name):
             raise UserError("LDAP user " + name + " already exists")
         attr = [
@@ -313,6 +321,7 @@ class LDAPWrapper(object):
             ('cn', name),
             ('secretKey', secret_key),
             ('accessKey', access_key),
+            ('isAdmin', str(is_admin).upper()),
         ]
         self.conn.add_s('uid=%s,%s' % (name, FLAGS.ldap_subtree),
                         attr)
@@ -366,6 +375,7 @@ class LDAPWrapper(object):
 def usage():
     print 'usage: %s (command)' % sys.argv[0]
     print '   -c (username) [access] [secret] - create a user'
+    print '   -a (username) [access] [secret] - create an admin'
     print '   -d (username)                   - delete a user'
     print '   -k (username)                   - access & secret for user'
     print '   -e (username) [filename.zip]    - generate new X509 cert for user'
@@ -373,7 +383,16 @@ def usage():
 if __name__ == "__main__":
     manager = UserManager()
     if len(sys.argv) > 2:
-        if sys.argv[1] == '-c':
+        if sys.argv[1] == '-a':
+            access, secret = None, None
+            if len(sys.argv) > 3:
+                access = sys.argv[3]
+            if len(sys.argv) > 4:
+                secret = sys.argv[4] 
+            manager.create_user(sys.argv[2], access, secret, True)
+            user = manager.get_user(sys.argv[2])
+            print user.access, user.secret
+        elif sys.argv[1] == '-c':
             access, secret = None, None
             if len(sys.argv) > 3:
                 access = sys.argv[3]
