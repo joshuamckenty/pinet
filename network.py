@@ -1,6 +1,8 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
 import os
+import subprocess
+import signal
 
 # TODO(termie): clean up these imports
 import datastore
@@ -50,6 +52,7 @@ class Network(object):
         self._s['device'] = "vlan%s" % (self.vlan)
         self._s['name'] = "pinet-%s" % (self.vlan)
         self.name = self._s['name']
+        self.dnsmasq = None
         try:
             os.makedirs(FLAGS.networks_path)
         except Exception, err:
@@ -93,8 +96,16 @@ class Network(object):
         user_id = allocation['user_id']
         return "      <host mac=\"%s\" name=\"%s.pinetlocal\" ip=\"%s\" />" % (mac, "%s-%s-%s" % (user_id, self.vlan, idx), ip)
     
+    def hostDHCP(self, allocation):
+        idx = self.allocations.index(allocation) - 2 # Logically, the idx of instances they've launched in this net
+        mac = allocation['mac']
+        ip = allocation['address']
+        user_id = allocation['user_id']
+        return "dhcp-host=%s,%s.pinetlocal,%s" % (mac, "%s-%s-%s" % (user_id, self.vlan, idx), ip)
+    
     def toXml(self):
-        self._s['hosts'] = "\n".join(map(self.hostXml, self.allocations))
+        #self._s['hosts'] = "\n".join(map(self.hostXml, self.allocations))
+        self._s['hosts'] = "\n"
         libvirt_xml = open(FLAGS.net_libvirt_xml_template).read()
         xml_info = self._s.copy()
         libvirt_xml = libvirt_xml % xml_info
@@ -102,6 +113,26 @@ class Network(object):
 
     # NEED A FROMXML for roundtripping?
     # TODO - Need to be able to remove interfaces when they're not needed
+    def start_dnsmasq(self):
+        conf_file = "/var/pinet/run/pinet-%s.conf" % (self.vlan)
+        conf = open(conf_file, "w")
+        conf.write("dhcp-leasefile=/var/pinet/run/pinet-%s.leases\n" % (self.vlan))
+        conf.write("\n".join(map(self.hostDHCP, self.allocations[2:])))
+        conf.close()
+
+        cmd = "sudo dnsmasq --strict-order --bind-interfaces --pid-file=/var/pinet/run/pinet-%s.pid" % (self.vlan)
+        cmd += " --conf-file=%s  --listen-address %s --except-interface lo" % (conf_file, self._s['gateway'])
+        cmd += " --dhcp-range %s,%s --dhcp-lease-max=61 " % (self._s['rangestart'], self._s['rangeend'])
+
+        pid_file = "/var/pinet/run/pinet-%s.pid" % (self.vlan)
+        #if self.dnsmasq:
+        #    self.dnsmasq.send_signal("SIGHUP")
+        if os.path.exists(pid_file):
+            try:
+                os.kill(int(open(pid_file).read()), signal.SIGTERM)
+            except Exception, err:
+                logging.debug("Killing dnsmasq threw %s" % str(err))
+        subprocess.Popen(str(cmd).split(" "))
             
     def express(self, conn):
 
@@ -112,7 +143,9 @@ class Network(object):
         
         if FLAGS.fake_network:
             return
-        
+
+        self.start_dnsmasq()        
+
         if not self._s['name'] in conn.listNetworks():
             logging.debug("Starting VLAN inteface for %s network" % (self._s['name']))
             if not FLAGS.fake_network:
@@ -122,15 +155,15 @@ class Network(object):
                     runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
                 except:
                     pass
+                try:
+                    conn.networkDefineXML(xml)
+                    net = conn.networkLookupByName(self._s['name'])
+                    net.connect()
+                    net.create()
+                except Exception, err:
+                    logging.debug("libvirt threw %s" % str(err))
+                    pass
         else:
-            pass
-        try:
-            conn.networkDefineXML(xml)
-            net = conn.networkLookupByName(self._s['name'])
-            net.connect()
-            net.create()
-        except Exception, err:
-            logging.debug("libvirt threw %s" % str(err))
             pass
 
     def is_running(self, conn):
