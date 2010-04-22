@@ -111,6 +111,7 @@ class Network(object):
         self.assigned.pop(idx)
         self.allocations.pop(idx)
         self.save()
+        # TODO(joshua) SCRUB from the leases file somehow
         self.express()
         
     def list_addresses(self):
@@ -160,6 +161,10 @@ class Network(object):
                 return
             except Exception, err:
                 logging.debug("Killing dnsmasq threw %s" % str(err))
+        try:
+            os.unlink("var/pinet/run/pinet-%s.leases" % (self.vlan))
+        except:
+            pass
         subprocess.Popen(str(cmd).split(" "))
             
     def express(self):
