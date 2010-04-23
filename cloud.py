@@ -22,6 +22,7 @@ from utils import runthis
 import exception
 import crypto
 import images
+import base64
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
@@ -63,6 +64,51 @@ class CloudController(object):
     def fetch_ca(self):
         return open(os.path.join(FLAGS.ca_path, 'cacert.pem')).read()
                           
+    def _get_instance_by_ip(self, ip):
+        if self.instances == {}:
+            return None
+        for node in self.instances.itervalues():
+            for instance in node.itervalues():
+                if instance['private_dns_name'] == ip:
+                    return instance
+        return None
+         
+    def get_metadata(self, ip):
+        i = self._get_instance_by_ip(ip)
+        if i is None:
+            return None
+        if i['key_name']:
+            keys = {
+                '0': {
+                    '_name': i['key_name'],
+                    'openssh-key': i['key_data']
+                }
+            }
+        else:
+            keys = ''
+        data = {
+            'user-data': base64.b64decode(i['user_data']),
+            'meta-data': {
+                'ami-id': i['image_id'],
+                'ami-launch-index': i['ami_launch_index'],
+                'ami-manifest-path': 'FIXME',
+                'block-device-mapping': 'FIXME',
+                'hostname': 'FIXME',
+                'instance-id': i['instance_id'],
+                'instance-type': i['instance_type'],
+                'local-hostname': 'FIXME',
+                'local-ipv4': 'FIXME',
+                'placement': i['availability_zone'],
+                'public-hostname': 'FIXME',
+                'public-ipv4': 'FIXME',
+                'public-keys' : keys,
+                'reservation-id': i['reservation_id'],
+                'security-groups': 'FIXME'
+            }
+        }
+        return data
+        
+
     def describe_key_pairs(self, context, key_names=None, **kwargs):
         key_pairs = { 'keypairsSet': [] }
         key_names = key_names and key_names or []
@@ -139,13 +185,13 @@ class CloudController(object):
                                            "user_id": context.user.id}})
         return defer.succeed(True)
 
-    def _get_by_id(self, workers, id):
-        if workers == {}:
-            raise exception.ApiError("%s not found in %s", id, workers)
-        for worker in workers.values():
-            if worker.has_key(id):
-                return worker[id]
-        raise exception.ApiError("%s not found in %s", id, workers)
+    def _get_by_id(self, nodes, id):
+        if nodes == {}:
+            raise exception.ApiError("%s not found", id)
+        for node in nodes.itervalues():
+            if node.has_key(id):
+                return node[id]
+        raise exception.ApiError("%s not found", id)
 
     def _get_volume(self, volume_id):
         return self._get_by_id(self.volumes, volume_id)

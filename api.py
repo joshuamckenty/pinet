@@ -142,11 +142,48 @@ class APIRequest(object):
 
 class RootRequestHandler(tornado.web.RequestHandler):
     def get(self):
-        self.write('listening')
+        # available api versions
+        self.write('2008-02-01\n')
+        self.finish()
 
 class MetadataRequestHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.write('')
+    def print_data(self, data):
+        if isinstance(data, dict):
+            for key in data:
+                if key == '_name':
+                    continue
+                self.write(key)
+                if isinstance(data[key], dict):
+                    if '_name' in data[key]:
+                        self.write('=' + str(data[key]['_name']))
+                    else:
+                        self.write('/')
+                self.write('\n')
+        else:
+            self.write(str(data) + '\n')
+
+    def lookup(self, path, data):
+        items = path.split('/')
+        for item in items:
+            if item:
+                if not isinstance(data, dict):
+                    return None
+                if not item in data:
+                    return None
+                data = data[item]
+        return data
+
+    def get(self, path):
+        cc = self.application.controllers['Cloud']
+        meta_data = cc.get_metadata(self.request.remote_ip)
+        if meta_data is None:
+            _log.error('Failed to get metadata for ip: %s' %
+                        self.request.remote_ip)
+            raise tornado.web.HTTPError(404)
+        data = self.lookup(path, meta_data)
+        if data is None:
+            raise tornado.web.HTTPError(404)
+        self.print_data(data)
         self.finish()
 
 class APIRequestHandler(tornado.web.RequestHandler):
@@ -168,7 +205,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
         try:
             signature = args.pop('Signature')[0]
         except:
-            raise Tornado.web.HTTPError(400)
+            raise tornado.web.HTTPError(400)
             
         # Make a copy of args for authentication and signature verification.
         auth_params = {} 
@@ -243,11 +280,8 @@ class APIServerApplication(tornado.web.Application):
         tornado.web.Application.__init__(self, [
             (r'/', RootRequestHandler),
             (r'/services/([A-Za-z0-9]+)/', APIRequestHandler),
-            (r'/latest/meta-data/', MetadataRequestHandler),
-            (r'/latest/user-data/', MetadataRequestHandler),
-            (r'/latest/user-data', MetadataRequestHandler),
-            (r'/2008-02-01/meta-data/ami-id', MetadataRequestHandler),
-            (r'/2008-02-01/meta-data/public-keys/', MetadataRequestHandler),
+            (r'/latest/([-A-Za-z0-9/]*)', MetadataRequestHandler),
+            (r'/2008-02-01/([-A-Za-z0-9/]*)', MetadataRequestHandler),
         ])
         self.user_manager = user_manager
         self.controllers = controllers

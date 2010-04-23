@@ -148,7 +148,7 @@ Installation
 ============
 
     apt-get install dnsmasq python-libvirt libvirt-bin python-setuptools python-dev python-pycurl python-simplejson python-m3crypto
-    apt-get install iscsitarget aoetools vblade-persist kpartx
+    apt-get install iscsitarget aoetools vblade-persist kpartx vlan
 
     # ON THE CLOUD CONTROLLER
     apt-get install rabbitmq-server 

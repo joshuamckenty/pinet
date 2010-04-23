@@ -35,6 +35,8 @@ import calllib
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
+flags.DEFINE_bool('use_s3', True,
+                  'whether to get images from s3 or use local copy')
 flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
 flags.DEFINE_string('instances_path', utils.abspath('../instances'),
@@ -259,7 +261,7 @@ class Instance(object):
         self._s['kernel_id'] = kwargs.get('kernel_id', FLAGS.default_kernel)
         self._s['ramdisk_id'] = kwargs.get('ramdisk_id', FLAGS.default_ramdisk)
         self._s['owner_id'] = kwargs.get('owner_id', None)
-        self._s['user_data'] = kwargs.get('user_data', None)
+        self._s['user_data'] = kwargs.get('user_data', '')
         self._s['ami_launch_index'] = kwargs.get('ami_launch_index', None)
         self._s['launch_time'] = kwargs.get('launch_time', None)
         self._s['reservation_id'] = kwargs.get('reservation_id', None)
@@ -271,7 +273,7 @@ class Instance(object):
         self._s['product_codes'] = kwargs.get('product_code', [])
         self._s['key_name'] = kwargs.get('key_name', None)
         self._s['addressing_type'] = kwargs.get('addressing_type', None)
-        self._s['availability_zone'] = kwargs.get('availability_zone', None)
+        self._s['availability_zone'] = kwargs.get('availability_zone', 'fixme')
 
         #TODO: put real dns items here
         self._s['private_dns_name'] = kwargs.get('private_dns_name', 'fixme') 
@@ -324,17 +326,28 @@ class Instance(object):
             f.write(libvirt_xml)
             f.close()
             if not FLAGS.fake_libvirt:
-                if not os.path.exists(self.basepath('disk')):
-                    utils.fetchfile(self.image_url("%s/image" % self._s['image_id']),
+                if FLAGS.use_s3:
+                    if not os.path.exists(self.basepath('disk')):
+                        utils.fetchfile(self.image_url("%s/image" % self._s['image_id']),
                            self.basepath('disk-raw'))
-                    disk.partition(self.basepath('disk-raw'),
+                        disk.partition(self.basepath('disk-raw'),
                            self.basepath('disk'))
-                if not os.path.exists(self.basepath('kernel')):
-                    utils.fetchfile(self.image_url(self._s['kernel_id']),
-                                self.basepath('kernel'))
-                if not os.path.exists(self.basepath('ramdisk')):
-                    utils.fetchfile(self.image_url(self._s['ramdisk_id']),
+                    if not os.path.exists(self.basepath('kernel')):
+                        utils.fetchfile(self.image_url(self._s['kernel_id']),
+                                    self.basepath('kernel'))
+                    if not os.path.exists(self.basepath('ramdisk')):
+                        utils.fetchfile(self.image_url(self._s['ramdisk_id']),
                                self.basepath('ramdisk'))
+                else:
+                    if not os.path.exists(self.basepath('disk')):
+                        disk.partition(self.imagepath("%s/image" % self._s['image_id']),
+                            self.basepath('disk'))
+                    if not os.path.exists(self.basepath('kernel')):
+                        shutil.copyfile(self.imagepath(self._s['kernel_id']),
+                            self.basepath('kernel'))
+                    if not os.path.exists(self.basepath('ramdisk')):
+                        shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
+                            self.basepath('ramdisk'))
                 if self._s['key_data']:
                     logging.info('Injecting key data into image')
                     disk.inject_key(self._s['key_data'], self.basepath('disk'))
