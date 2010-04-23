@@ -73,12 +73,10 @@ class S3Application(web.Application):
     to prevent hitting file system limits for number of files in each
     directories. 1 means one level of directories, 2 means 2, etc.
     """
-    def __init__(self, buckets_directory, images_directory, bucket_depth=0):
+    def __init__(self, user_manager, buckets_directory, images_directory, bucket_depth=0):
         web.Application.__init__(self, [
             (r"/", RootHandler),
             (r"/_images/", ImageHandler),
-            (r"/_images/([^/]+)/", ImageBucketHandler),
-            (r"/_images/([^/]+)/(.+)", ImageDeliveryHandler),
             (r"/([^/]+)/(.+)", ObjectHandler),
             (r"/([^/]+)/", BucketHandler),
         ])
@@ -89,6 +87,7 @@ class S3Application(web.Application):
         if not os.path.exists(self.images_directory):
             os.makedirs(self.images_directory)
         self.bucket_depth = bucket_depth
+        self.user_manager = user_manager
 
 
 class BaseRequestHandler(web.RequestHandler):
@@ -234,11 +233,16 @@ class BucketHandler(BaseRequestHandler):
 
 
 class ImageHandler(BaseRequestHandler):
+    SUPPORTED_METHODS = ("POST", "PUT", "GET", "DELETE")
+    
     def get(self):
         """ returns a json listing of all images 
             that a user has permissions to see """
         
-        image_owner_id = self.get_argument('image_owner_id', u'')
+        access = self.request.headers['Authorization'].split(' ')[1].split(':')[0]
+        user = self.application.user_manager.get_user_from_access_key(access)
+        
+        image_owner_id = user.id
     
         images = []
     
@@ -276,8 +280,14 @@ class ImageHandler(BaseRequestHandler):
 
     def put(self):
         """ create a new registered image """
+        # FIXME: the decrypt stuff is copy/pasted from euca2ools!
+        # FIXME: verify user has permission to register
+        
+        access = self.request.headers['Authorization'].split(' ')[1].split(':')[0]
+        user = self.application.user_manager.get_user_from_access_key(access)
+        
         image_location = self.get_argument('image_location', u'')
-        image_owner_id = self.get_argument('image_owner_id', u'')
+        image_owner_id = user.id
         image_id       = self.get_argument('image_id',       u'')
         
         tmpdir = tempfile.mkdtemp()
@@ -344,6 +354,11 @@ class ImageHandler(BaseRequestHandler):
     def delete(self):
         """ delete a registered image """
         image_id = self.get_argument("image_id", u"")
+        
+        access = self.request.headers['Authorization'].split(' ')[1].split(':')[0]
+        user = self.application.user_manager.get_user_from_access_key(access)
+
+        # FIXME: verify user.id can dergister image
         
         path = os.path.join(self.application.images_directory, image_id)
         if not path.startswith(self.application.images_directory) or \
@@ -414,70 +429,3 @@ class ObjectHandler(BaseRequestHandler):
         self.set_status(204)
         self.finish()
 
-class ImageDeliveryHandler(ObjectHandler):
-    def __init__(self, *args, **kwargs):
-        super(ImageDeliveryHandler, self).__init__(*args, **kwargs)
-        self.application.directory = self.application.images_directory
-
-    def get(self, bucket, object_name):
-        logging.debug("Serving object %s as %s" % (object_name, self))
-        object_name = urllib.unquote(object_name)
-        path = self._object_path(bucket, object_name)
-        if not path.startswith(self.application.images_directory) or \
-           not os.path.isfile(path):
-            raise web.HTTPError(404)
-        info = os.stat(path)
-        self.set_header("Content-Type", "application/unknown")
-        self.set_header("Last-Modified", datetime.datetime.utcfromtimestamp(
-            info.st_mtime))
-        with open(path, "r") as data:
-            self.set_header("Etag", '"' + crypto.compute_md5(data) + '"')
-            self.set_header("Content-Length", os.stat(path).st_size)
-            for f in data:
-            	self.write(f)
-            self.finish()
-
-    def head(self, bucket, object_name):
-        logging.debug("Serving head object %s as %s" % (object_name, self))
-        object_name = urllib.unquote(object_name)
-        path = self._object_path(bucket, object_name)
-        if not path.startswith(self.application.images_directory) or \
-           not os.path.isfile(path):
-            raise web.HTTPError(404)
-        info = os.stat(path)
-        self.set_header("Content-Type", "application/unknown")
-        self.set_header("Last-Modified", datetime.datetime.utcfromtimestamp(
-            info.st_mtime))
-        with open(path, "r") as data:
-            self.set_header("Etag", '"' + crypto.compute_md5(data) + '"')
-            self.set_header("Content-Length", info.st_size)
-            self.finish()
-
-    def put(self, *args, **kwargs):
-        pass
-
-    def delete(self, *args, **kwargs):
-        pass
-
-    def _object_path(self, bucket, object_name):
-        if self.application.bucket_depth < 1:
-            return os.path.abspath(os.path.join(
-                self.application.images_directory, bucket, object_name))
-        hash = hashlib.md5(object_name).hexdigest()
-        path = os.path.abspath(os.path.join(
-            self.application.images_directory, bucket))
-        for i in range(self.application.bucket_depth):
-            path = os.path.join(path, hash[:2 * (i + 1)])
-        return os.path.join(path, object_name)
-
-class ImageBucketHandler(BucketHandler):
-    def __init__(self, *args, **kwargs):
-        super(ImageBucketHandler, self).__init__(*args, **kwargs)
-        self.application.directory = self.application.images_directory
-
-    def put(self, *args, **kwargs):
-        pass
-
-    def delete(self, *args, **kwargs):
-        pass
-    pass

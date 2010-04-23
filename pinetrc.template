@@ -1,4 +1,4 @@
-PINET_KEY_DIR=$(dirname $(readlink -f ${BASH_SOURCE}))
+PINET_KEY_DIR=$(pushd $(dirname $BASH_SOURCE)>/dev/null; pwd; popd>/dev/null)
 export EC2_ACCESS_KEY="%(access)s"
 export EC2_SECRET_KEY="%(secret)s"
 export EC2_URL="%(ec2)s"

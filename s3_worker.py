@@ -8,6 +8,7 @@ import s3server
 import flags
 import server
 import utils
+import users
 
 FLAGS = flags.FLAGS
 
@@ -17,7 +18,7 @@ flags.DEFINE_integer('s3_port', 3333, 's3 port')
 
 
 def main(argv):
-    app = s3server.S3Application(FLAGS.buckets_path, FLAGS.images_path, 0)
+    app = s3server.S3Application(users.UserManager(), FLAGS.buckets_path, FLAGS.images_path, 0)
     server = httpserver.HTTPServer(app)
     server.listen(FLAGS.s3_port) 
     ioloop.IOLoop.instance().start()

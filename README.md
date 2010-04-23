@@ -53,7 +53,7 @@ Users
 -----
 
     [X] X509 certs for users
-    [ ] add concept of admin
+    [x] add concept of admin
     [X] Deliver creds to user (pinetrc, x509, ...)
     [X] users exist and have ec2 credentials
     [X] user can create and destroy keypairs
@@ -66,18 +66,20 @@ Instances
     [x] keypair is added when running instance
     [ ] nodes have a quota on # of instances
     [ ] can allocate and attach public IPs
+    [ ] network state persists
     [x] each user gets a subnet and vlan for their instances
-    [ ] node downloads proper image from S3 (verify image via content-md5)
+    [ ] node downloads proper image from S3 (veyarify image via content-md5)
     [ ] instances can access their user-data, meta-data
     [ ] hard code all instances for a user into 1 security group: deny except 22, 80, 443, and 1194
     [x] euca-get-console-output works
-    [ ] euca-terminate-instances works
+    [x] euca-terminate-instances works
     [X] euca-run-instances uses userdata, instance size, image, keypair, ... (all api params)
     [X] euca-describe-instances works
-    [ ] euca-describe-instances only returns instances I have permissions to
-    [ ] can launch from many different images
+    [x] euca-describe-instances only returns instances I have permissions to
+    [x] can launch from many different images
+    [ ] ignore kernel/ramdisk from user, hardcode for now
     [ ] can launch different sizes
-  
+
 S3 / Images
 -----------
 
