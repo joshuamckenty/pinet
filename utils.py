@@ -8,7 +8,6 @@ import os.path
 import subprocess
 import calllib
 import random
-import pycurl
 
 def fetchfile(url, target):
     logging.debug("Fetching %s" % url)
