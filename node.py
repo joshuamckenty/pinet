@@ -309,6 +309,9 @@ class Instance(object):
         libvirt_xml = open(os.path.join(basepath, 'libvirt.xml')).read()
         return cls.fromXml(conn, libvirt_xml)
 
+    def image_url(self, path):
+        return "%s:%s/_images/%s" % (FLAGS.s3_host, FLAGS.s3_port, path) 
+
     def _createImage(self, libvirt_xml, conn):
         """ create libvirt.xml and copy files into instance path """          
         try:
@@ -321,15 +324,17 @@ class Instance(object):
             f.write(libvirt_xml)
             f.close()
             if not FLAGS.fake_libvirt:
+                if not os.path.exists(self.basepath('disk')):
+                    utils.fetchfile(self.image_url("%s/image" % self._s['image_id']),
+                           self.basepath('disk-raw'))
+                    disk.partition(self.basepath('disk-raw'),
+                           self.basepath('disk'))
                 if not os.path.exists(self.basepath('kernel')):
-                    shutil.copyfile(self.imagepath(self._s['kernel_id']),
+                    utils.fetchfile(self.image_url(self._s['kernel_id']),
                                 self.basepath('kernel'))
                 if not os.path.exists(self.basepath('ramdisk')):
-                    shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
+                    utils.fetchfile(self.image_url(self._s['ramdisk_id']),
                                self.basepath('ramdisk'))
-                if not os.path.exists(self.basepath('disk')):
-                    disk.partition(self.imagepath("%s/image" % self._s['image_id']),
-                           self.basepath('disk'))
                 if self._s['key_data']:
                     logging.info('Injecting key data into image')
                     disk.inject_key(self._s['key_data'], self.basepath('disk'))
