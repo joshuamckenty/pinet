@@ -17,7 +17,6 @@ import exception
 import flags
 import crypto
 import utils
-import logging
 import random
 import datetime
 import tempfile
@@ -50,6 +49,9 @@ flags.DEFINE_string('credential_cert_file', 'cert.pem',
                     'Filename of certificate in credentials zip')
 flags.DEFINE_string('credential_rc_file', 'pinetrc',
                     'Filename of rc in credentials zip')
+
+_log = logging.getLogger('auth')
+_log.setLevel(logging.WARN)
 
 class UserError(exception.ApiError):
     pass
@@ -166,9 +168,9 @@ class UserManager(object):
         if user == None:
             return None
         expected_signature = signer.Signer(user.secret).generate(params, verb, server_string, path)
-        logging.debug('user.secret: %s', user.secret)
-        logging.debug('expected_signature: %s', expected_signature)
-        logging.debug('signature: %s', signature)
+        _log.debug('user.secret: %s', user.secret)
+        _log.debug('expected_signature: %s', expected_signature)
+        _log.debug('signature: %s', signature)
         if signature == expected_signature:
             return user
         
@@ -236,7 +238,7 @@ class UserManager(object):
         (private_key, csr) = crypto.generate_x509_cert(self.cert_subject(uid))
         # TODO - This should be async call back to the cloud controller
         signed_cert = crypto.sign_csr(csr)
-        logging.debug(signed_cert)
+        _log.debug(signed_cert)
         return (private_key, signed_cert)
 
     def cert_subject(self, uid):

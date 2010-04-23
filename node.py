@@ -274,8 +274,8 @@ class Instance(object):
         self._s['availability_zone'] = kwargs.get('availability_zone', None)
 
         #TODO: put real dns items here
-        self._s['dns_name'] = kwargs.get('dns_name', 'fixme')
         self._s['private_dns_name'] = kwargs.get('private_dns_name', 'fixme') 
+        self._s['dns_name'] = kwargs.get('dns_name', self._s['private_dns_name'])
 
     def toXml(self):
         # TODO(termie): cache?

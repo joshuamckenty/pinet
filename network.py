@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import signal
+import copy
 
 # TODO(termie): clean up these imports
 import datastore
@@ -28,7 +29,7 @@ flags.DEFINE_string('net_libvirt_xml_template',
 flags.DEFINE_string('networks_path', utils.abspath('../networks'),
                     'Location to keep network XML files')
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
-KEEPER = datastore.keeper("net-")
+KEEPER = datastore.keeper(prefix="net")
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -38,9 +39,11 @@ class SecurityGroup(object):
         
 
 class Network(object):
-    def __init__(self, vlan, network="192.168.100.0/24"):
+    def __init__(self, vlan, network="192.168.100.0/24", conn=None):
         self._s = {}
+        self.network_str = network
         self.network = IP(network)
+        self._conn = conn
         self.vlan = vlan
         self.assigned = [self.network[0], self.network[1], self.network[-1]]
         self._s['gateway'] = str(self.network[1])
@@ -60,31 +63,57 @@ class Network(object):
             # logging.debug("Couldn't make directory, b/c %s" % (str(err)))
         
         # Do we want these here, or in the controller?
-        self.allocations = [{'address' : self.network[0], 'user_id' : 'net', 'mac' : '00:00:00:00:00:00'}, 
-                            {'address' : self.network[1], 'user_id' : 'gateway', 'mac' : '00:00:00:00:00:00'},
-                            {'address' : self.network[-1], 'user_id' : 'broadcast', 'mac' : '00:00:00:00:00:00'},]
+        self.allocations = [{'address' : str(self.network[0]), 'user_id' : 'net', 'mac' : '00:00:00:00:00:00'}, 
+                            {'address' : str(self.network[1]), 'user_id' : 'gateway', 'mac' : '00:00:00:00:00:00'},
+                            {'address' : str(self.network[-1]), 'user_id' : 'broadcast', 'mac' : '00:00:00:00:00:00'},]
+        self.load()
+        self.express()
     
+    def __repr__(self):
+        obj = {}
+        obj['_s'] = copy.deepcopy(self._s)
+        obj['vlan'] = self.vlan
+        obj['network'] = self.network_str
+        obj['hosts'] = self.allocations
+        return obj
+
+    def save(self):
+        KEEPER[self.network_str] = self.__repr__()
+
+    def load(self):
+        state = KEEPER[self.network_str]
+        if state:
+            self.vlan = state['vlan']
+            self.allocations = state['hosts']
+            self.assigned = []
+            for address in self.allocations:
+                self.assigned.append(IP(address['address']))
+            self._s = state['_s']
+
     def allocate_ip(self, user_id, mac):
         for ip in self.network:
             if not ip in self.assigned:
                 self.assigned.append(ip)
                 # logging.debug("Allocating IP %s" % (ip))
                 self.allocations.append( {
-                    "address" : ip, "user_id" : user_id, 'mac' : mac
+                    "address" : str(ip), "user_id" : user_id, 'mac' : mac
                 })
-                return ip
+                self.save()
+                self.express()
+                return str(ip)
         raise NoMoreAddresses
     
-    def deallocate_ip(self, ip):
+    def deallocate_ip(self, ip_str):
+        ip = IP(ip_str)
         if not ip in self.assigned:
             raise NotAllocated
         idx = self.assigned.index(ip)
         self.assigned.pop(idx)
         self.allocations.pop(idx)
+        self.save()
+        # TODO(joshua) SCRUB from the leases file somehow
+        self.express()
         
-    def adopt(self):
-        pass        
-    
     def list_addresses(self):
         for index, item in enumerate(self.assigned):
             yield self.allocations[index]
@@ -121,7 +150,7 @@ class Network(object):
 
         cmd = "sudo dnsmasq --strict-order --bind-interfaces --pid-file=/var/pinet/run/pinet-%s.pid" % (self.vlan)
         cmd += " --conf-file=  --listen-address %s --except-interface lo" % (self._s['gateway'])
-        cmd += " --dhcp-range %s,%s --dhcp-lease-max=61 " % (self._s['rangestart'], self._s['rangeend'])
+        cmd += " --dhcp-range %s,%s,120s --dhcp-lease-max=61 " % (self._s['rangestart'], self._s['rangeend'])
         cmd += " --dhcp-hostsfile=%s --dhcp-leasefile=/var/pinet/run/pinet-%s.leases" % (conf_file, self.vlan)
         pid_file = "/var/pinet/run/pinet-%s.pid" % (self.vlan)
         #if self.dnsmasq:
@@ -132,9 +161,13 @@ class Network(object):
                 return
             except Exception, err:
                 logging.debug("Killing dnsmasq threw %s" % str(err))
+        try:
+            os.unlink("var/pinet/run/pinet-%s.leases" % (self.vlan))
+        except:
+            pass
         subprocess.Popen(str(cmd).split(" "))
             
-    def express(self, conn):
+    def express(self):
 
         xml = self.toXml()
         f = open(os.path.join(FLAGS.networks_path, self._s['name']), 'w')
@@ -146,7 +179,7 @@ class Network(object):
 
         self.start_dnsmasq()        
 
-        if not self._s['name'] in conn.listNetworks():
+        if not self._s['name'] in self._conn.listNetworks():
             logging.debug("Starting VLAN inteface for %s network" % (self._s['name']))
             if not FLAGS.fake_network:
                 try:
@@ -156,8 +189,8 @@ class Network(object):
                 except:
                     pass
                 try:
-                    conn.networkDefineXML(xml)
-                    net = conn.networkLookupByName(self._s['name'])
+                    self._conn.networkDefineXML(xml)
+                    net = self._conn.networkLookupByName(self._s['name'])
                     net.connect()
                     net.create()
                 except Exception, err:
@@ -166,20 +199,17 @@ class Network(object):
         else:
             pass
 
-    def is_running(self, conn):
-        pass
-
 
 class PrivateNetwork(Network):
-    def __init__(self, vlan, network=None):
-        super(PrivateNetwork, self).__init__(vlan=vlan, network=network)
+    def __init__(self, vlan, network=None, conn=None):
+        super(PrivateNetwork, self).__init__(vlan=vlan, network=network, conn=conn)
         self.natted = False
         self.proxyarp = False
 
         
 class PublicNetwork(Network):
-    def __init__(self, vlan=None, network="192.168.216.0/24"):
-        super(PublicNetwork, self).__init__(vlan=vlan, network=network)
+    def __init__(self, vlan=None, network="192.168.216.0/24", conn=None):
+        super(PublicNetwork, self).__init__(vlan=vlan, network=network, conn=conn)
         self.natted = True
         self.proxyarp = False
     
@@ -190,17 +220,30 @@ class PublicNetwork(Network):
         pass
 
 
-class NetworkPool(Network):
+class NetworkPool(object):
     # TODO - Allocations need to be system global
     
-    def __init__(self, netsize=64, network="192.168.0.0/17", vlan=2000):
-        super(NetworkPool, self).__init__(vlan=vlan, network=network)
+    def __init__(self, netsize=64, network="192.168.0.0/17", vlan=2000, conn=None):
+        #super(NetworkPool, self).__init__(vlan=vlan, network=network)
+        self.network = IP(network)
+        self.vlan = vlan
         if not netsize in [4,8,16,32,64,128,256,512,1024]:
             raise NotValidNetworkSize
         self.netsize = netsize
         self.allocations = []
         self.vlans = []
         self.next_vlan = vlan+1
+        self.conn = conn
+
+    # THIS CODE IS SHIT.
+
+
+    def get(self, network_str, vlan):
+        net = IP(network_str)
+        self.allocations.append(net[0])
+        self.vlans.append(vlan)
+        self.next_vlan +=1
+        return Network(vlan=vlan, network=network_str, conn=self.conn)
     
     def next(self):
         start = len(self.allocations) * self.netsize
@@ -209,7 +252,7 @@ class NetworkPool(Network):
         self.vlans.append(vlan)
         self.next_vlan += 1
         logging.debug("Constructing network with vlan %s" % (vlan))
-        return Network(vlan=vlan, network="%s-%s" % (self.network[start], self.network[start + self.netsize - 1]))
+        return Network(vlan=vlan, network="%s-%s" % (self.network[start], self.network[start + self.netsize - 1]), conn=self.conn)
         
 
 class NetworkController(GenericNode):
@@ -220,26 +263,18 @@ class NetworkController(GenericNode):
         super(NetworkController, self).__init__(private=private, sizeof=sizeof, public=public)
         self._conn = self._get_connection()
         if not private:
-            private = NetworkPool(sizeof)
+            private = NetworkPool(sizeof, conn=self._conn)
         if not public:
-            public = PublicNetwork(vlan=FLAGS.public_vlan)
+            public = PublicNetwork(vlan=FLAGS.public_vlan, conn=self._conn)
         self._public = public
         self._private_pool = private
         self._private = {}
         self._load()
-        self.express()
     
     def get_users_network(self, user_id):
         if not self._private.has_key(user_id):
             self._private[user_id] = self._private_pool.next()
         return self._private[user_id]
-    
-    def create_network(self, user_id):
-        # ON ALL THE NODES:
-        # Create VLAN interface
-        # create virsh interface to bridge to the vlan interface
-        # Setup DHCP server for private addressing
-        pass
     
     def init_gateways(self):
         self.public_gateway = self._public.network[1]
@@ -247,24 +282,27 @@ class NetworkController(GenericNode):
             self._gateway[user_id] = self._private[user_id].network[1]
         
     def allocate_address(self, user_id, mac=None, type=PrivateNetwork):
+        ip = None
+        net_name = None
         if type == PrivateNetwork:
             net = self.get_users_network(user_id)
             ip = net.allocate_ip(user_id, mac)
-            net.express(self._conn)
-            return (ip, net.name)
-        ip = self._public.allocate_ip(user_id, mac)
-        self._public.express(self._conn)
-        return (ip, net.name)
+            net_name = net.name
+        else:
+            ip = self._public.allocate_ip(user_id, mac)
+            net_name = self._public.name
+        self._save()
+        return (ip, net_name)
         
     def deallocate_address(self, address):
         if address in self._public.network:
             rv = self._public.deallocate_ip(address)
-            self._public.express(self._conn)
+            self._save()
             return rv
         for user_id in self._private.keys(): 
             if address in self.get_users_network(user_id).network:
                 rv = self.get_users_network(user_id).deallocate_ip(address)
-                self.get_users_network(user_id).express(self._conn)
+                self._save()
                 return rv
         raise NotAllocated
 
@@ -280,9 +318,23 @@ class NetworkController(GenericNode):
         pass
         
     def _load(self):
-        pass
-        
+        state = KEEPER['private']
+        if state:
+            for net in state['networks']:
+                self._private[net['user_id']] = self._private_pool.get(net['network'], net['vlan'])
+    
+    def _save(self):
+        obj = {}
+        obj['networks'] = []
+        for user_id in self._private.keys():
+            network = self._private[user_id]
+            obj['networks'].append({'user_id': user_id, 
+                                    'network': network.network_str, 
+                                    'vlan': network.vlan })
+        KEEPER['private'] = obj
+
     def express(self):
+        return
         # TODO - use a separate connection for each node?
         for user_id in self._private.keys(): 
             self.get_users_network(user_id).express(self._conn)
