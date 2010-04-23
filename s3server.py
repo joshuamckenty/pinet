@@ -59,6 +59,7 @@ import flags
 FLAGS = flags.FLAGS
 
 logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger("tornado.web").setLevel(logging.DEBUG)
 
 # Got these from Euca2ools, will need to revisit them
 IMAGE_IO_CHUNK = 10 * 1024
@@ -76,6 +77,8 @@ class S3Application(web.Application):
         web.Application.__init__(self, [
             (r"/", RootHandler),
             (r"/_images/", ImageHandler),
+            (r"/_images/([^/]+)/", ImageBucketHandler),
+            (r"/_images/([^/]+)/(.+)", ImageDeliveryHandler),
             (r"/([^/]+)/(.+)", ObjectHandler),
             (r"/([^/]+)/", BucketHandler),
         ])
@@ -89,7 +92,7 @@ class S3Application(web.Application):
 
 
 class BaseRequestHandler(web.RequestHandler):
-    SUPPORTED_METHODS = ("PUT", "GET", "DELETE")
+    SUPPORTED_METHODS = ("PUT", "GET", "DELETE", "HEAD")
 
     def render_xml(self, value):
         assert isinstance(value, dict) and len(value) == 1
@@ -132,6 +135,8 @@ class BaseRequestHandler(web.RequestHandler):
             path = os.path.join(path, hash[:2 * (i + 1)])
         return os.path.join(path, object_name)
 
+    def head(self, *args, **kwargs):
+        return self.get(*args, **kwargs) 
 
 class RootHandler(BaseRequestHandler):
     def get(self):
@@ -152,6 +157,7 @@ class RootHandler(BaseRequestHandler):
 
 class BucketHandler(BaseRequestHandler):
     def get(self, bucket_name):
+        logging.debug("Getting bucket %s as %s" % (bucket_name, self))
         prefix = self.get_argument("prefix", u"")
         marker = self.get_argument("marker", u"")
         max_keys = int(self.get_argument("max-keys", 50000))
@@ -359,6 +365,7 @@ class ImageHandler(BaseRequestHandler):
 
 class ObjectHandler(BaseRequestHandler):
     def get(self, bucket, object_name):
+        logging.debug("Serving object %s as %s" % (object_name, self))
         object_name = urllib.unquote(object_name)
         path = self._object_path(bucket, object_name)
         if not path.startswith(self.application.directory) or \
@@ -407,3 +414,70 @@ class ObjectHandler(BaseRequestHandler):
         self.set_status(204)
         self.finish()
 
+class ImageDeliveryHandler(ObjectHandler):
+    def __init__(self, *args, **kwargs):
+        super(ImageDeliveryHandler, self).__init__(*args, **kwargs)
+        self.application.directory = self.application.images_directory
+
+    def get(self, bucket, object_name):
+        logging.debug("Serving object %s as %s" % (object_name, self))
+        object_name = urllib.unquote(object_name)
+        path = self._object_path(bucket, object_name)
+        if not path.startswith(self.application.images_directory) or \
+           not os.path.isfile(path):
+            raise web.HTTPError(404)
+        info = os.stat(path)
+        self.set_header("Content-Type", "application/unknown")
+        self.set_header("Last-Modified", datetime.datetime.utcfromtimestamp(
+            info.st_mtime))
+        with open(path, "r") as data:
+            self.set_header("Etag", '"' + crypto.compute_md5(data) + '"')
+            self.set_header("Content-Length", os.stat(path).st_size)
+            for f in data:
+            	self.write(f)
+            self.finish()
+
+    def head(self, bucket, object_name):
+        logging.debug("Serving head object %s as %s" % (object_name, self))
+        object_name = urllib.unquote(object_name)
+        path = self._object_path(bucket, object_name)
+        if not path.startswith(self.application.images_directory) or \
+           not os.path.isfile(path):
+            raise web.HTTPError(404)
+        info = os.stat(path)
+        self.set_header("Content-Type", "application/unknown")
+        self.set_header("Last-Modified", datetime.datetime.utcfromtimestamp(
+            info.st_mtime))
+        with open(path, "r") as data:
+            self.set_header("Etag", '"' + crypto.compute_md5(data) + '"')
+            self.set_header("Content-Length", info.st_size)
+            self.finish()
+
+    def put(self, *args, **kwargs):
+        pass
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    def _object_path(self, bucket, object_name):
+        if self.application.bucket_depth < 1:
+            return os.path.abspath(os.path.join(
+                self.application.images_directory, bucket, object_name))
+        hash = hashlib.md5(object_name).hexdigest()
+        path = os.path.abspath(os.path.join(
+            self.application.images_directory, bucket))
+        for i in range(self.application.bucket_depth):
+            path = os.path.join(path, hash[:2 * (i + 1)])
+        return os.path.join(path, object_name)
+
+class ImageBucketHandler(BucketHandler):
+    def __init__(self, *args, **kwargs):
+        super(ImageBucketHandler, self).__init__(*args, **kwargs)
+        self.application.directory = self.application.images_directory
+
+    def put(self, *args, **kwargs):
+        pass
+
+    def delete(self, *args, **kwargs):
+        pass
+    pass
