@@ -19,6 +19,7 @@ import flags
 import anyjson
 import IPy
 from IPy import IP
+from twisted.internet import defer
 
 
 FLAGS = flags.FLAGS
@@ -388,8 +389,9 @@ class NetworkNode(Node):
         self.virtNets = {}
         
     def add_network(self, net_dict):
-        self.virtNets[name] = VirtNetwork(conn=self._conn, ** net_dict)
-        self.virtNets[name].express()
+        net = VirtNetwork(conn=self._conn, ** net_dict)
+        self.virtNets[net.name] = net
+        self.virtNets[net.name].express()
         return defer.succeed({'retval': 'network added'})
         
     def express_all_networks(self):
