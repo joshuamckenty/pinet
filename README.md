@@ -136,6 +136,7 @@ Future
     [ ] proper security groups
     [ ] projects / groups
     [ ] RBAC - roles based control
+    [ ] on cloud launch, it should broadcast to nodes to report their current state
     [ ] throttling for reporting state from node/storage/... 
         (report back at least every minute, at most once a second, only when things change)
     [ ] support for ephemeral and swap on disk image generation
@@ -147,7 +148,7 @@ Installation
 ============
 
     apt-get install dnsmasq python-libvirt libvirt-bin python-setuptools python-dev python-pycurl python-simplejson python-m3crypto
-    apt-get install iscsitarget aoetools vblade-persist kpartx
+    apt-get install iscsitarget aoetools vblade-persist kpartx vlan
 
     # ON THE CLOUD CONTROLLER
     apt-get install rabbitmq-server 

@@ -12,8 +12,8 @@ import users
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('buckets_path', utils.abspath('/var/pinet/buckets'), 'path to s3 buckets')
-flags.DEFINE_string('images_path', utils.abspath('/var/pinet/images'), 'path to decrypted images')
+flags.DEFINE_string('buckets_path', utils.abspath('../buckets'), 'path to s3 buckets')
+flags.DEFINE_string('images_path', utils.abspath('../images'), 'path to decrypted images')
 flags.DEFINE_integer('s3_port', 3333, 's3 port')
 flags.DEFINE_integer('s3_internal_port', 3334, 's3 port')
 flags.DEFINE_string('s3_host', '172.24.226.1', 's3 host')
