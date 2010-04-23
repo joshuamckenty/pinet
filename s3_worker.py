@@ -7,11 +7,12 @@ from tornado import ioloop
 import s3server
 import flags
 import server
+import utils
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('buckets_path', '/var/pinet/buckets', 'path to s3 buckets')
-flags.DEFINE_string('images_path', '/var/pinet/images', 'path to decrypted images')
+flags.DEFINE_string('buckets_path', utils.abspath('../buckets'), 'path to s3 buckets')
+flags.DEFINE_string('images_path', utils.abspath('../images'), 'path to decrypted images')
 flags.DEFINE_integer('s3_port', 3333, 's3 port')
 
 
