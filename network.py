@@ -125,7 +125,9 @@ class Vlan(Network):
 class DHCPNetwork(Vlan):
     
     def hostDHCP(self, host):
-        idx = self.network.index(IP(host['address'])) - 2 # Logically, the idx of instances they've launched in this net
+        # idx = self.network.index(IP(host['address'])) - 2 # Logically, the idx of instances they've launched in this net
+        logging.debug("Host is %s" % (host))
+        idx = str(host['address']).split(".")[-1]
         return "%s,%s.pinetlocal,%s" % \
             (host['mac'], "%s-%s-%s" % (host['user_id'], self.vlan, idx), host['address'])
     
@@ -139,7 +141,7 @@ class DHCPNetwork(Vlan):
     def start_dnsmasq(self):
         conf_file = "%s/pinet-%s.conf" % (FLAGS.networks_path, self.vlan)
         conf = open(conf_file, "w")
-        conf.write("\n".join(map(self.hostDHCP, self.hosts)))
+        conf.write("\n".join(map(self.hostDHCP, self.hosts.values())))
         conf.close()
         
         pid_file = "%s/pinet-%s.pid" % (FLAGS.networks_path, self.vlan)
@@ -284,14 +286,14 @@ class NetworkController(GenericNode):
         self.netsize = kwargs.get('netsize', 64)
         self.private_pool = kwargs.get('private_pool', NetworkPool(netsize=self.netsize))
         self.private_nets = kwargs.get('private_nets', {})
-        if not KEEPER['private']:
-            KEEPER['private'] = {'networks' :[]}
-        for net in KEEPER['private']['networks']:
-                self.get_users_network(net['user_id'])
         if not KEEPER['vlans']:
             KEEPER['vlans'] = {'start' : 1000, 'end' : 2000}
         vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
         self.vlan_pool = VlanPool.from_dict(vlan_dict)
+        if not KEEPER['private']:
+            KEEPER['private'] = {'networks' :[]}
+        for net in KEEPER['private']['networks']:
+                self.get_users_network(net['user_id'])
         public_dict = kwargs.get('public', {'vlan': FLAGS.public_vlan })
         self.public_net = PublicNetwork.from_dict(public_dict, conn=self._conn)
 
@@ -358,6 +360,7 @@ class NetworkController(GenericNode):
         obj = {}
         obj['networks'] = []
         for user_id in self.private_nets.keys():
+            user_id = str(user_id)
             network = self.private_nets[user_id]
             vlan = self.vlan_pool.vlans[user_id]
             obj['networks'].append({'user_id': user_id, 
