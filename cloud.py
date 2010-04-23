@@ -260,6 +260,8 @@ class CloudController(object):
             #TODO(joshua) - Allocate IP based on security group
             kwargs['ami_launch_index'] = num 
             (address, kwargs['network_name']) = self.network.allocate_address(kwargs['owner_id'], mac=kwargs['mac_address'])
+            network = self.network.get_users_network(kwargs['owner_id'])
+            kwargs['network_str'] = network.to_dict()
             kwargs['private_dns_name'] = str(address)
             logging.debug("Casting to node for an instance with IP of %s in the %s network" % (kwargs['private_dns_name'], kwargs['network_name']))
             calllib.cast('node', 
