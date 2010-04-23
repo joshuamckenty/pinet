@@ -8,6 +8,18 @@ import os.path
 import subprocess
 import calllib
 import random
+import pycurl
+
+def fetchfile(url, target):
+    logging.debug("Fetching %s" % url)
+#    c = pycurl.Curl()
+#    fp = open(target, "wb")
+#    c.setopt(c.URL, url)
+#    c.setopt(c.WRITEDATA, fp)
+#    c.perform()
+#    c.close()
+#    fp.close()
+    execute("curl %s -o %s" % (url, target))
 
 def execute(cmd, input=None):
     logging.debug("Running %s" % (cmd))
