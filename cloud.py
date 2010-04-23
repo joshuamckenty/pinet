@@ -13,7 +13,6 @@ from twisted.internet import defer
 import calllib
 import flags
 import users
-import urllib
 import time
 import node
 import crypto
@@ -22,6 +21,7 @@ import utils
 from utils import runthis
 import exception
 import crypto
+import images
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
@@ -293,33 +293,18 @@ class CloudController(object):
         return defer.succeed(True)
 
     def describe_images(self, context, **kwargs):
-        # TODO: Make this aware of the difference between private and public images.
-        response = self.boto_conn().make_request(
-                method='GET', 
-                bucket='_images',
-                query_args=qs({'image_owner_id': context.user.id}))
+        imageSet = images.list(context.user)
         
-        return defer.succeed({'imagesSet': anyjson.deserialize(response.read())})
+        return defer.succeed({'imagesSet': imageSet})
     
     def deregister_image(self, context, image_id, **kwargs):
-        self.boto_conn().make_request(
-                method='DELETE',
-                bucket='_images',
-                query_args=qs({'image_id': image_id}))
+        images.deregister(context.user, image_id)
                 
         return defer.succeed({'imageId': image_id})
             
     def register_image(self, context, image_location, **kwargs):
-        image_id = 'ami-%06d' % random.randint(0,1000000)
-        
-        logging.debug("Registering %s as %s" % (image_location, image_id))
-        
-        rval = self.boto_conn().make_request(
-                method='PUT',
-                bucket='_images',
-                query_args=qs({'image_location': image_location,
-                               'image_owner_id': context.user.id,
-                               'image_id': image_id}))
+        image_id = images.register(context.user, image_location)
+        logging.debug("Registered %s as %s" % (image_location, image_id))
         
         return defer.succeed({'imageId': image_id})
 
@@ -340,17 +325,6 @@ class CloudController(object):
                         del self.instances['pending'][instance_id]
             setattr(self, topic, value)
         return defer.succeed(True)
-
-    def boto_conn(self):
-        # TODO: User context.user for the access and secret keys.
-        return boto.s3.connection.S3Connection (
-            aws_secret_access_key="fixme",
-            aws_access_key_id="fixme",
-            is_secure=False,
-            calling_format=boto.s3.connection.OrdinaryCallingFormat(),
-            debug=0,
-            port=FLAGS.s3_port,
-            host='localhost')
             
     def _parse_list_param(self, name, params):
         """
@@ -367,9 +341,3 @@ class CloudController(object):
             i += 1
             key = '%s.%d' % (name, i)
         return values
-
-def qs(params):
-    pairs = []
-    for key in params.keys():
-        pairs.append(key + '=' + urllib.quote(params[key]))
-    return '&'.join(pairs)
