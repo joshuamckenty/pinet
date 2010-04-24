@@ -47,7 +47,7 @@ class Network(object):
         self.netmask = self.network.netmask()
         self.broadcast = self.network.broadcast()
         self.bridge_name =  "br%s" % (self.vlan)
-        self.bridge_gets_ip = True
+        self.bridge_gets_ip = False
         try:
             os.makedirs(FLAGS.networks_path)
         except Exception, err:
@@ -110,7 +110,7 @@ class Network(object):
             yield address
 
     def express(self):
-        super(Network, self).express()
+        pass
 
 
 class Vlan(Network):
