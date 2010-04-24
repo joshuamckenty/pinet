@@ -109,25 +109,28 @@ class CloudController(object):
         return data
         
 
-    def describe_key_pairs(self, context, key_names=None, **kwargs):
-        key_pairs = { 'keypairsSet': [] }
-        key_names = key_names and key_names or []
+    def describe_key_pairs(self, context, key_name=None, **kwargs):
+        key_pairs = []
+        key_names = key_name and key_name or []
         if len(key_names) > 0:
             for key_name in key_names:
                 key_pair = context.user.get_key_pair(key_name)
                 if key_pair != None:
-                    key_pairs['keypairsSet'].append({
+                    key_pairs.append({
                         'keyName': key_pair.name,
                         'keyFingerprint': key_pair.fingerprint,
                     })
         else:
             for key_pair in context.user.get_key_pairs():
-                key_pairs['keypairsSet'].append({
+                key_pairs.append({
                     'keyName': key_pair.name,
                     'keyFingerprint': key_pair.fingerprint,
                 })
 
-        return key_pairs
+        if len(key_pairs) > 0:
+            return { 'keypairsSet': key_pairs }
+        else:
+            return { 'keypairsSet': None }
 
     def create_key_pair(self, context, key_name, **kwargs):
         try:
