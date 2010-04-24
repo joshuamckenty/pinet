@@ -44,19 +44,23 @@ import os
 import os.path
 import urllib
 from hashlib import sha1 as sha
-from M2Crypto import BN, EVP, RSA, util, Rand, m2, X509
 from binascii import hexlify, unhexlify
 
 from tornado import web
 import crypto
 import glob
+import stat
 import anyjson
 import xml.etree
 from xml.etree import ElementTree
 import logging
 import flags
+import utils
 
 FLAGS = flags.FLAGS
+
+flags.DEFINE_string('buckets_path', utils.abspath('../buckets'), 'path to s3 buckets')
+flags.DEFINE_string('images_path', utils.abspath('../images'), 'path to decrypted images')
 
 logging.getLogger().setLevel(logging.DEBUG)
 logging.getLogger("tornado.web").setLevel(logging.DEBUG)
@@ -66,6 +70,153 @@ IMAGE_IO_CHUNK = 10 * 1024
 IMAGE_SPLIT_CHUNK = IMAGE_IO_CHUNK * 1024;
 
 
+class Bucket(object):
+    def __init__(self, name):
+        self.name = name
+        self.path = os.path.abspath(os.path.join(FLAGS.buckets_path, name))
+        if not self.path.startswith(os.path.abspath(FLAGS.buckets_path)) or \
+           not os.path.isdir(self.path):
+            raise web.HTTPError(404)
+        
+        self.ctime = os.path.getctime(self.path)
+
+    @staticmethod
+    def all():
+        buckets = []
+        for fn in glob.glob("%s/*.json" % FLAGS.buckets_path):
+            try:
+                anyjson.deserialize(open(fn).read())
+                name = os.path.split(fn)[-1][:-5]
+                buckets.append(Bucket(name))
+            except:
+                pass
+
+        return buckets
+    
+    @staticmethod
+    def create(name, user):
+        path = os.path.abspath(os.path.join(
+            FLAGS.buckets_path, name))
+        if not path.startswith(os.path.abspath(FLAGS.buckets_path)) or \
+           os.path.exists(path):
+            raise web.HTTPError(403)
+        
+        os.makedirs(path)
+        
+        f = open(path+'.json', 'w')
+        f.write(anyjson.serialize({'ownerId': user.id}))
+        f.close()
+        
+        
+    def to_json(self):
+        return {
+            "Name": self.name,
+            "CreationDate": datetime.datetime.utcfromtimestamp(self.ctime),
+        }
+    
+    @property
+    def owner_id(self):
+        try:
+            json = anyjson.deserialize(open(self.path+'.json').read())
+            return json['ownerId']
+        except:
+            return None
+    
+    def list_keys(self, prefix=None, marker=None, max_keys=1000, terse=False):
+        object_names = []
+        for root, dirs, files in os.walk(self.path):
+            for file_name in files:
+                object_names.append(os.path.join(root, file_name)[len(self.path)+1:])
+        object_names.sort()
+        contents = []
+
+        start_pos = 0
+        if marker:
+            start_pos = bisect.bisect_right(object_names, marker, start_pos)
+        if prefix:
+            start_pos = bisect.bisect_left(object_names, prefix, start_pos)
+
+        truncated = False
+        for object_name in object_names[start_pos:]:
+            if not object_name.startswith(prefix):
+                break
+            if len(contents) >= max_keys:
+                truncated = True
+                break
+            object_path = self._object_path(object_name)
+            c = {"Key": object_name}
+            if not terse:
+                info = os.stat(object_path)
+                c.update({
+                    "LastModified": datetime.datetime.utcfromtimestamp(
+                        info.st_mtime),
+                    "Size": info.st_size,
+                })
+            contents.append(c)
+            marker = object_name
+
+        return {
+            "Name": self.name,
+            "Prefix": prefix,
+            "Marker": marker,
+            "MaxKeys": max_keys,
+            "IsTruncated": truncated,
+            "Contents": contents,
+        }
+        
+    def _object_path(self, object_name):
+        fn = os.path.join(self.path, object_name)
+        
+        if not fn.startswith(self.path):
+            raise web.HTTPError(403)
+        
+        return fn
+    
+    def delete(self):
+        if len(os.listdir(self.path)) > 0:
+            raise web.HTTPError(403)
+        os.rmdir(self.path)
+        os.remove(self.path+'.json')
+    
+    def __getitem__(self, key):
+        return Object(self, key)
+    
+    def __setitem__(self, key, value):
+        fn = self._object_path(key)
+        f = open(fn, 'wb')
+        f.write(value)
+        f.close()
+    
+    def __delitem__(self, key):
+        Object(self, key).delete()
+
+class Object(object):
+    def __init__(self, bucket, key):
+        self.path = bucket._object_path(key)
+        if not os.path.isfile(self.path):
+            raise web.HTTPError(404)
+        
+
+    @property
+    def md5(self):
+        object_file = open(self.path, "r")
+        try:
+            hex_md5 = crypto.compute_md5(object_file)
+        finally:
+            object_file.close()
+        return hex_md5
+
+    @property
+    def mtime(self):
+        return os.path.getmtime(self.path)
+    
+    def read(self):
+        return open(self.path).read()
+    
+    def delete(self):
+        os.unlink(self.path)
+        
+
 class S3Application(web.Application):
     """Implementation of an S3-like storage server based on local files.
 
@@ -73,25 +224,34 @@ class S3Application(web.Application):
     to prevent hitting file system limits for number of files in each
     directories. 1 means one level of directories, 2 means 2, etc.
     """
-    def __init__(self, user_manager, buckets_directory, images_directory, bucket_depth=0):
+    def __init__(self, user_manager):
         web.Application.__init__(self, [
             (r"/", RootHandler),
             (r"/_images/", ImageHandler),
             (r"/([^/]+)/(.+)", ObjectHandler),
             (r"/([^/]+)/", BucketHandler),
         ])
-        self.directory = os.path.abspath(buckets_directory)
+        self.directory = os.path.abspath(FLAGS.buckets_path)
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
-        self.images_directory = os.path.abspath(images_directory)
+        self.images_directory = os.path.abspath(FLAGS.images_path)
         if not os.path.exists(self.images_directory):
             os.makedirs(self.images_directory)
-        self.bucket_depth = bucket_depth
         self.user_manager = user_manager
 
 
 class BaseRequestHandler(web.RequestHandler):
     SUPPORTED_METHODS = ("PUT", "GET", "DELETE", "HEAD")
+    
+    @property    
+    def authorized_user(self):
+        try:
+            access = self.request.headers['Authorization'].split(' ')[1].split(':')[0]
+            user = self.application.user_manager.get_user_from_access_key(access)
+            user.secret # FIXME: check signature here!
+            return user
+        except:
+            raise web.HTTPError(403)
 
     def render_xml(self, value):
         assert isinstance(value, dict) and len(value) == 1
@@ -123,111 +283,83 @@ class BaseRequestHandler(web.RequestHandler):
         else:
             raise Exception("Unknown S3 value type %r", value)
 
-    def _object_path(self, bucket, object_name):
-        if self.application.bucket_depth < 1:
-            return os.path.abspath(os.path.join(
-                self.application.directory, bucket, object_name))
-        hash = hashlib.md5(object_name).hexdigest()
-        path = os.path.abspath(os.path.join(
-            self.application.directory, bucket))
-        for i in range(self.application.bucket_depth):
-            path = os.path.join(path, hash[:2 * (i + 1)])
-        return os.path.join(path, object_name)
-
     def head(self, *args, **kwargs):
         return self.get(*args, **kwargs) 
 
 class RootHandler(BaseRequestHandler):
     def get(self):
-        names = os.listdir(self.application.directory)
-        buckets = []
-        for name in names:
-            path = os.path.join(self.application.directory, name)
-            info = os.stat(path)
-            buckets.append({
-                "Name": name,
-                "CreationDate": datetime.datetime.utcfromtimestamp(
-                    info.st_ctime),
-            })
-        self.render_xml({"ListAllMyBucketsResult": {
-            "Buckets": {"Bucket": buckets},
-        }})
+        user = self.authorized_user
 
+        buckets = [b for b in Bucket.all() if b.owner_id == user.id]
+
+        self.render_xml({"ListAllMyBucketsResult": {
+            "Buckets": {"Bucket": [b.to_json() for b in buckets]},
+        }})
 
 class BucketHandler(BaseRequestHandler):
     def get(self, bucket_name):
-        logging.debug("Getting bucket %s as %s" % (bucket_name, self))
+        logging.debug("List keys for bucket %s" % (bucket_name))
+        
+        bucket = Bucket(bucket_name)
+        
+        if bucket.owner_id != self.authorized_user.id:
+            raise web.HTTPError(403)
+        
         prefix = self.get_argument("prefix", u"")
         marker = self.get_argument("marker", u"")
-        max_keys = int(self.get_argument("max-keys", 50000))
-        path = os.path.abspath(os.path.join(self.application.directory,
-                                            bucket_name))
+        max_keys = int(self.get_argument("max-keys", 1000))
         terse = int(self.get_argument("terse", 0))
-        if not path.startswith(self.application.directory) or \
-           not os.path.isdir(path):
-            raise web.HTTPError(404)
-        object_names = []
-        for root, dirs, files in os.walk(path):
-            for file_name in files:
-                object_names.append(os.path.join(root, file_name))
-        skip = len(path) + 1
-        for i in range(self.application.bucket_depth):
-            skip += 2 * (i + 1) + 1
-        object_names = [n[skip:] for n in object_names]
-        object_names.sort()
-        contents = []
 
-        start_pos = 0
-        if marker:
-            start_pos = bisect.bisect_right(object_names, marker, start_pos)
-        if prefix:
-            start_pos = bisect.bisect_left(object_names, prefix, start_pos)
-
-        truncated = False
-        for object_name in object_names[start_pos:]:
-            if not object_name.startswith(prefix):
-                break
-            if len(contents) >= max_keys:
-                truncated = True
-                break
-            object_path = self._object_path(bucket_name, object_name)
-            c = {"Key": object_name}
-            if not terse:
-                info = os.stat(object_path)
-                c.update({
-                    "LastModified": datetime.datetime.utcfromtimestamp(
-                        info.st_mtime),
-                    "Size": info.st_size,
-                })
-            contents.append(c)
-            marker = object_name
-        self.render_xml({"ListBucketResult": {
-            "Name": bucket_name,
-            "Prefix": prefix,
-            "Marker": marker,
-            "MaxKeys": max_keys,
-            "IsTruncated": truncated,
-            "Contents": contents,
-        }})
+        results = bucket.list_keys(prefix=prefix, marker=marker, max_keys=max_keys, terse=terse)
+        self.render_xml({"ListBucketResult": results})
 
     def put(self, bucket_name):
-        path = os.path.abspath(os.path.join(
-            self.application.directory, bucket_name))
-        if not path.startswith(self.application.directory) or \
-           os.path.exists(path):
-            raise web.HTTPError(403)
-        os.makedirs(path)
+        Bucket.create(bucket_name, self.authorized_user)
         self.finish()
 
     def delete(self, bucket_name):
-        path = os.path.abspath(os.path.join(
-            self.application.directory, bucket_name))
-        if not path.startswith(self.application.directory) or \
-           not os.path.isdir(path):
-            raise web.HTTPError(404)
-        if len(os.listdir(path)) > 0:
+        bucket = Bucket(bucket_name)
+        
+        if bucket.owner_id != self.authorized_user.id:
             raise web.HTTPError(403)
-        os.rmdir(path)
+
+        bucket.delete()
+        self.set_status(204)
+        self.finish()
+
+
+
+class ObjectHandler(BaseRequestHandler):
+    def get(self, bucket_name, object_name):
+        bucket = Bucket(bucket_name)
+        
+        if bucket.owner_id != self.authorized_user.id:
+            raise web.HTTPError(403)
+        
+        obj = bucket[urllib.unquote(object_name)]
+        self.set_header("Content-Type", "application/unknown")
+        self.set_header("Last-Modified", datetime.datetime.utcfromtimestamp(obj.mtime))
+        self.set_header("Etag", '"' + obj.md5 + '"')
+        self.finish(obj.read())
+
+    def put(self, bucket_name, object_name):
+        bucket = Bucket(bucket_name)
+        
+        if bucket.owner_id != self.authorized_user.id:
+            raise web.HTTPError(403)
+        
+        key = urllib.unquote(object_name)
+        bucket[key] = self.request.body
+        self.set_header("Etag", '"' + bucket[key].md5 + '"')
+        self.finish()
+
+    def delete(self, bucket_name, object_name):
+        bucket = Bucket(bucket_name)
+        
+        if bucket.owner_id != self.authorized_user.id:
+            raise web.HTTPError(403)
+        
+        del bucket[urllib.unquote(object_name)]
         self.set_status(204)
         self.finish()
 
@@ -238,18 +370,15 @@ class ImageHandler(BaseRequestHandler):
     def get(self):
         """ returns a json listing of all images 
             that a user has permissions to see """
-        
-        access = self.request.headers['Authorization'].split(' ')[1].split(':')[0]
-        user = self.application.user_manager.get_user_from_access_key(access)
-        
-        image_owner_id = user.id
-    
+
+        user = self.authorized_user
+
         images = []
     
         for fn in glob.glob("%s/*/info.json" % self.application.images_directory):
             try:
                 info = anyjson.deserialize(open(fn).read())
-                if info['isPublic'] or info['imageOwnerId'] == image_owner_id:
+                if info['isPublic'] or info['imageOwnerId'] == user.id:
                     images.append(info)
             except:
                 pass
@@ -283,8 +412,7 @@ class ImageHandler(BaseRequestHandler):
         # FIXME: the decrypt stuff is copy/pasted from euca2ools!
         # FIXME: verify user has permission to register
         
-        access = self.request.headers['Authorization'].split(' ')[1].split(':')[0]
-        user = self.application.user_manager.get_user_from_access_key(access)
+        user = self.authorized_user
         
         image_location = self.get_argument('image_location', u'')
         image_owner_id = user.id
@@ -355,8 +483,7 @@ class ImageHandler(BaseRequestHandler):
         """ delete a registered image """
         image_id = self.get_argument("image_id", u"")
         
-        access = self.request.headers['Authorization'].split(' ')[1].split(':')[0]
-        user = self.application.user_manager.get_user_from_access_key(access)
+        user = self.authorized_user
 
         # FIXME: verify user.id can dergister image
         
@@ -376,56 +503,3 @@ class ImageHandler(BaseRequestHandler):
             pass
 
         self.set_status(204)
-
-
-class ObjectHandler(BaseRequestHandler):
-    def get(self, bucket, object_name):
-        logging.debug("Serving object %s as %s" % (object_name, self))
-        object_name = urllib.unquote(object_name)
-        path = self._object_path(bucket, object_name)
-        if not path.startswith(self.application.directory) or \
-           not os.path.isfile(path):
-            raise web.HTTPError(404)
-        info = os.stat(path)
-        self.set_header("Content-Type", "application/unknown")
-        self.set_header("Last-Modified", datetime.datetime.utcfromtimestamp(
-            info.st_mtime))
-        object_file = open(path, "r")
-        try:
-            data = object_file
-            self.set_header("Etag", '"' + crypto.compute_md5(data) + '"')
-            self.finish(data.read())
-        finally:
-            object_file.close()
-
-    def put(self, bucket, object_name):
-        object_name = urllib.unquote(object_name)
-        bucket_dir = os.path.abspath(os.path.join(
-            self.application.directory, bucket))
-        if not bucket_dir.startswith(self.application.directory) or \
-           not os.path.isdir(bucket_dir):
-            raise web.HTTPError(404)
-        path = self._object_path(bucket, object_name)
-        if not path.startswith(bucket_dir) or os.path.isdir(path):
-            raise web.HTTPError(403)
-        directory = os.path.dirname(path)
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        object_file = open(path, "w")
-        object_file.write(self.request.body)
-        object_file.close()
-        object_file = open(path, 'r')
-        self.set_header("Etag", '"' + crypto.compute_md5(object_file) + '"')
-        object_file.close()
-        self.finish()
-
-    def delete(self, bucket, object_name):
-        object_name = urllib.unquote(object_name)
-        path = self._object_path(bucket, object_name)
-        if not path.startswith(self.application.directory) or \
-           not os.path.isfile(path):
-            raise web.HTTPError(404)
-        os.unlink(path)
-        self.set_status(204)
-        self.finish()
-
