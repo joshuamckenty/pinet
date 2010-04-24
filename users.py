@@ -206,6 +206,16 @@ class UserManager(object):
             conn.delete_user(uid)
 
     def generate_key_pair(self, uid, key_name):
+        # generating key pair is slow so delay generation
+        # until after check
+        with LDAPWrapper() as conn:
+            if not conn.user_exists(uid):
+                raise UserError("User " + uid + " doesn't exist")
+            if conn.key_pair_exists(uid, key_name):
+                raise InvalidKeyPair("The keypair '" +
+                            key_name +
+                            "' already exists.",
+                            "Duplicate")
         private_key, public_key = crypto.generate_keypair()
         #TODO(vish): calculate real fingerprint frome private key
         fingerprint = 'fixme'
@@ -332,13 +342,6 @@ class LDAPWrapper(object):
         """create's a public key in the directory underneath the user"""
         # TODO(vish): possibly refactor this to store keys in their own ou
         #   and put dn reference in the user object
-        if not self.user_exists(uid):
-            raise UserError("User " + uid + " doesn't exist")
-        if self.key_pair_exists(uid, key_name):
-            raise InvalidKeyPair("The keypair '" +
-                            key_name +
-                            "' already exists.",
-                            "Duplicate")
         attr = [
             ('objectclass', ['pinetKeyPair']),
             ('cn', key_name),

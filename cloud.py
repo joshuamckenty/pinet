@@ -23,6 +23,7 @@ import exception
 import crypto
 import images
 import base64
+import tornado
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
@@ -37,6 +38,14 @@ _STATE_NAMES = {
     node.Instance.SHUTOFF: 'shutoff',
     node.Instance.CRASHED: 'crashed',
 }
+
+def _gen_key(user_id, key_name):
+    manager = users.UserManager()
+    try:
+        private_key, fingerprint = manager.generate_key_pair(user_id, key_name)
+    except Exception as ex:
+        return {'exception': ex}
+    return {'private_key': private_key, 'fingerprint': fingerprint}
 
 class CloudController(object):
     def __init__(self):
@@ -131,10 +140,19 @@ class CloudController(object):
 
     def create_key_pair(self, context, key_name, **kwargs):
         try:
-            private_key, fingerprint = context.user.generate_key_pair(key_name)
-            return {'keyName': key_name,
-                    'keyFingerprint': fingerprint,
-                    'keyMaterial': private_key }
+            d = defer.Deferred()
+            p = context.handler.application.settings.get('pool')
+            def _complete(kwargs):
+                if 'exception' in kwargs:
+                    d.errback(kwargs['exception'])
+                    return
+                d.callback({'keyName': key_name,
+                    'keyFingerprint': kwargs['fingerprint'],
+                    'keyMaterial': kwargs['private_key']})
+            p.apply_async(_gen_key, [context.user.id, key_name],
+                callback=context.handler.async_callback(_complete))
+            return d
+
         except users.UserError, e:
             raise
 
