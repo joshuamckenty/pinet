@@ -127,10 +127,7 @@ class CloudController(object):
                     'keyFingerprint': key_pair.fingerprint,
                 })
 
-        if len(key_pairs) > 0:
-            return { 'keypairsSet': key_pairs }
-        else:
-            return { 'keypairsSet': None }
+        return { 'keypairsSet': key_pairs }
 
     def create_key_pair(self, context, key_name, **kwargs):
         try:
