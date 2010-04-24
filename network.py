@@ -127,7 +127,7 @@ class Vlan(Network):
 class DHCPNetwork(Vlan):
     
     def hostDHCP(self, host):
-        idx = self.network.index(IP(host['address'])) - 2 # Logically, the idx of instances they've launched in this net
+        idx = host['address'].split(".")[-1] # Logically, the idx of instances they've launched in this net
         return "%s,%s.pinetlocal,%s" % \
             (host['mac'], "%s-%s-%s" % (host['user_id'], self.vlan, idx), host['address'])
     
@@ -141,7 +141,7 @@ class DHCPNetwork(Vlan):
     def start_dnsmasq(self):
         conf_file = "%s/pinet-%s.conf" % (FLAGS.networks_path, self.vlan)
         conf = open(conf_file, "w")
-        conf.write("\n".join(map(self.hostDHCP, self.hosts)))
+        conf.write("\n".join(map(self.hostDHCP, self.hosts.values())))
         conf.close()
         
         pid_file = "%s/pinet-%s.pid" % (FLAGS.networks_path, self.vlan)
