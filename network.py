@@ -19,6 +19,7 @@ import flags
 import anyjson
 import IPy
 from IPy import IP
+from twisted.internet import defer
 
 
 FLAGS = flags.FLAGS
@@ -130,7 +131,7 @@ class DHCPNetwork(Vlan):
         self.bridge_gets_ip = True
     
     def hostDHCP(self, host):
-        idx = self.network.index(IP(host['address'])) - 2 # Logically, the idx of instances they've launched in this net
+        idx = host['address'].split(".")[-1] # Logically, the idx of instances they've launched in this net
         return "%s,%s.pinetlocal,%s" % \
             (host['mac'], "%s-%s-%s" % (host['user_id'], self.vlan, idx), host['address'])
     
@@ -144,7 +145,7 @@ class DHCPNetwork(Vlan):
     def start_dnsmasq(self):
         conf_file = "%s/pinet-%s.conf" % (FLAGS.networks_path, self.vlan)
         conf = open(conf_file, "w")
-        conf.write("\n".join(map(self.hostDHCP, self.hosts)))
+        conf.write("\n".join(map(self.hostDHCP, self.hosts.values())))
         conf.close()
         
         pid_file = "%s/pinet-%s.pid" % (FLAGS.networks_path, self.vlan)
@@ -188,7 +189,7 @@ class VirtNetwork(Vlan):
         try:                    
             logging.debug("Starting Bridge inteface for %s network" % (self.vlan))
             runthis("Adding Bridge %s: %%s" % (self.vlan) , "sudo brctl addbr %s" % (self.bridge_name))
-            runthis("Adding Bridge Interface %s: %s" % (self.vlan) , "sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
+            runthis("Adding Bridge Interface %s: %%s" % (self.vlan) , "sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
             if self.bridge_gets_ip:
                 runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s %s broadcast %s netmask %s up" % (self.bridge_name, self.gateway, self.broadcast, self.netmask))
             else:
@@ -379,8 +380,9 @@ class NetworkNode(Node):
         self.virtNets = {}
         
     def add_network(self, net_dict):
-        self.virtNets[name] = VirtNetwork(conn=self._conn, ** net_dict)
-        self.virtNets[name].express()
+        net = VirtNetwork(conn=self._conn, ** net_dict)
+        self.virtNets[net.name] = net
+        self.virtNets[net.name].express()
         return defer.succeed({'retval': 'network added'})
         
     def express_all_networks(self):
