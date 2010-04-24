@@ -46,6 +46,7 @@ class Network(object):
         self.netmask = self.network.netmask()
         self.broadcast = self.network.broadcast()
         self.bridge_name =  "br%s" % (self.vlan)
+        self.bridge_gets_ip = True
         try:
             os.makedirs(FLAGS.networks_path)
         except Exception, err:
@@ -108,7 +109,7 @@ class Network(object):
             yield address
 
     def express(self):
-        pass
+        super(Network, self).express()
 
 
 class Vlan(Network):
@@ -124,6 +125,9 @@ class Vlan(Network):
             pass
 
 class DHCPNetwork(Vlan):
+    def __init__(self, *args, **kwargs):
+        super(DHCPNetwork, self).__init__(*args, **kwargs)
+        self.bridge_gets_ip = True
     
     def hostDHCP(self, host):
         idx = self.network.index(IP(host['address'])) - 2 # Logically, the idx of instances they've launched in this net
@@ -183,9 +187,12 @@ class VirtNetwork(Vlan):
             return  
         try:                    
             logging.debug("Starting Bridge inteface for %s network" % (self.vlan))
-            runthis("Adding Bridge %s: %s" % (self.vlan) , "sudo brctl addbr %s" % (self.bridge_name))
+            runthis("Adding Bridge %s: %%s" % (self.vlan) , "sudo brctl addbr %s" % (self.bridge_name))
             runthis("Adding Bridge Interface %s: %s" % (self.vlan) , "sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
-            runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s %s broadcast %s netmask %s up" % (self.bridge_name, self.gateway, self.broadcast, self.netmask))
+            if self.bridge_gets_ip:
+                runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s %s broadcast %s netmask %s up" % (self.bridge_name, self.gateway, self.broadcast, self.netmask))
+            else:
+                runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s up" % (self.bridge_name))
         except:
             pass
         
