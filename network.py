@@ -123,9 +123,38 @@ class Vlan(Network):
             runthis("Adding VLAN %s: %%s" % (self.vlan) , "sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
             runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
         except:
-            pass
+            pass   
 
-class DHCPNetwork(Vlan):
+ 
+class VirtNetwork(Vlan):
+    
+    def virtXML(self):
+        libvirt_xml = open(FLAGS.net_libvirt_xml_template).read()
+        xml_info = {'name' : self.name, 
+                    'bridge_name' : self.bridge_name, 
+                    'device' : "vlan%s" % (self.vlan),
+                    'gateway' : self.gateway,
+                    'netmask' : self.netmask,
+                   }
+        libvirt_xml = libvirt_xml % xml_info
+        return libvirt_xml
+    
+    def express(self):
+        super(VirtNetwork, self).express()
+        if FLAGS.fake_network:
+            return  
+        try:                    
+            logging.debug("Starting Bridge inteface for %s network" % (self.vlan))
+            runthis("Adding Bridge %s: %%s" % (self.vlan) , "sudo brctl addbr %s" % (self.bridge_name))
+            runthis("Adding Bridge Interface %s: %%s" % (self.vlan) , "sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
+            if self.bridge_gets_ip:
+                runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s %s broadcast %s netmask %s up" % (self.bridge_name, self.gateway, self.broadcast, self.netmask))
+            else:
+                runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s up" % (self.bridge_name))
+        except:
+            pass      
+    
+class DHCPNetwork(VirtNetwork):
     def __init__(self, *args, **kwargs):
         super(DHCPNetwork, self).__init__(*args, **kwargs)
         self.bridge_gets_ip = True
@@ -166,39 +195,8 @@ class DHCPNetwork(Vlan):
         if FLAGS.fake_network:
             return
         super(DHCPNetwork, self).express()
-        self.start_dnsmasq()        
-
- 
-class VirtNetwork(Vlan):
-    
-    def virtXML(self):
-        libvirt_xml = open(FLAGS.net_libvirt_xml_template).read()
-        xml_info = {'name' : self.name, 
-                    'bridge_name' : self.bridge_name, 
-                    'device' : "vlan%s" % (self.vlan),
-                    'gateway' : self.gateway,
-                    'netmask' : self.netmask,
-                   }
-        libvirt_xml = libvirt_xml % xml_info
-        return libvirt_xml
-    
-    def express(self):
-        super(VirtNetwork, self).express()
-        if FLAGS.fake_network:
-            return  
-        try:                    
-            logging.debug("Starting Bridge inteface for %s network" % (self.vlan))
-            runthis("Adding Bridge %s: %%s" % (self.vlan) , "sudo brctl addbr %s" % (self.bridge_name))
-            runthis("Adding Bridge Interface %s: %%s" % (self.vlan) , "sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
-            if self.bridge_gets_ip:
-                runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s %s broadcast %s netmask %s up" % (self.bridge_name, self.gateway, self.broadcast, self.netmask))
-            else:
-                runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s up" % (self.bridge_name))
-        except:
-            pass
+        self.start_dnsmasq()     
         
-    
-
 
 class PrivateNetwork(DHCPNetwork):
     def __init__(self, conn=None, **kwargs):
