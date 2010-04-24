@@ -256,7 +256,7 @@ class Instance(object):
         self._s['memory_kb'] = int(self._s['memory_mb']) * 1024
         # TODO - Get this from network controller
         self._s['network_name'] = kwargs.get('network_name', 'default')
-        # self._s['bridge_dev'] = kwargs.get('bridge_dev', FLAGS.bridge_dev)
+        self._s['bridge_name'] = kwargs.get('bridge_name', 'br0')
         self._s['image_id'] = kwargs.get('image_id', FLAGS.default_image)
         self._s['kernel_id'] = kwargs.get('kernel_id', FLAGS.default_kernel)
         self._s['ramdisk_id'] = kwargs.get('ramdisk_id', FLAGS.default_ramdisk)

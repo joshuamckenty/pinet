@@ -11,7 +11,7 @@ from tornado import ioloop
 
 import calllib
 import flags
-import node
+import network
 import server
 
 
@@ -23,7 +23,7 @@ flags.DEFINE_integer('node_report_state_interval', 10,
 
 def main(argv):
     logging.warn('HEYA')
-    n = node.Node()
+    n = network.NetworkNode()
     d = n.adopt_instances()
     d.addCallback(lambda x: logging.info('Adopted %d instances', x))
 

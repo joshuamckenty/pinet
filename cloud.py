@@ -118,25 +118,25 @@ class CloudController(object):
         return data
         
 
-    def describe_key_pairs(self, context, key_names=None, **kwargs):
-        key_pairs = { 'keypairsSet': [] }
-        key_names = key_names and key_names or []
+    def describe_key_pairs(self, context, key_name=None, **kwargs):
+        key_pairs = []
+        key_names = key_name and key_name or []
         if len(key_names) > 0:
             for key_name in key_names:
                 key_pair = context.user.get_key_pair(key_name)
                 if key_pair != None:
-                    key_pairs['keypairsSet'].append({
+                    key_pairs.append({
                         'keyName': key_pair.name,
                         'keyFingerprint': key_pair.fingerprint,
                     })
         else:
             for key_pair in context.user.get_key_pairs():
-                key_pairs['keypairsSet'].append({
+                key_pairs.append({
                     'keyName': key_pair.name,
                     'keyFingerprint': key_pair.fingerprint,
                 })
 
-        return key_pairs
+        return { 'keypairsSet': key_pairs }
 
     def create_key_pair(self, context, key_name, **kwargs):
         try:
@@ -323,7 +323,10 @@ class CloudController(object):
             kwargs['mac_address'] = utils.generate_mac()
             #TODO(joshua) - Allocate IP based on security group
             kwargs['ami_launch_index'] = num 
-            (address, kwargs['network_name']) = self.network.allocate_address(kwargs['owner_id'], mac=kwargs['mac_address'])
+            (address, kwargs['network_name']) = self.network.allocate_address(str(kwargs['owner_id']), mac=str(kwargs['mac_address']))
+            network = self.network.get_users_network(str(kwargs['owner_id']))
+            kwargs['network_str'] = network.to_dict()
+            kwargs['bridge_name'] = network.bridge_name
             kwargs['private_dns_name'] = str(address)
             logging.debug("Casting to node for an instance with IP of %s in the %s network" % (kwargs['private_dns_name'], kwargs['network_name']))
             calllib.cast('node', 
