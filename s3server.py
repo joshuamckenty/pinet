@@ -82,6 +82,7 @@ class Bucket(object):
 
     @staticmethod
     def all():
+        """ list of all buckets """
         buckets = []
         for fn in glob.glob("%s/*.json" % FLAGS.buckets_path):
             try:
@@ -95,6 +96,7 @@ class Bucket(object):
     
     @staticmethod
     def create(name, user):
+        """ create a new bucket owned by a specific user """
         path = os.path.abspath(os.path.join(
             FLAGS.buckets_path, name))
         if not path.startswith(os.path.abspath(FLAGS.buckets_path)) or \
@@ -117,10 +119,15 @@ class Bucket(object):
     @property
     def owner_id(self):
         try:
-            json = anyjson.deserialize(open(self.path+'.json').read())
-            return json['ownerId']
+            return anyjson.deserialize(open(self.path+'.json').read())['ownerId']
         except:
             return None
+    
+    def is_authorized(self, user):
+        try:
+            return user.is_admin() or self.owner_id == user.id
+        except:
+            pass
     
     def list_keys(self, prefix=None, marker=None, max_keys=1000, terse=False):
         object_names = []
@@ -190,8 +197,10 @@ class Bucket(object):
     def __delitem__(self, key):
         Object(self, key).delete()
 
+
 class Object(object):
     def __init__(self, bucket, key):
+        """ wrapper class of an existing key """
         self.path = bucket._object_path(key)
         if not os.path.isfile(self.path):
             raise web.HTTPError(404)
@@ -199,6 +208,7 @@ class Object(object):
 
     @property
     def md5(self):
+        """ computes the MD5 of the contents of file """
         object_file = open(self.path, "r")
         try:
             hex_md5 = crypto.compute_md5(object_file)
@@ -208,14 +218,145 @@ class Object(object):
 
     @property
     def mtime(self):
+        """ mtime of file """
         return os.path.getmtime(self.path)
     
     def read(self):
-        return open(self.path).read()
+        """ returns the contents of the key """
+        return open(self.path, 'rb').read()
     
     def delete(self):
+        """ deletes the file """
         os.unlink(self.path)
+
+class Image(object):
+    # FIXME: the decrypt stuff is copy/pasted from euca2ools!
+    
+    def __init__(self, image_id):
+        self.image_id = image_id
+        self.path = os.path.abspath(os.path.join(FLAGS.images_path, image_id))
+        if not self.path.startswith(os.path.abspath(FLAGS.images_path)) or \
+           not os.path.isdir(self.path):
+            raise web.HTTPError(404)
+    
+    def delete(self):
+        for fn in ['info.json', 'image']:
+            try:
+                os.unlink(os.path.join(self.path, fn))
+            except:
+                pass
+        try:    
+            os.rmdir(self.path)
+        except:
+            pass
+            
+    def is_authorized(self, user):
+        try:
+            return self.json['isPublic'] or info['imageOwnerId'] == user.id
+        except:
+            pass
+
+    @staticmethod
+    def all():
+        images = []
+        for fn in glob.glob("%s/*/info.json" % FLAGS.images_path):
+            try:
+                image_id = fn.split('/')[-2]
+                images.append(Image(image_id))
+            except Exception, e:
+                pass
+        return images
+
+    @property
+    def json(self):
+        fn = os.path.join(self.path, 'info.json')
+        return anyjson.deserialize(open(fn).read())
+    
+    @staticmethod
+    def create(image_id, image_location, user):
+        # FIXME: multiprocess here!
+
+        bucket_name = image_location.split("/")[0]
+        manifest_path = image_location[len(bucket_name)+1:]
+        bucket = Bucket(bucket_name)
         
+        if not bucket.is_authorized(user):
+            raise web.HTTPError(403)
+        
+        tmpdir = tempfile.mkdtemp()
+        rawfile = tempfile.NamedTemporaryFile(delete=False)
+        encrypted_filename = rawfile.name
+
+        manifest = ElementTree.fromstring(bucket[manifest_path].read())
+        encrypted_key = manifest.find("image/ec2_encrypted_key").text
+        encrypted_iv = manifest.find("image/ec2_encrypted_iv").text
+        # FIXME: grab kernelId and ramdiskId from bundle manifest
+
+        for filename in manifest.find("image").getiterator("filename"):
+            rawfile.write(bucket[filename.text].read())
+        
+        rawfile.close() 
+        
+        private_key_path = os.path.join(FLAGS.ca_path, "private/cakey.pem")
+
+        image_path = os.path.join(FLAGS.images_path, image_id)
+        if not image_path.startswith(FLAGS.images_path) or \
+           os.path.exists(image_path):
+            raise web.HTTPError(403)
+        os.makedirs(image_path)
+
+        decrypted_filename = os.path.join(image_path, 'image.tar.gz')
+        Image.decrypt_image(encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename)
+        filenames = Image.untarzip_image(image_path, decrypted_filename)
+        shutil.move(os.path.join(path, filenames[0]), os.path.join(image_path, 'image'))
+        
+        info = {
+            'imageId': image_id,
+            'imageLocation': image_location,
+            'imageOwnerId': user.id,
+            'imageState': 'available',
+            'isPublic': False, # FIXME: grab from bundle manifest
+            'architecture': 'x86_64', # FIXME: grab from bundle manifest
+            'type' : 'machine',
+        }
+
+        object_file = open(os.path.join(image_path, 'info.json'), "w")
+        object_file.write(anyjson.serialize(info))
+        object_file.close()
+            
+    @staticmethod
+    def decrypt_image(encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename):
+        user_priv_key = RSA.load_key(private_key_path)
+        key = user_priv_key.private_decrypt(unhexlify(encrypted_key), RSA.pkcs1_padding)
+        iv = user_priv_key.private_decrypt(unhexlify(encrypted_iv), RSA.pkcs1_padding)
+        k=EVP.Cipher(alg='aes_128_cbc', key=unhexlify(key), iv=unhexlify(iv), op=0)
+
+        # decrypted_filename = encrypted_filename.replace('.enc', '')
+        decrypted_file = open(decrypted_filename, "wb")
+        encrypted_file = open(encrypted_filename, "rb")
+        Image.crypt_file(k, encrypted_file, decrypted_file)
+        encrypted_file.close()
+        decrypted_file.close()
+        return decrypted_filename
+
+    @staticmethod
+    def untarzip_image(path, filename):
+        untarred_filename = filename.replace('.tar.gz', '') 
+        tar_file = tarfile.open(filename, "r|gz")
+        tar_file.extractall(path)
+        untarred_names = tar_file.getnames()
+        tar_file.close()
+        return untarred_names 
+
+    @staticmethod
+    def crypt_file(cipher, in_file, out_file) :
+        while True:
+            buf=in_file.read(IMAGE_IO_CHUNK)
+            if not buf:
+               break
+            out_file.write(cipher.update(buf))
+        out_file.write(cipher.final())
+
 
 class S3Application(web.Application):
     """Implementation of an S3-like storage server based on local files.
@@ -234,9 +375,8 @@ class S3Application(web.Application):
         self.directory = os.path.abspath(FLAGS.buckets_path)
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
-        self.images_directory = os.path.abspath(FLAGS.images_path)
-        if not os.path.exists(self.images_directory):
-            os.makedirs(self.images_directory)
+        if not os.path.exists(FLAGS.images_path):
+            raise "ERROR: images path does not exist"
         self.user_manager = user_manager
 
 
@@ -244,14 +384,16 @@ class BaseRequestHandler(web.RequestHandler):
     SUPPORTED_METHODS = ("PUT", "GET", "DELETE", "HEAD")
     
     @property    
-    def authorized_user(self):
-        try:
-            access = self.request.headers['Authorization'].split(' ')[1].split(':')[0]
-            user = self.application.user_manager.get_user_from_access_key(access)
-            user.secret # FIXME: check signature here!
-            return user
-        except:
-            raise web.HTTPError(403)
+    def user(self):
+        if not hasattr(self, '_user'):
+            try:
+                access = self.request.headers['Authorization'].split(' ')[1].split(':')[0]
+                user = self.application.user_manager.get_user_from_access_key(access)
+                user.secret # FIXME: check signature here!
+                self._user = user
+            except:
+                raise web.HTTPError(403)
+        return self._user
 
     def render_xml(self, value):
         assert isinstance(value, dict) and len(value) == 1
@@ -288,9 +430,7 @@ class BaseRequestHandler(web.RequestHandler):
 
 class RootHandler(BaseRequestHandler):
     def get(self):
-        user = self.authorized_user
-
-        buckets = [b for b in Bucket.all() if b.owner_id == user.id]
+        buckets = [b for b in Bucket.all() if b.is_authorized(self.user)]
 
         self.render_xml({"ListAllMyBucketsResult": {
             "Buckets": {"Bucket": [b.to_json() for b in buckets]},
@@ -302,7 +442,7 @@ class BucketHandler(BaseRequestHandler):
         
         bucket = Bucket(bucket_name)
         
-        if bucket.owner_id != self.authorized_user.id:
+        if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
         
         prefix = self.get_argument("prefix", u"")
@@ -314,13 +454,13 @@ class BucketHandler(BaseRequestHandler):
         self.render_xml({"ListBucketResult": results})
 
     def put(self, bucket_name):
-        Bucket.create(bucket_name, self.authorized_user)
+        Bucket.create(bucket_name, self.user)
         self.finish()
 
     def delete(self, bucket_name):
         bucket = Bucket(bucket_name)
         
-        if bucket.owner_id != self.authorized_user.id:
+        if bucket.is_authorized(self.user):
             raise web.HTTPError(403)
 
         bucket.delete()
@@ -333,7 +473,7 @@ class ObjectHandler(BaseRequestHandler):
     def get(self, bucket_name, object_name):
         bucket = Bucket(bucket_name)
         
-        if bucket.owner_id != self.authorized_user.id:
+        if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
         
         obj = bucket[urllib.unquote(object_name)]
@@ -345,7 +485,7 @@ class ObjectHandler(BaseRequestHandler):
     def put(self, bucket_name, object_name):
         bucket = Bucket(bucket_name)
         
-        if bucket.owner_id != self.authorized_user.id:
+        if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
         
         key = urllib.unquote(object_name)
@@ -356,7 +496,7 @@ class ObjectHandler(BaseRequestHandler):
     def delete(self, bucket_name, object_name):
         bucket = Bucket(bucket_name)
         
-        if bucket.owner_id != self.authorized_user.id:
+        if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
         
         del bucket[urllib.unquote(object_name)]
@@ -371,109 +511,21 @@ class ImageHandler(BaseRequestHandler):
         """ returns a json listing of all images 
             that a user has permissions to see """
 
-        user = self.authorized_user
+        images = [i for i in Image.all() if i.is_authorized(self.user)]
 
-        images = []
-    
-        for fn in glob.glob("%s/*/info.json" % self.application.images_directory):
-            try:
-                info = anyjson.deserialize(open(fn).read())
-                if info['isPublic'] or info['imageOwnerId'] == user.id:
-                    images.append(info)
-            except:
-                pass
-    
-        self.finish(anyjson.serialize(images))
-
-    def decrypt_image(self, encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename):
-        user_priv_key = RSA.load_key(private_key_path)
-        key = user_priv_key.private_decrypt(unhexlify(encrypted_key), RSA.pkcs1_padding)
-        iv = user_priv_key.private_decrypt(unhexlify(encrypted_iv), RSA.pkcs1_padding)
-        k=EVP.Cipher(alg='aes_128_cbc', key=unhexlify(key), iv=unhexlify(iv), op=0)
-  
-        # decrypted_filename = encrypted_filename.replace('.enc', '')
-        decrypted_file = open(decrypted_filename, "wb")
-        encrypted_file = open(encrypted_filename, "rb")
-        self.crypt_file(k, encrypted_file, decrypted_file)
-        encrypted_file.close()
-        decrypted_file.close()
-        return decrypted_filename
-
-    def untarzip_image(self, path, filename):
-        untarred_filename = filename.replace('.tar.gz', '') 
-        tar_file = tarfile.open(filename, "r|gz")
-        tar_file.extractall(path)
-        untarred_names = tar_file.getnames()
-        tar_file.close()
-        return untarred_names 
+        self.finish(anyjson.serialize([i.json for i in images]))
 
     def put(self):
         """ create a new registered image """
-        # FIXME: the decrypt stuff is copy/pasted from euca2ools!
-        # FIXME: verify user has permission to register
         
-        user = self.authorized_user
-        
-        image_location = self.get_argument('image_location', u'')
-        image_owner_id = user.id
         image_id       = self.get_argument('image_id',       u'')
-        
-        tmpdir = tempfile.mkdtemp()
-        rawfile = tempfile.NamedTemporaryFile(delete=False)
-        encrypted_filename = rawfile.name
-        logging.debug(image_location)
-        # TODO(joshua): FUGLY, how do I get the bucket name safely?
-        bucketname = image_location.split("/")[0]
-        #  ImageLocation           val: ['mybucket/ubuntu-karmic-x86_64.img.manifest.xml']
-        tree = ElementTree.ElementTree()
-        top = tree.parse(os.path.join(self.application.directory, image_location))
-        encrypted_key = top.find("image/ec2_encrypted_key").text
-        encrypted_iv = top.find("image/ec2_encrypted_iv").text
+        image_location = self.get_argument('image_location', u'')
 
-        for a in top.find("image").getiterator("filename"):
-            filepath = os.path.join(self.application.directory, bucketname, a.text)
-            rawfile.write(open(filepath, "rb").read())
-        rawfile.close() 
-        # FIXME: grab kernelId and ramdiskId from bundle manifest
-        
-        # FIXME: multiprocess here!
-        private_key_path = os.path.join(FLAGS.ca_path, "private/cakey.pem")
-
-        path = os.path.join(self.application.images_directory, image_id)
-        if not path.startswith(self.application.images_directory) or \
-           os.path.exists(path):
-            raise web.HTTPError(403)
-        os.makedirs(path)
-
-        decrypted_filename = os.path.join(path, 'image.tar.gz')
-        self.decrypt_image(encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename)
-        filenames = self.untarzip_image(path, decrypted_filename)
-        shutil.move(os.path.join(path, filenames[0]), os.path.join(path, 'image'))
-        info = {
-            'imageId': image_id,
-            'imageLocation': image_location,
-            'imageOwnerId': image_owner_id,
-            'imageState': 'available',
-            'isPublic': False, # FIXME: grab from bundle manifest
-            'architecture': 'x86_64', # FIXME: grab from bundle manifest
-            'type' : 'machine',
-        }
-
-        object_file = open(os.path.join(path, 'info.json'), "w")
-        object_file.write(anyjson.serialize(info))
-        object_file.close()
-        
+        image = Image.create(image_id=image_id, 
+            image_location=image_location, user=self.user)
+                
         self.finish()
 
-    def crypt_file(self, cipher, in_file, out_file) :
-        while True:
-            buf=in_file.read(IMAGE_IO_CHUNK)
-            if not buf:
-               break
-            out_file.write(cipher.update(buf))
-        out_file.write(cipher.final())
-
-        
     def post(self):
         """ update image attributes """
         pass
@@ -482,24 +534,11 @@ class ImageHandler(BaseRequestHandler):
     def delete(self):
         """ delete a registered image """
         image_id = self.get_argument("image_id", u"")
-        
-        user = self.authorized_user
+        image = Image(image_id)
 
-        # FIXME: verify user.id can dergister image
-        
-        path = os.path.join(self.application.images_directory, image_id)
-        if not path.startswith(self.application.images_directory) or \
-           not os.path.exists(path):
+        if image.owner_id != self.user.id:
             raise web.HTTPError(403)
-        
-        for fn in ['info.json', 'image']:
-            try:
-                os.unlink(os.path.join(path, fn))
-            except:
-                pass
-        try:    
-            os.rmdir(path)
-        except:
-            pass
+
+        image.delete()
 
         self.set_status(204)
