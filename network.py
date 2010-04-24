@@ -19,7 +19,6 @@ import flags
 import anyjson
 import IPy
 from IPy import IP
-from twisted.internet import defer
 
 
 FLAGS = flags.FLAGS
@@ -127,9 +126,7 @@ class Vlan(Network):
 class DHCPNetwork(Vlan):
     
     def hostDHCP(self, host):
-        # idx = self.network.index(IP(host['address'])) - 2 # Logically, the idx of instances they've launched in this net
-        logging.debug("Host is %s" % (host))
-        idx = str(host['address']).split(".")[-1]
+        idx = self.network.index(IP(host['address'])) - 2 # Logically, the idx of instances they've launched in this net
         return "%s,%s.pinetlocal,%s" % \
             (host['mac'], "%s-%s-%s" % (host['user_id'], self.vlan, idx), host['address'])
     
@@ -143,7 +140,7 @@ class DHCPNetwork(Vlan):
     def start_dnsmasq(self):
         conf_file = "%s/pinet-%s.conf" % (FLAGS.networks_path, self.vlan)
         conf = open(conf_file, "w")
-        conf.write("\n".join(map(self.hostDHCP, self.hosts.values())))
+        conf.write("\n".join(map(self.hostDHCP, self.hosts)))
         conf.close()
         
         pid_file = "%s/pinet-%s.pid" % (FLAGS.networks_path, self.vlan)
@@ -182,31 +179,17 @@ class VirtNetwork(Vlan):
     
     def express(self):
         super(VirtNetwork, self).express()
-        xml = self.virtXML()
-        f = open(os.path.join(FLAGS.networks_path, self.name), 'w')
-        f.write(xml)
-        f.close()
-        
         if FLAGS.fake_network:
-            return       
+            return  
+        try:                    
+            logging.debug("Starting Bridge inteface for %s network" % (self.vlan))
+            runthis("Adding Bridge %s: %s" % (self.vlan) , "sudo brctl addbr %s" % (self.bridge_name))
+            runthis("Adding Bridge Interface %s: %s" % (self.vlan) , "sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
+            runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s %s broadcast %s netmask %s up" % (self.bridge_name, self.gateway, self.broadcast, self.netmask))
+        except:
+            pass
         
-        if not self.name in self._conn.listNetworks():
-            try:
-                self._conn.networkDefineXML(xml)
-                net = self._conn.networkLookupByName(self.name)
-                net.connect()
-                net.create()
-            except Exception, err:
-                logging.debug("libvirt threw %s" % str(err))
-                pass
-        
-    # Currently unused                    
-    # def hostXml(self, host):
-    #     idx = self.network.index(IP(host['address'])) - 2 # Logically, the idx of instances they've launched in this net
-    #     return "      <host mac=\"%s\" name=\"%s.pinetlocal\" ip=\"%s\" />" % \
-    #         (host['mac'], "%s-%s-%s" % (host['user_id'], self.vlan, idx),  host['address'])
-
-   
+    
 
 
 class PrivateNetwork(DHCPNetwork):
@@ -288,14 +271,14 @@ class NetworkController(GenericNode):
         self.netsize = kwargs.get('netsize', 64)
         self.private_pool = kwargs.get('private_pool', NetworkPool(netsize=self.netsize))
         self.private_nets = kwargs.get('private_nets', {})
-        if not KEEPER['vlans']:
-            KEEPER['vlans'] = {'start' : 1000, 'end' : 2000}
-        vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
-        self.vlan_pool = VlanPool.from_dict(vlan_dict)
         if not KEEPER['private']:
             KEEPER['private'] = {'networks' :[]}
         for net in KEEPER['private']['networks']:
                 self.get_users_network(net['user_id'])
+        if not KEEPER['vlans']:
+            KEEPER['vlans'] = {'start' : 1000, 'end' : 2000}
+        vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
+        self.vlan_pool = VlanPool.from_dict(vlan_dict)
         public_dict = kwargs.get('public', {'vlan': FLAGS.public_vlan })
         self.public_net = PublicNetwork.from_dict(public_dict, conn=self._conn)
 
@@ -362,7 +345,6 @@ class NetworkController(GenericNode):
         obj = {}
         obj['networks'] = []
         for user_id in self.private_nets.keys():
-            user_id = str(user_id)
             network = self.private_nets[user_id]
             vlan = self.vlan_pool.vlans[user_id]
             obj['networks'].append({'user_id': user_id, 
@@ -390,9 +372,8 @@ class NetworkNode(Node):
         self.virtNets = {}
         
     def add_network(self, net_dict):
-        net = VirtNetwork(conn=self._conn, ** net_dict)
-        self.virtNets[net.name] = net
-        self.virtNets[net.name].express()
+        self.virtNets[name] = VirtNetwork(conn=self._conn, ** net_dict)
+        self.virtNets[name].express()
         return defer.succeed({'retval': 'network added'})
         
     def express_all_networks(self):
