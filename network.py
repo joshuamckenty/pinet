@@ -19,6 +19,7 @@ import flags
 import anyjson
 import IPy
 from IPy import IP
+from twisted.internet import defer
 
 
 FLAGS = flags.FLAGS
@@ -183,8 +184,8 @@ class VirtNetwork(Vlan):
             return  
         try:                    
             logging.debug("Starting Bridge inteface for %s network" % (self.vlan))
-            runthis("Adding Bridge %s: %s" % (self.vlan) , "sudo brctl addbr %s" % (self.bridge_name))
-            runthis("Adding Bridge Interface %s: %s" % (self.vlan) , "sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
+            runthis("Adding Bridge %s: %%s" % (self.vlan) , "sudo brctl addbr %s" % (self.bridge_name))
+            runthis("Adding Bridge Interface %s: %%s" % (self.vlan) , "sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
             runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s %s broadcast %s netmask %s up" % (self.bridge_name, self.gateway, self.broadcast, self.netmask))
         except:
             pass
@@ -372,8 +373,9 @@ class NetworkNode(Node):
         self.virtNets = {}
         
     def add_network(self, net_dict):
-        self.virtNets[name] = VirtNetwork(conn=self._conn, ** net_dict)
-        self.virtNets[name].express()
+        net = VirtNetwork(conn=self._conn, ** net_dict)
+        self.virtNets[net.name] = net
+        self.virtNets[net.name].express()
         return defer.succeed({'retval': 'network added'})
         
     def express_all_networks(self):
