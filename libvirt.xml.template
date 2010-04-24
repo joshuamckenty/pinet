@@ -17,10 +17,14 @@
             <source file='%(basepath)s/disk'/>
             <target dev='vda' bus='virtio'/>
         </disk>
-        <interface type='network'>
+       <!--  <interface type='network'>
             <source network='%(network_name)s'/>
+            <model type='virtio'/> 
+        -->
+        <interface type='bridge'>
+            <source bridge='%(bridge_name)s'/>
             <mac address='%(mac_address)s'/>
-            <!-- <model type='virtio'/> -->
+            <model type='virtio'/>
         </interface>
         <serial type="file">
             <source path='%(basepath)s/console.log'/>

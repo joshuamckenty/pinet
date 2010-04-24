@@ -45,6 +45,7 @@ class Network(object):
         self.gateway = self.network[1]
         self.netmask = self.network.netmask()
         self.broadcast = self.network.broadcast()
+        self.bridge_name =  "br%s" % (self.vlan)
         try:
             os.makedirs(FLAGS.networks_path)
         except Exception, err:
@@ -168,7 +169,7 @@ class VirtNetwork(Vlan):
     def virtXML(self):
         libvirt_xml = open(FLAGS.net_libvirt_xml_template).read()
         xml_info = {'name' : self.name, 
-                    'bridge_name' : "br%s" % (self.vlan), 
+                    'bridge_name' : self.bridge_name, 
                     'device' : "vlan%s" % (self.vlan),
                     'gateway' : self.gateway,
                     'netmask' : self.netmask,
