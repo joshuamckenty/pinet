@@ -38,7 +38,7 @@ def conn(user):
         aws_secret_access_key=user.secret,
         is_secure=False,
         calling_format=boto.s3.connection.OrdinaryCallingFormat(),
-        port=3333,
+        port=FLAGS.s3_port,
         host=FLAGS.s3_host)
 
 def qs(params):
