@@ -105,7 +105,6 @@ class User(object):
         rc = open(FLAGS.credentials_template).read()
         rc = rc % { 'access': self.access,
                     'secret': self.secret,
-                    'id': self.id,
                     'ec2': FLAGS.ec2_url,
                     's3': FLAGS.s3_url,
                     'pinet': FLAGS.ca_file,
