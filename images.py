@@ -3,6 +3,9 @@ import boto.s3
 import random
 import anyjson
 import urllib
+import flags
+
+FLAGS = flags.FLAGS
 
 def register(user, image_location):
     image_id = 'ami-%06d' % random.randint(0,1000000)
@@ -36,7 +39,7 @@ def conn(user):
         is_secure=False,
         calling_format=boto.s3.connection.OrdinaryCallingFormat(),
         port=3333,
-        host='localhost')
+        host=FLAGS.s3_host)
 
 def qs(params):
     pairs = []
