@@ -21,6 +21,7 @@ from tests.cloud_unittest import *
 from tests.users_unittest import *
 from tests.storage_unittest import *
 from tests.network_unittest import *
+from tests.s3_unittest import *
 
 if __name__ == '__main__':
     unittest.main()

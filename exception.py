@@ -5,7 +5,7 @@ class Error(Exception):
     pass
 
 class ApiError(Error): 
-    def __init__(self, message, code='Unknown'):
+    def __init__(self, message='Unknown', code='Unknown'):
         self.message = message
         self.code = code
 

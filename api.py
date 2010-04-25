@@ -15,6 +15,7 @@ import cloud
 import exception
 import flags
 import utils
+import multiprocessing
 
 _log = logging.getLogger("api")
 _log.setLevel(logging.WARN)
@@ -41,7 +42,8 @@ def _underscore_to_xmlcase(str):
 
 
 class APIRequestContext(object):
-    def __init__(self, user):
+    def __init__(self, handler, user):
+        self.handler = handler
         self.user = user
         self.request_id = ''.join(
                 [random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-')
@@ -50,12 +52,13 @@ class APIRequestContext(object):
 
 
 class APIRequest(object):
-    def __init__(self, controller, action):
+    def __init__(self, handler, controller, action):
+        self.handler = handler
         self.controller = controller
         self.action = action
         
     def send(self, user, **kwargs):
-        context = APIRequestContext(user)
+        context = APIRequestContext(self.handler, user)
     
         try:
             method = getattr(self.controller,
@@ -240,7 +243,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
         for key, value in args.items():
             _log.debug('arg: %s\t\tval: %s' % (key, value))
 
-        request = APIRequest(controller, action)
+        request = APIRequest(self, controller, action)
         d = request.send(user, **args)
         # d.addCallback(utils.debug)
 
@@ -282,6 +285,6 @@ class APIServerApplication(tornado.web.Application):
             (r'/services/([A-Za-z0-9]+)/', APIRequestHandler),
             (r'/latest/([-A-Za-z0-9/]*)', MetadataRequestHandler),
             (r'/2008-02-01/([-A-Za-z0-9/]*)', MetadataRequestHandler),
-        ])
+        ], pool=multiprocessing.Pool(4), queue=multiprocessing.Queue())
         self.user_manager = user_manager
         self.controllers = controllers
