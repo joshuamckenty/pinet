@@ -80,6 +80,9 @@ class Bucket(object):
         
         self.ctime = os.path.getctime(self.path)
 
+    def __repr__(self):
+        return "<Bucket: %s>" % self.name
+
     @staticmethod
     def all():
         """ list of all buckets """
@@ -129,7 +132,7 @@ class Bucket(object):
         except:
             pass
     
-    def list_keys(self, prefix=None, marker=None, max_keys=1000, terse=False):
+    def list_keys(self, prefix='', marker=None, max_keys=1000, terse=False):
         object_names = []
         for root, dirs, files in os.walk(self.path):
             for file_name in files:
@@ -201,10 +204,14 @@ class Bucket(object):
 class Object(object):
     def __init__(self, bucket, key):
         """ wrapper class of an existing key """
+        self.bucket = bucket
+        self.key = key
         self.path = bucket._object_path(key)
         if not os.path.isfile(self.path):
             raise web.HTTPError(404)
-        
+
+    def __repr__(self):
+        return "<Object %s/%s>" % (self.bucket, self.key)
 
     @property
     def md5(self):
