@@ -37,11 +37,12 @@ class S3TestCase(test.BaseTestCase):
         logging.getLogger().setLevel(logging.DEBUG)
 
         self.um = users.UserManager()
+
+    def test_buckets(self):
         self.um.create_user('user1')
         self.um.create_user('user2')
         self.um.create_user('admin_user', admin=True)
-
-    def test_buckets(self):
+        
         s3server.Bucket.create('new_bucket', self.um.get_user('user1'))
         bucket = s3server.Bucket('new_bucket')
         
@@ -90,6 +91,18 @@ class S3TestCase(test.BaseTestCase):
             exception = True
         
         self.assert_(exception)
+        
+    def test_images(self):
+        # TODO: generate a random image
+        # TODO: bundling using euca-bundle-image
+        # TODO: upload to bucket
+        # TODO: register
+        # TODO: verify that md5 and size are same
+        # TODO: verify that only user can see it        
+        pass
+    
+    def test_http_api(self):
+        pass
         
     # fixme - test boto API of buckets/keys
         
