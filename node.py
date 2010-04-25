@@ -41,7 +41,7 @@ flags.DEFINE_bool('fake_libvirt', False,
                   'whether to use a fake libvirt or not')
 flags.DEFINE_string('instances_path', utils.abspath('../instances'),
                     'where instances are stored on disk')
-flags.DEFINE_string('bridge_dev', 'eth0',
+flags.DEFINE_string('bridge_dev', 'eth2',
                     'network device for bridges')
 flags.DEFINE_string('libvirt_xml_template',
                     utils.abspath('libvirt.xml.template'),
