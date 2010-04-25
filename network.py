@@ -36,11 +36,11 @@ logging.getLogger().setLevel(logging.DEBUG)
 
 
 class Network(object):
-    def __init__(self, conn=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         self._s = {}
         self.network_str = kwargs.get('network', "192.168.100.0/24")
         self.network = IP(self.network_str)
-        self._conn = conn
+        self._conn = kwargs.get('conn', None)
         self.vlan = kwargs.get('vlan', 100)
         self.name = "pinet-%s" % (self.vlan)
         self.gateway = self.network[1]
@@ -53,7 +53,6 @@ class Network(object):
         except Exception, err:
             pass
         self.hosts = kwargs.get('hosts', {})
-        self.express()
     
     def to_dict(self):
         obj = {}
@@ -114,6 +113,8 @@ class Network(object):
 
 
 class Vlan(Network):
+    def __init__(self, *args, **kwargs):
+        super(Vlan, self).__init__(*args, **kwargs)
     
     def express(self):
         super(Vlan, self).express()
@@ -127,6 +128,8 @@ class Vlan(Network):
 
  
 class VirtNetwork(Vlan):
+    def __init__(self, *args, **kwargs):
+        super(VirtNetwork, self).__init__(*args, **kwargs)
     
     def virtXML(self):
         libvirt_xml = open(FLAGS.net_libvirt_xml_template).read()
@@ -157,6 +160,7 @@ class VirtNetwork(Vlan):
 class DHCPNetwork(VirtNetwork):
     def __init__(self, *args, **kwargs):
         super(DHCPNetwork, self).__init__(*args, **kwargs)
+        logging.debug("Initing DHCPNetwork object...")
         self.bridge_gets_ip = True
     
     def hostDHCP(self, host):
@@ -201,10 +205,12 @@ class DHCPNetwork(VirtNetwork):
 class PrivateNetwork(DHCPNetwork):
     def __init__(self, conn=None, **kwargs):
         super(PrivateNetwork, self).__init__(conn=conn, **kwargs)
+        self.express()
         
 class PublicNetwork(Network):
     def __init__(self, conn=None, network="192.168.216.0/24", **kwargs):
         super(PublicNetwork, self).__init__(network=network, conn=conn, **kwargs)
+        self.express()
     
     def express(self):
         logging.debug("Todo - need to create IPTables natting entries for this net.")
@@ -282,7 +288,7 @@ class NetworkController(GenericNode):
         for net in KEEPER['private']['networks']:
                 self.get_users_network(net['user_id'])
         if not KEEPER['vlans']:
-            KEEPER['vlans'] = {'start' : 1000, 'end' : 2000}
+            KEEPER['vlans'] = {'start' : 3200, 'end' : 3299}
         vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
         self.vlan_pool = VlanPool.from_dict(vlan_dict)
         public_dict = kwargs.get('public', {'vlan': FLAGS.public_vlan })
