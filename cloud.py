@@ -40,8 +40,8 @@ _STATE_NAMES = {
 }
 
 def _gen_key(user_id, key_name):
-    manager = users.UserManager()
     try:
+        manager = users.UserManager()
         private_key, fingerprint = manager.generate_key_pair(user_id, key_name)
     except Exception as ex:
         return {'exception': ex}
@@ -150,7 +150,7 @@ class CloudController(object):
                     'keyFingerprint': kwargs['fingerprint'],
                     'keyMaterial': kwargs['private_key']})
             p.apply_async(_gen_key, [context.user.id, key_name],
-                callback=context.handler.async_callback(_complete))
+                callback=_complete)
             return d
 
         except users.UserError, e:
