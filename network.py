@@ -55,11 +55,9 @@ class Network(object):
         self.hosts = kwargs.get('hosts', {})
     
     def to_dict(self):
-        obj = {}
-        obj['vlan'] = self.vlan
-        obj['network'] = self.network_str
-        obj['hosts'] = self.hosts
-        return obj
+        return {'vlan': self.vlan,
+                'network': self.network_str,
+                'hosts': self.hosts}
         
     def __str__(self):
         return anyjson.serialize(self.to_dict())
@@ -240,11 +238,9 @@ class VlanPool(object):
         self.vlans = kwargs.get('vlans', {})
     
     def to_dict(self):
-        obj = {}
-        obj['vlans'] = self.vlans
-        obj['start'] = self.next_vlan
-        obj['end'] = self.end
-        return obj
+        return {'vlans': self.vlans,
+                'start': self.next_vlan,
+                'end':   self.end}
         
     def __str__(self):
         return anyjson.serialize(self.to_dict())
