@@ -88,6 +88,7 @@ Instances
 	INFO:root:Done create image for: i-286573
 	DEBUG:root:Arrived in _launch, thanks to callback on deferred. <- only happens first time
     [ ] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
+    [ ] describe-instances doesn't show public ips
 
 S3 / Images
 -----------
