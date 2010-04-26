@@ -29,8 +29,9 @@ flags.DEFINE_string('net_libvirt_xml_template',
                     'Template file for libvirt networks')
 flags.DEFINE_string('networks_path', utils.abspath('../networks'),
                     'Location to keep network config files')
-flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
-flags.DEFINE_string('public_interface', 'eth0', 'Interface for public IP addresses')
+flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses') # FAKE!!! 
+flags.DEFINE_string('public_interface', 'vlan124', 'Interface for public IP addresses')
+flags.DEFINE_string('public_range', '198.10.126.128-198.10.126.191', 'Public IP address block')
 KEEPER = datastore.keeper(prefix="net")
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -262,7 +263,7 @@ class PublicNetwork(Network):
             # TODO: Get these from the secgroup datastore entries
             for (protocol, port) in [("tcp",80), ("tcp",22), ("tcp",1194), ("tcp",443)]:
                 runthis("FORWARD ACCEPT rule: %s", "sudo iptables -I FORWARD -d %s -p %s --dport %s -j ACCEPT" % (private_ip, protocol, port))
-            runthis("FORWARD ACCEPT rule: %s", "sudo iptables -I FORWARD -d %s -p icmp -j ACCEPT" % (private_ip, protocol, port))
+            runthis("FORWARD ACCEPT rule: %s", "sudo iptables -I FORWARD -d %s -p icmp -j ACCEPT" % (private_ip))
 
 
 class NetworkPool(object):
@@ -339,13 +340,14 @@ class NetworkController(GenericNode):
         vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
         self.vlan_pool = VlanPool.from_dict(vlan_dict)
         if not KEEPER['public']:
-            KEEPER['public'] = kwargs.get('public', {'vlan': FLAGS.public_vlan })
+            KEEPER['public'] = kwargs.get('public', {'vlan': FLAGS.public_vlan, 'network' : FLAGS.public_range })
         self.public_net = PublicNetwork.from_dict(KEEPER['public'], conn=self._conn)
 
     def reset(self):
-        KEEPER['public'] = {'vlan': FLAGS.public_vlan }
+        KEEPER['public'] = {'vlan': FLAGS.public_vlan, 'network': FLAGS.public_range }
         KEEPER['private'] = {}
         KEEPER['vlans'] = {}
+        # TODO : Get rid of old interfaces, bridges, and IPTables rules.
 
     def get_network_from_name(self, network_name):
         net_dict = KEEPER[network_name]
