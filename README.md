@@ -117,7 +117,7 @@ Cleanup
     [ ] Logging clean-up: system should (default?) to using syslog
     [ ] verify user is allowed to execute commands - for each API method!
     [ ] when instances are terminated, IP addresses are reclaimed
-
+    [ ] node/node_worker is bad name for instances node as storage is a node too
 
 Nasa Deploy
 -----------
