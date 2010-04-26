@@ -83,6 +83,10 @@ Instances
     [ ] NAT to public internet works from instances
     [ ] access to other users instances only works on "default" protocols
     [ ] BUG: running -n N+1 instances when you have N results in only N instances launched
+        - seems to be an issue with multiprocess.Process
+	the _launch call doesn't occur when two Processes are running at the same time
+	INFO:root:Done create image for: i-286573
+	DEBUG:root:Arrived in _launch, thanks to callback on deferred. <- only happens first time
     [ ] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
 
 S3 / Images
@@ -104,10 +108,7 @@ Volumes
 Cleanup
 -------
 
-    [ ] s3server's register decryption should be done in bkg:
-        - write out the info.json with available set to False
-        - return success to user (perhaps after verifying the key?)
-        - then in background process do the hard work of decrypting
+    [x] s3server's register decryption should be done in bkg:
     [ ] build debs - perhaps use git-buildpackage?
     [ ] remove eucalyptus specific terminology in favor of amazon (emi -> ami, ?)
     [ ] documentation/SOPs for backup, updating, ?
