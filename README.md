@@ -62,28 +62,29 @@ Instances
 ---------
 
     [x] euca-run-instances requests nodes to spawn instances
-    [ ] can only run instances that user owns or is public
+    [ ] can only launch images that user owns or is public
     [x] keypair is added when running instance
     [ ] nodes have a quota on # of instances
     [ ] can allocate and attach public IPs
     [ ] network state persists
     [x] each user gets a subnet and vlan for their instances
-    [ ] node downloads proper image from S3 (veyarify image via content-md5)
-    [ ] instances can access their user-data, meta-data
+    [x] node downloads proper image from S3 (verify image via content-md5)
+    [x] instances can access their user-data, meta-data
     [ ] hard code all instances for a user into 1 security group: deny except 22, 80, 443, and 1194
+    [ ] BUG: instance data from multiple nodes overwrite each other
     [x] euca-get-console-output works
     [x] euca-terminate-instances works
     [X] euca-run-instances uses userdata, instance size, image, keypair, ... (all api params)
     [X] euca-describe-instances works
     [x] euca-describe-instances only returns instances I have permissions to
     [x] can launch from many different images
-    [ ] ignore kernel/ramdisk from user, hardcode for now
-    [ ] can launch different sizes
+    [x] ignore kernel/ramdisk from user, hardcode for now
+    [x] can launch different sizes
 
 S3 / Images
 -----------
 
-    [ ] euca-upload-bundle: buckets have owners and are private (only accessible by owner and admin)
+    [x] euca-upload-bundle: buckets have owners and are private (only accessible by owner and admin)
     [x] euca-register: registration works and decrypts image with cloud's cert
     [x] euca-describe-images: returns only images that user has access to (public or theirs)
     [x] images are owned by user, and private by default
@@ -99,6 +100,10 @@ Volumes
 Cleanup
 -------
 
+    [ ] s3server's register decryption should be done in bkg:
+        - write out the info.json with available set to False
+        - return success to user (perhaps after verifying the key?)
+        - then in background process do the hard work of decrypting
     [ ] build debs - perhaps use git-buildpackage?
     [ ] remove eucalyptus specific terminology in favor of amazon (emi -> ami, ?)
     [ ] documentation/SOPs for backup, updating, ?
@@ -117,6 +122,7 @@ Nasa Deploy
     [ ] Port existing users, images from euca
     [ ] Port cloudpipe and dashboard, install them
     [ ] Remove secgroups from dashboard UI
+    [ ] Configure instance sizes
 
 
 Optimizations
@@ -125,6 +131,7 @@ Optimizations
     [ ] dd warns blocksize of 512 is slow in partition2disk.convert
     [ ] tiny (5x overcommitted CPU) shouldn't be on same nodes as regular sizes
     [ ] lvm instead of file based disk images?
+    [ ] decrypt in python is slow!
 
 
 Future
