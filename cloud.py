@@ -304,13 +304,14 @@ class CloudController(object):
     def allocate_address(self, context, **kwargs):
         # TODO: Verify user is valid?
         kwargs['owner_id'] = context.user.id
-        return self.network.allocate_address(context.user.id, type=network.PublicNetwork)
+        (address,network_name) = self.network.allocate_address(context.user.id, type=network.PublicNetwork)
+        return defer.succeed({'addressSet': [{'publicIp' : address}]})
         
-    def associate_address(self, context, instance_id, ip, **kwargs):
+    def associate_address(self, context, instance_id, **kwargs):
         instance = self._get_instance(instance_id)
-        rv = self.network.associate_address(ip, instance['private_dns_name'])
-        instance['public_dns_name'] = ip
-        return rv
+        rv = self.network.associate_address(kwargs['public_ip'], instance['private_dns_name'])
+        instance['public_dns_name'] = kwargs['public_ip']
+        return defer.succeed({'associateResponse': ["Address associated."]})
         
     def disassociate_address(self, context, ip, **kwargs):
         rv = self.network.disassociate_address(ip)

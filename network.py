@@ -234,7 +234,7 @@ class PublicNetwork(Network):
     def associate_address(self, public_ip, private_ip):
         if not self.hosts.has_key(public_ip):
             raise Exception # Not allocated
-        if self.hosts[public_ip].has_key['private_ip']:
+        if self.hosts[public_ip].has_key('private_ip'):
             raise Exception # Already associated
         self.hosts[public_ip]['private_ip'] = private_ip
         self.express()
@@ -242,7 +242,7 @@ class PublicNetwork(Network):
     def disassociate_address(self, public_ip):
         if not self.hosts.has_key(public_ip):
             raise Exception # Not allocated
-        if not self.hosts[public_ip].has_key['private_ip']:
+        if not self.hosts[public_ip].has_key('private_ip'):
             raise Exception # Not associated
         del self.hosts[public_ip]['private_ip']
         # TODO Express the removal
@@ -250,7 +250,7 @@ class PublicNetwork(Network):
     def express(self):
         logging.debug("Todo - need to create IPTables natting entries for this net.")
         for address in self.hosts.values():
-            if not address.has_key['private_ip']:
+            if not address.has_key('private_ip'):
                 continue
             public_ip = address['address']
             private_ip = address['private_ip']
