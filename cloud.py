@@ -377,18 +377,23 @@ class CloudController(object):
 
     def update_state(self, topic, value):
         """ accepts status reports from the queue and consolidates them """
-        logging.debug("Updating %s state for %s" % (topic, value.keys()[0]))
+        node_name = value.keys()[0]
+        items = value[node_name]
+        logging.debug("Updating %s state for %s" % (topic, node_name))
         # TODO(termie): do something smart here to aggregate this data
         # TODO(jmc): This is fugly
         # TODO(jmc): if an instance has disappeared from the node, call instance_death
+        # TODO(jesse): I'm 99.9% certain that the node topic isn't used
         if "node" == topic:
             getattr(self, topic)[value.keys()[0]] = value.values()[0]
         else:
-            # TODO(vish): refactor this
+            # TODO(jesse): we should probably use the following pattern for all update_states?
             if "instances" == topic:
-                for instance_id in value.values()[0].keys():
+                for instance_id in items.keys():
                     if (self.instances.has_key('pending') and
                         self.instances['pending'].has_key(instance_id)):
                         del self.instances['pending'][instance_id]
-            setattr(self, topic, value)
+                self.instances[node_name] = items
+            else:
+                setattr(self, topic, value)
         return defer.succeed(True)
