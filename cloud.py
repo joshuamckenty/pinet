@@ -295,6 +295,8 @@ class CloudController(object):
                     }
                     i['public_dns_name'] = self.network.get_public_ip_for_instance(i['instance_id'])
                     i['private_dns_name'] = instance.get('private_dns_name', None)
+                    if not i['public_dns_name']:
+                        i['public_dns_name'] = i['private_dns_name']
                     i['dns_name'] = instance.get('dns_name', None)
                     i['key_name'] = instance.get('key_name', None)
                     i['product_codes_set'] = self._convert_to_set(
