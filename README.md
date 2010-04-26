@@ -83,6 +83,7 @@ Instances
     [ ] NAT to public internet works from instances
     [ ] access to other users instances only works on "default" protocols
     [ ] BUG: running -n N+1 instances when you have N results in only N instances launched
+    [ ] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
 
 S3 / Images
 -----------
