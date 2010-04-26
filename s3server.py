@@ -38,33 +38,27 @@ import tarfile
 import tempfile
 import shutil
 from tornado import escape
-import hashlib
-from tornado import httpserver
 import os
-import os.path
 import urllib
-from hashlib import sha1 as sha
-from M2Crypto import BN, EVP, RSA, util, Rand, m2, X509
-from binascii import hexlify, unhexlify
+from M2Crypto import EVP, RSA
+from binascii import unhexlify
 
 from tornado import web
 import crypto
 import glob
-import stat
 import anyjson
-import xml.etree
 from xml.etree import ElementTree
 import logging
 import flags
 import utils
+import multiprocessing
 
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('buckets_path', utils.abspath('../buckets'), 'path to s3 buckets')
 flags.DEFINE_string('images_path', utils.abspath('../images'), 'path to decrypted images')
 
-logging.getLogger().setLevel(logging.DEBUG)
-logging.getLogger("tornado.web").setLevel(logging.DEBUG)
+logging.getLogger("s3").setLevel(logging.DEBUG)
 
 # Got these from Euca2ools, will need to revisit them
 IMAGE_IO_CHUNK = 10 * 1024
@@ -260,7 +254,7 @@ class Image(object):
             
     def is_authorized(self, user):
         try:
-            return self.json['isPublic'] or info['imageOwnerId'] == user.id
+            return self.json['isPublic'] or self.json['imageOwnerId'] == user.id
         except:
             pass
 
@@ -282,15 +276,26 @@ class Image(object):
     
     @staticmethod
     def create(image_id, image_location, user):
-        # FIXME: multiprocess here!
+        image_path = os.path.join(FLAGS.images_path, image_id)
+        os.makedirs(image_path)
 
         bucket_name = image_location.split("/")[0]
         manifest_path = image_location[len(bucket_name)+1:]
         bucket = Bucket(bucket_name)
-        
-        if not bucket.is_authorized(user):
-            raise web.HTTPError(403)
-        
+
+        info = {
+            'imageId': image_id,
+            'imageLocation': image_location,
+            'imageOwnerId': user.id,
+            'imageState': 'pending',
+            'isPublic': False, # FIXME: grab from bundle manifest
+            'architecture': 'x86_64', # FIXME: grab from bundle manifest
+            'type' : 'machine',
+        }
+
+        with open(os.path.join(image_path, 'info.json'), "w") as f:
+            f.write(anyjson.serialize(info))
+
         tmpdir = tempfile.mkdtemp()
         rawfile = tempfile.NamedTemporaryFile(delete=False)
         encrypted_filename = rawfile.name
@@ -305,32 +310,24 @@ class Image(object):
         
         rawfile.close() 
         
+        info['imageState'] = 'decrypting'
+        with open(os.path.join(image_path, 'info.json'), "w") as f:
+            f.write(anyjson.serialize(info))
+        
         private_key_path = os.path.join(FLAGS.ca_path, "private/cakey.pem")
-
-        image_path = os.path.join(FLAGS.images_path, image_id)
-        if not image_path.startswith(FLAGS.images_path) or \
-           os.path.exists(image_path):
-            raise web.HTTPError(403)
-        os.makedirs(image_path)
-
         decrypted_filename = os.path.join(image_path, 'image.tar.gz')
         Image.decrypt_image(encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename)
-        filenames = Image.untarzip_image(image_path, decrypted_filename)
-        shutil.move(os.path.join(path, filenames[0]), os.path.join(image_path, 'image'))
-        
-        info = {
-            'imageId': image_id,
-            'imageLocation': image_location,
-            'imageOwnerId': user.id,
-            'imageState': 'available',
-            'isPublic': False, # FIXME: grab from bundle manifest
-            'architecture': 'x86_64', # FIXME: grab from bundle manifest
-            'type' : 'machine',
-        }
 
-        object_file = open(os.path.join(image_path, 'info.json'), "w")
-        object_file.write(anyjson.serialize(info))
-        object_file.close()
+        info['imageState'] = 'untarring'
+        with open(os.path.join(image_path, 'info.json'), "w") as f:
+            f.write(anyjson.serialize(info))
+
+        filenames = Image.untarzip_image(image_path, decrypted_filename)
+        shutil.move(os.path.join(image_path, filenames[0]), os.path.join(image_path, 'image'))
+        
+        info['imageState'] = 'available'
+        with open(os.path.join(image_path, 'info.json'), "w") as f:
+            f.write(anyjson.serialize(info))
             
     @staticmethod
     def decrypt_image(encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename):
@@ -529,9 +526,20 @@ class ImageHandler(BaseRequestHandler):
         image_id       = self.get_argument('image_id',       u'')
         image_location = self.get_argument('image_location', u'')
 
-        image = Image.create(image_id=image_id, 
-            image_location=image_location, user=self.user)
-                
+        image_path = os.path.join(FLAGS.images_path, image_id)
+        if not image_path.startswith(FLAGS.images_path) or \
+           os.path.exists(image_path):
+            raise web.HTTPError(403)
+        
+        
+        bucket = Bucket(image_location.split("/")[0])
+        
+        if not bucket.is_authorized(self.user):
+            raise web.HTTPError(403)
+
+        p = multiprocessing.Process(target=Image.create,args=
+            (image_id, image_location, self.user))
+        p.start()        
         self.finish()
 
     def post(self):
