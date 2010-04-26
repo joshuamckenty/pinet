@@ -100,21 +100,35 @@ class CloudController(object):
             'meta-data': {
                 'ami-id': i['image_id'],
                 'ami-launch-index': i['ami_launch_index'],
-                'ami-manifest-path': 'FIXME',
-                'block-device-mapping': 'FIXME',
-                'hostname': 'FIXME',
+                'ami-manifest-path': 'FIXME', # image property
+                'block-device-mapping': { # TODO: replace with real data
+                    'ami': 'sda1',
+                    'ephemeral0': 'sda2',
+                    'root': '/dev/sda1',
+                    'swap': 'sda3' 
+                },
+                'hostname': i['private_dns_name'], # is this public sometimes?
+                'instance-action': 'none',
                 'instance-id': i['instance_id'],
                 'instance-type': i['instance_type'],
-                'local-hostname': 'FIXME',
-                'local-ipv4': 'FIXME',
-                'placement': i['availability_zone'],
-                'public-hostname': 'FIXME',
-                'public-ipv4': 'FIXME',
+                'local-hostname': i['private_dns_name'],
+                'local-ipv4': i['private_dns_name'], # TODO: switch to IP
+                'kernel-id': i['kernel_id'],
+                'placement': {
+                    'availaibility-zone': i['availability_zone'],
+                },
+                'public-hostname': i['dns_name'],
+                'public-ipv4': i['dns_name'], # TODO: switch to IP
                 'public-keys' : keys,
+                'ramdisk-id': i['ramdisk_id'],
                 'reservation-id': i['reservation_id'],
-                'security-groups': 'FIXME'
+                'security-groups': i['groups']
             }
         }
+        if False: # TODO: store ancestor ids
+            data['ancestor-ami-ids'] = []
+        if i['product_codes']:
+            data['product-codes'] = i['product_codes']
         return data
         
 
