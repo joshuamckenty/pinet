@@ -455,6 +455,7 @@ class Instance(object):
             # TODO(termie): this should actually register a callback to check
             #               for successful boot
             self._s['state'] = Instance.RUNNING
+            logging.debug("Instance is running")
             d.callback(True)
 
         self._pool.apply_async(_create_image,

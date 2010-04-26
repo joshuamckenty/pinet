@@ -6,7 +6,7 @@ import sys
 
 import contrib
 from carrot import connection
-from carrot import messaging 
+from carrot import messaging
 from tornado import ioloop
 
 import calllib
@@ -28,8 +28,15 @@ def main(argv):
     d.addCallback(lambda x: logging.info('Adopted %d instances', x))
 
     conn = calllib.Connection.instance()
-    consumer = calllib.AdapterConsumer(
-            connection=conn, topic=FLAGS.node_topic, proxy=n)
+    consumer_all = calllib.AdapterConsumer(
+            connection=conn,
+            topic='%s' % FLAGS.node_topic,
+            proxy=n)
+    
+    consumer_node = calllib.AdapterConsumer(
+            connection=conn,
+            topic='%s.%s' % (FLAGS.node_topic, FLAGS.node_name),
+            proxy=n)
 
     io_inst = ioloop.IOLoop.instance()
     scheduler = ioloop.PeriodicCallback(
@@ -37,7 +44,8 @@ def main(argv):
             FLAGS.node_report_state_interval * 1000,
             io_loop=io_inst)
 
-    injected = consumer.attachToTornado(io_inst)
+    injected = consumer_all.attachToTornado(io_inst)
+    injected = consumer_node.attachToTornado(io_inst)
     scheduler.start()
     io_inst.start()
 
