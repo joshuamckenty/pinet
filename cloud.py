@@ -393,7 +393,7 @@ class CloudController(object):
         for i in instance_id:
             node, instance = self._get_instance(i)
             if node == 'pending':
-                return exception.ApiError('Cannot terminate pending instance')
+                raise exception.ApiError('Cannot terminate pending instance')
             logging.debug('%s.%s' % (FLAGS.node_topic, node))
             if context.user.is_authorized(instance.get('owner_id', None)):
                 calllib.cast('%s.%s' % (FLAGS.node_topic, node),

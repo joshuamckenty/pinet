@@ -153,9 +153,9 @@ class Node(GenericNode):
         # TODO(vish) check to make sure the availability zone matches
         new_inst = Instance(self._conn, name=instance_id, pool=self._pool, **kwargs)
         self._instances[instance_id] = new_inst
-        d = new_inst.spawn()
-        d.addCallback(lambda x: new_inst)
-        return d
+        new_inst.spawn()
+        
+        return defer.succeed(True)
     
     @exception.wrap_exception
     def terminate_instance(self, instance_id):
@@ -217,7 +217,7 @@ class ProductCode(object):
 
 
 def _create_image(data, libvirt_xml):
-    """ create libvirt.xml and copy files into instance path """          
+    """ create libvirt.xml and copy files into instance path """
     def basepath(path=''):
         return os.path.abspath(os.path.join(data['basepath'], path))
 
@@ -444,24 +444,20 @@ class Instance(object):
                     'instance: %s (state: %s)' % (self.name, self.state))
 
         xml = self.toXml()
-        d = defer.Deferred()
-
         def _launch(kwargs):
             logging.debug("Arrived in _launch")
             if kwargs and 'exception' in kwargs:
-                d.errback(kwargs['exception'])
-                return
+                raise kwargs['exception']
             self._conn.createXML(self.toXml(), 0)
             # TODO(termie): this should actually register a callback to check
             #               for successful boot
             self._s['state'] = Instance.RUNNING
             logging.debug("Instance is running")
-            d.callback(True)
+            return
 
         self._pool.apply_async(_create_image,
             [self._s, xml],
             callback=_launch)
-        return d
     
     @exception.wrap_exception
     def console_output(self):
