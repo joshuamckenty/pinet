@@ -334,7 +334,7 @@ class NetworkController(GenericNode):
         if not KEEPER['private']:
             KEEPER['private'] = {'networks' :[]}
         for net in KEEPER['private']['networks']:
-                self.get_users_network(net['user_id'])
+            self.get_users_network(net['user_id'])
         if not KEEPER['vlans']:
             KEEPER['vlans'] = {'start' : 3200, 'end' : 3299}
         vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
@@ -355,7 +355,13 @@ class NetworkController(GenericNode):
             network_str = self.private_pool.next() # TODO, block allocations
             return PrivateNetwork.from_dict(net_dict)
         return None
-    
+        
+    def get_public_ip_for_instance(self, instance_id):
+        # FIXME: this should be a lookup - iteration won't scale
+        for address_record in self.describe_addresses(type=PublicNetwork):
+            if address_record.get(u'instance_id', 'free') == instance_id:
+                return address_record[u'address']
+
     def get_users_network(self, user_id):
         if not self.private_nets.has_key(user_id):
             self.private_nets[user_id] = self.get_network_from_name("%s-default" % user_id)
