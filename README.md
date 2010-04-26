@@ -121,6 +121,7 @@ Cleanup
     [ ] when instances are terminated, IP addresses are reclaimed
     [ ] node/node_worker is bad name for instances node as storage is a node too
     [ ] describe instances should be returned ordered by ami_launch_index
+    [ ] multiprocess the cloud for x509 generation
 
 Nasa Deploy
 -----------

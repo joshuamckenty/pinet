@@ -315,6 +315,17 @@ class CloudController(object):
         instance_response = {'reservationSet' : list(reservations.values()) }
         return instance_response
 
+    def describe_addresses(self, context, **kwargs):
+        return self.format_addresses()
+        
+    def format_addresses(self):
+        addresses = []
+        for address_record in self.network.describe_addresses(type=network.PublicNetwork):
+            logging.debug(address_record)
+            addresses.append({'public_ip': address_record[u'address'], 'instance_id' : address_record.get(u'instance_id', 'free')})
+        logging.debug(addresses)
+        return {'addressesSet': addresses}
+            
     def allocate_address(self, context, **kwargs):
         # TODO: Verify user is valid?
         kwargs['owner_id'] = context.user.id
@@ -323,7 +334,7 @@ class CloudController(object):
         
     def associate_address(self, context, instance_id, **kwargs):
         instance = self._get_instance(instance_id)
-        rv = self.network.associate_address(kwargs['public_ip'], instance['private_dns_name'])
+        rv = self.network.associate_address(kwargs['public_ip'], instance['private_dns_name'], instance_id)
         instance['public_dns_name'] = kwargs['public_ip']
         return defer.succeed({'associateResponse': ["Address associated."]})
         

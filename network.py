@@ -29,8 +29,9 @@ flags.DEFINE_string('net_libvirt_xml_template',
                     'Template file for libvirt networks')
 flags.DEFINE_string('networks_path', utils.abspath('../networks'),
                     'Location to keep network config files')
-flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
-flags.DEFINE_string('public_interface', 'eth0', 'Interface for public IP addresses')
+flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses') # FAKE!!! 
+flags.DEFINE_string('public_interface', 'vlan124', 'Interface for public IP addresses')
+flags.DEFINE_string('public_range', '198.10.126.128-198.10.126.191', 'Public IP address block')
 KEEPER = datastore.keeper(prefix="net")
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -231,12 +232,13 @@ class PublicNetwork(Network):
         # TODO(joshua) SCRUB from the leases file somehow
         self.express()
 
-    def associate_address(self, public_ip, private_ip):
+    def associate_address(self, public_ip, private_ip, instance_id):
         if not self.hosts.has_key(public_ip):
             raise Exception # Not allocated
         if self.hosts[public_ip].has_key('private_ip'):
             raise Exception # Already associated
         self.hosts[public_ip]['private_ip'] = private_ip
+        self.hosts[public_ip]['instance_id'] = instance_id
         self.express()
 
     def disassociate_address(self, public_ip):
@@ -245,6 +247,7 @@ class PublicNetwork(Network):
         if not self.hosts[public_ip].has_key('private_ip'):
             raise Exception # Not associated
         del self.hosts[public_ip]['private_ip']
+        del self.hosts[public_ip]['instance_id']
         # TODO Express the removal
     
     def express(self):
@@ -260,6 +263,7 @@ class PublicNetwork(Network):
             # TODO: Get these from the secgroup datastore entries
             for (protocol, port) in [("tcp",80), ("tcp",22), ("tcp",1194), ("tcp",443)]:
                 runthis("FORWARD ACCEPT rule: %s", "sudo iptables -I FORWARD -d %s -p %s --dport %s -j ACCEPT" % (private_ip, protocol, port))
+            runthis("FORWARD ACCEPT rule: %s", "sudo iptables -I FORWARD -d %s -p icmp -j ACCEPT" % (private_ip))
 
 
 class NetworkPool(object):
@@ -335,13 +339,15 @@ class NetworkController(GenericNode):
             KEEPER['vlans'] = {'start' : 3200, 'end' : 3299}
         vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
         self.vlan_pool = VlanPool.from_dict(vlan_dict)
-        public_dict = kwargs.get('public', {'vlan': FLAGS.public_vlan })
-        self.public_net = PublicNetwork.from_dict(public_dict, conn=self._conn)
+        if not KEEPER['public']:
+            KEEPER['public'] = kwargs.get('public', {'vlan': FLAGS.public_vlan, 'network' : FLAGS.public_range })
+        self.public_net = PublicNetwork.from_dict(KEEPER['public'], conn=self._conn)
 
     def reset(self):
-        KEEPER['public'] = {'vlan': FLAGS.public_vlan }
+        KEEPER['public'] = {'vlan': FLAGS.public_vlan, 'network': FLAGS.public_range }
         KEEPER['private'] = {}
         KEEPER['vlans'] = {}
+        # TODO : Get rid of old interfaces, bridges, and IPTables rules.
 
     def get_network_from_name(self, network_name):
         net_dict = KEEPER[network_name]
@@ -392,13 +398,17 @@ class NetworkController(GenericNode):
             for user_id in self.private_nets.keys(): 
                 addresses.extend(self.get_users_network(user_id).list_addresses())
             return addresses
-        return self.public_net.list_networks()
+        return self.public_net.list_addresses()
         
-    def associate_address(self, address, private_ip):
-        return self.public_net.associate_address(address, private_ip)
+    def associate_address(self, address, private_ip, instance_id):
+        rv = self.public_net.associate_address(address, private_ip, instance_id)
+        self._save()
+        return rv
         
     def disassociate_address(self, address):
-        return self.public_net.disassociate_address(address)
+        rv = self.public_net.disassociate_address(address)
+        self._save()
+        return rv
         
     def _save(self):
         obj = {}
@@ -409,15 +419,13 @@ class NetworkController(GenericNode):
             obj['networks'].append({'user_id': user_id, 
                                     'network': str(network), 
                                     'vlan': vlan })
+            KEEPER["%s-default" % user_id] = self.private_nets[user_id].to_dict()
         KEEPER['private'] = obj
+        KEEPER['public'] = self.public_net.to_dict()
         KEEPER['vlans'] = self.vlan_pool.to_dict()
 
     def express(self):
         return
-        # TODO - use a separate connection for each node?
-        for user_id in self._private.keys(): 
-            self.get_users_network(user_id).express(self._conn)
-        self._public.express(self._conn)
         
     def report_state(self):
         pass

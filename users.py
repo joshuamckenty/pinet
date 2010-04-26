@@ -93,7 +93,7 @@ class User(object):
         ca_file = os.path.join(FLAGS.ca_path, FLAGS.ca_file) 
         zippy.write(ca_file, FLAGS.ca_file)
         zippy.close()
-        with open(zf, 'r') as f:
+        with open(zf, 'rb') as f:
             buffer = f.read()
          
         shutil.rmtree(tmpdir)

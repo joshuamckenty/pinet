@@ -1,54 +1,53 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-import logging
-import random
-
 import contrib
-import anyjson
+import base64
+from tornado import web
 
-import flags
-import users
+def user_dict(user, base64_file=None):
+    if user:
+        return {
+            'username': user.id,
+            'accesskey': user.access,
+            'secretkey': user.secret,
+            'file': base64_file,
+        }
+    else:
+        return {}
 
-FLAGS = flags.FLAGS
-flags.DEFINE_string('admin_topic', 'admin', 'the topic admin listens on')
+def admin_only(target):
+    def wrapper(*args, **kwargs):
+        context = args[1]
+        if context.user.is_admin():
+            return target(*args, **kwargs)
+        else:
+            return {}
 
-_log = logging.getLogger()
-        
+    return wrapper
+
 class AdminController(object):
     def __init__(self, user_manager):
-        self.users = user_manager
+        self.user_manager = user_manager
 
     def __str__(self):
         return 'AdminController'
         
-    def describe_user(self, context, **kwargs):
-        username = kwargs['name']
+    @admin_only
+    def describe_user(self, context, name, **kwargs):
+        return user_dict(self.user_manager.get_user(name))
 
-        return self._get_dict(self.users.get_user(username))
+    @admin_only
+    def register_user(self, context, name, **kwargs):
+        self.user_manager.create_user(name)
 
-    def register_user(self, context, **kwargs):
-        username = kwargs['name']
-        self.users.create_user(username)
-
-        return self._get_dict(self.users.get_user(username))
+        return user_dict(self.user_manager.get_user(name))
         
-    def deregister_user(self, context, **kwargs):
-        username = kwargs['name']
-        
-        self.users.delete_user(username)
-        
-        return {}
+    @admin_only
+    def deregister_user(self, context, name, **kwargs):
+        self.user_manager.delete_user(name)
 
-    def _get_dict(self, user):
-        if user:
-            # TODO: Need to return code for credentials download
-            return {
-                'username': user.id,
-                'code': 'blank',
-                'accesskey': user.access,
-                'secretkey': user.secret
-            }
-        else:
-            return {}
-
-
-
+        return True
+    
+    @admin_only
+    def generate_x509_for_user(self, context, name, **kwargs):
+        user = self.user_manager.get_user(name)
+        return user_dict(user, base64.b64encode(user.get_credentials()))
