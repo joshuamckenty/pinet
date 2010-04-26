@@ -51,7 +51,6 @@ class CloudController(object):
     def __init__(self):
         self.volumes = {}
         self.instances = {}
-        self.images = {"result":"uninited"}
         self.network = network.NetworkController()
 
     def __str__(self):
@@ -316,6 +315,22 @@ class CloudController(object):
         instance_response = {'reservationSet' : list(reservations.values()) }
         return instance_response
 
+    def allocate_address(self, context, **kwargs):
+        # TODO: Verify user is valid?
+        kwargs['owner_id'] = context.user.id
+        return self.network.allocate_address(context.user.id, type=network.PublicNetwork)
+        
+    def associate_address(self, context, instance_id, ip, **kwargs):
+        instance = self._get_instance(instance_id)
+        rv = self.network.associate_address(ip, instance['private_dns_name'])
+        instance['public_dns_name'] = ip
+        return rv
+        
+    def disassociate_address(self, context, ip, **kwargs):
+        rv = self.network.disassociate_address(ip)
+        # TODO - Strip the IP from the instance
+        return rv
+
     def run_instances(self, context, **kwargs):
         # passing all of the kwargs on to node.py
         logging.debug("Going to run instances...")
@@ -391,18 +406,18 @@ class CloudController(object):
 
     def update_state(self, topic, value):
         """ accepts status reports from the queue and consolidates them """
-        logging.debug("Updating %s state for %s" % (topic, value.keys()[0]))
-        # TODO(termie): do something smart here to aggregate this data
-        # TODO(jmc): This is fugly
         # TODO(jmc): if an instance has disappeared from the node, call instance_death
-        if "node" == topic:
-            getattr(self, topic)[value.keys()[0]] = value.values()[0]
-        else:
-            # TODO(vish): refactor this
-            if "instances" == topic:
-                for instance_id in value.values()[0].keys():
-                    if (self.instances.has_key('pending') and
-                        self.instances['pending'].has_key(instance_id)):
-                        del self.instances['pending'][instance_id]
-            setattr(self, topic, value)
+
+        aggregate_state = getattr(self, topic)
+        node_name = value.keys()[0]
+        items = value[node_name]
+        
+        logging.debug("Updating %s state for %s" % (topic, node_name))
+
+        for item_id in items.keys():
+            if (aggregate_state.has_key('pending') and
+                aggregate_state['pending'].has_key(item_id)):
+                del aggregate_state['pending'][item_id]
+        aggregate_state[node_name] = items
+
         return defer.succeed(True)

@@ -15,6 +15,7 @@ import datastore
 
 import contrib
 import flags
+import socket
 
 from tornado import ioloop
 from twisted.internet import defer
@@ -26,7 +27,7 @@ flags.DEFINE_string('aoe_eth_dev', 'eth0', 'Which device to export the volumes o
 flags.DEFINE_boolean('fake_storage', False, 'Should we make real storage volumes to attach?')
 
 flags.DEFINE_string('storage_name',
-                    'storage_foo',
+                    socket.gethostname(),
                     'name of this node')
 flags.DEFINE_string('storage_availability_zone',
                     'pinet',
