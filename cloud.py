@@ -395,6 +395,10 @@ class CloudController(object):
             if context.user.is_authorized(instance.get('owner_id', None)):
                 calllib.cast('node', {"method": "terminate_instance",
                               "args" : {"instance_id": i}})
+            try:
+                self.network.disassociate_address(instance.get('public_dns_name', 'bork'))
+            except:
+                pass
         return defer.succeed(True)
         
     def delete_volume(self, context, volume_id, **kwargs):

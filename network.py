@@ -42,6 +42,10 @@ def confirm_rule(cmd):
     execute("sudo iptables --delete %s" % (cmd))
     execute("sudo iptables -I %s" % (cmd))
 
+def remove_rule(cmd):
+    execute("sudo iptables --delete %s" % (cmd))
+    pass
+
 class Network(object):
     def __init__(self, *args, **kwargs):
         self._s = {}
@@ -241,6 +245,9 @@ class PublicNetwork(Network):
     def associate_address(self, public_ip, private_ip, instance_id):
         if not self.hosts.has_key(public_ip):
             raise Exception # Not allocated
+        for addr in self.hosts.values():
+            if addr.has_key('private_ip') and addr['private_ip'] == private_ip:
+                raise Exception # Already associated
         if self.hosts[public_ip].has_key('private_ip'):
             raise Exception # Already associated
         self.hosts[public_ip]['private_ip'] = private_ip
@@ -252,24 +259,34 @@ class PublicNetwork(Network):
             raise Exception # Not allocated
         if not self.hosts[public_ip].has_key('private_ip'):
             raise Exception # Not associated
+        self.deexpress(self.hosts[public_ip])
         del self.hosts[public_ip]['private_ip']
         del self.hosts[public_ip]['instance_id']
         # TODO Express the removal
     
+    def deexpress(self, address):
+        public_ip = addr['address']
+        private_ip = addr['private_ip']
+        remove_rule("PREROUTING -t nat -d %s -j DNAT --to %s" % (public_ip, private_ip))
+        remove_rule("POSTROUTING -t nat -s %s -j SNAT --to %s" % (private_ip, public_ip))
+        remove_rule("FORWARD -d %s -p icmp -j ACCEPT" % (private_ip))
+        for (protocol, port) in [("tcp",80), ("tcp",22), ("udp",1194), ("tcp",443)]:
+            remove_rule("FORWARD -d %s -p %s --dport %s -j ACCEPT" % (private_ip, protocol, port))
+
     def express(self, address=None):
         logging.debug("Todo - need to create IPTables natting entries for this net.")
         addresses = self.hosts.values()
         if address:
             addresses = [self.hosts[address]]
-        for address in addresses:
-            if not address.has_key('private_ip'):
+        for addr in addresses:
+            if not addr.has_key('private_ip'):
                 continue
-            public_ip = address['address']
-            private_ip = address['private_ip']
+            public_ip = addr['address']
+            private_ip = addr['private_ip']
             runthis("Binding IP to interface: %s", "sudo ip addr add %s dev %s" % (public_ip, FLAGS.public_interface))
-            confirm_rule("-t nat PREROUTING -d %s -j DNAT --to %s" % (public_ip, private_ip))
+            confirm_rule("PREROUTING -t nat -d %s -j DNAT --to %s" % (public_ip, private_ip))
             #runthis("PREROUTING DNAT rule: %s", "sudo iptables -t nat -I PREROUTING -d %s -j DNAT --to %s" % (public_ip, private_ip))
-            confirm_rule("-t nat POSTROUTING -s %s -j SNAT --to %s" % (private_ip, public_ip))
+            confirm_rule("POSTROUTING -t nat -s %s -j SNAT --to %s" % (private_ip, public_ip))
             # TODO: Get these from the secgroup datastore entries
             confirm_rule("FORWARD -d %s -p icmp -j ACCEPT" % (private_ip))
             for (protocol, port) in [("tcp",80), ("tcp",22), ("udp",1194), ("tcp",443)]:

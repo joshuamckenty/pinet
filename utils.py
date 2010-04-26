@@ -30,7 +30,8 @@ def execute(cmd, input=None):
     else:
         result = obj.communicate()
     obj.stdin.close()
-    #logging.debug("Result was %s" % (obj.returncode))
+    if obj.returncode:
+        logging.debug("Result was %s" % (obj.returncode))
     return result
 
 def abspath(s):
