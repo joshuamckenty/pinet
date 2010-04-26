@@ -2,11 +2,9 @@
 Pinet administration API client library.
 """
 
-import urllib2
-import re
-from random import choice
 import boto
 from boto.ec2.regioninfo import RegionInfo
+import base64
 
 class UserInfo(object):
     def __init__(self, connection=None, username=None, endpoint=None):
@@ -23,15 +21,16 @@ class UserInfo(object):
     def endElement(self, name, value, connection):
         if name == 'username':
             self.username = str(value)
-        elif name == 'code':
-            self.code = str(value)
+        elif name == 'file':
+            self.file = base64.b64decode(str(value))
         elif name == 'accesskey':
             self.accesskey = str(value)
         elif name == 'secretkey':
             self.secretkey = str(value)
 
 class PinetAdminClient(object):
-    def __init__(self, clc_ip='127.0.0.1', region='test', access_key='fake', secret_key='fake', **kwargs):
+    def __init__(self, clc_ip='127.0.0.1', region='test', access_key='admin', 
+                 secret_key='admin', **kwargs):
         self.clc_ip = clc_ip
         self.region = region
         self.access = access_key
@@ -39,7 +38,7 @@ class PinetAdminClient(object):
         self.apiconn = boto.connect_ec2(aws_access_key_id=access_key,
                                         aws_secret_access_key=secret_key,
                                         is_secure=False,
-                                        region=RegionInfo(None, self.region, self.clc_ip),
+                                        region=RegionInfo(None, region, clc_ip),
                                         port=8773,
                                         path='/services/Admin',
                                         **kwargs)
@@ -61,9 +60,9 @@ class PinetAdminClient(object):
             **kwargs
         )
     
-    def get_user(self, username):
+    def get_user(self, name):
         # TODO: Cache for 2 minutes
-        user = self.apiconn.get_object('DescribeUser', {'Name': username}, UserInfo)
+        user = self.apiconn.get_object('DescribeUser', {'Name': name}, UserInfo)
 
         if user.username == None:
             return None
@@ -79,25 +78,16 @@ class PinetAdminClient(object):
     def delete_user(self, username):
         return self.apiconn.get_object('DeregisterUser', {'Name': username}, UserInfo)
     
-    def download_url(self, username):
+    def get_zip(self, username):
+        """ returns the content of a zip file containing pinetrc and access credentials.
         """
-        Returns the url to download a zip file containing pinetrc and access credentials.
-        """        
-        user = self.get_user(username)
-        return "https://%s:8443/getX509?user=%s&code=%s" % (self.clc_ip, user.username, user.code)
-
-    '''
-    def get_signed_zip(self, username):
-        return urllib2.urlopen('http://%s:81/getcert/%s' % (self.clc_ip, username)).read()
-    '''
+        return self.apiconn.get_object('GenerateX509ForUser', {'Name': username}, UserInfo).file
 
 if __name__ == '__main__':
     admin = PinetAdminClient()
-    
-    print admin.get_user('fake')
     print admin.create_user('test1')
     print admin.get_user('test1')
-    print admin.download_url('test1')
+    # print admin.get_zip('test1')
     print admin.delete_user('test1')
 
 
