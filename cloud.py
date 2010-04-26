@@ -402,8 +402,10 @@ class CloudController(object):
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 
-    def describe_images(self, context, **kwargs):
+    def describe_images(self, context, image_id=None, **kwargs):
         imageSet = images.list(context.user)
+        if not image_id is None:
+            imageSet = [i for i in imageSet if i['imageId'] in image_id]
         
         return defer.succeed({'imagesSet': imageSet})
     
