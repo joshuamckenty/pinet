@@ -302,6 +302,22 @@ class CloudController(object):
         instance_response = {'reservationSet' : list(reservations.values()) }
         return instance_response
 
+    def allocate_address(self, context, **kwargs):
+        # TODO: Verify user is valid?
+        kwargs['owner_id'] = context.user.id
+        return self.network.allocate_address(context.user.id, type=network.PublicNetwork)
+        
+    def associate_address(self, context, instance_id, ip, **kwargs):
+        instance = self._get_instance(instance_id)
+        rv = self.network.associate_address(ip, instance['private_dns_name'])
+        instance['public_dns_name'] = ip
+        return rv
+        
+    def disassociate_address(self, context, ip, **kwargs):
+        rv = self.network.disassociate_address(ip)
+        # TODO - Strip the IP from the instance
+        return rv
+
     def run_instances(self, context, **kwargs):
         # passing all of the kwargs on to node.py
         logging.debug("Going to run instances...")

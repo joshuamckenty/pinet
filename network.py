@@ -30,6 +30,7 @@ flags.DEFINE_string('net_libvirt_xml_template',
 flags.DEFINE_string('networks_path', utils.abspath('../networks'),
                     'Location to keep network config files')
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses')
+flags.DEFINE_string('public_interface', 'eth0', 'Interface for public IP addresses')
 KEEPER = datastore.keeper(prefix="net")
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -150,6 +151,7 @@ class VirtNetwork(Vlan):
             runthis("Adding Bridge Interface %s: %%s" % (self.vlan) , "sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
             if self.bridge_gets_ip:
                 runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s %s broadcast %s netmask %s up" % (self.bridge_name, self.gateway, self.broadcast, self.netmask))
+                runthis("Adding natting rule for new VLAN: %s", "sudo iptables --append FORWARD --in-interface %s -j ACCEPT" % (self.bridge_name))
             else:
                 runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s up" % (self.bridge_name))
         except:
@@ -209,9 +211,55 @@ class PublicNetwork(Network):
     def __init__(self, conn=None, network="192.168.216.0/24", **kwargs):
         super(PublicNetwork, self).__init__(network=network, conn=conn, **kwargs)
         self.express()
+
+    def allocate_ip(self, user_id, mac):
+        for ip in self.range():
+            address = str(ip)
+            if not address in self.hosts.keys():
+                logging.debug("Allocating IP %s to %s" % (address, user_id))
+                self.hosts[address] = {
+                    "address" : address, "user_id" : user_id, 'mac' : mac
+                }
+                self.express()
+                return address
+        raise NoMoreAddresses
+    
+    def deallocate_ip(self, ip_str):
+        if not ip_str in self.hosts.keys():
+            raise NotAllocated
+        del self.hosts[ip_str]
+        # TODO(joshua) SCRUB from the leases file somehow
+        self.express()
+
+    def associate_address(self, public_ip, private_ip):
+        if not self.hosts.has_key(public_ip):
+            raise Exception # Not allocated
+        if self.hosts[public_ip].has_key['private_ip']:
+            raise Exception # Already associated
+        self.hosts[public_ip]['private_ip'] = private_ip
+        self.express()
+
+    def disassociate_address(self, public_ip):
+        if not self.hosts.has_key(public_ip):
+            raise Exception # Not allocated
+        if not self.hosts[public_ip].has_key['private_ip']:
+            raise Exception # Not associated
+        del self.hosts[public_ip]['private_ip']
+        # TODO Express the removal
     
     def express(self):
         logging.debug("Todo - need to create IPTables natting entries for this net.")
+        for address in self.hosts.values():
+            if not address.has_key['private_ip']:
+                continue
+            public_ip = address['address']
+            private_ip = address['private_ip']
+            runthis("Binding IP to interface: %s", "sudo ip addr add %s dev %s" % (public_ip, FLAGS.public_interface))
+            runthis("PREROUTING DNAT rule: %s", "sudo iptables -t nat -I PREROUTING -d %s -j DNAT --to %s" % (public_ip, private_ip))
+            runthis("POSTROUTING SNAT rule: %s", "sudo iptables -t nat -I POSTROUTING -s %s -j SNAT --to %s" % (private_ip, public_ip))
+            # TODO: Get these from the secgroup datastore entries
+            for (protocol, port) in [("tcp",80), ("tcp",22), ("tcp",1194), ("tcp",443)]:
+                runthis("FORWARD ACCEPT rule: %s", "sudo iptables -I FORWARD -d %s -p %s --dport %s -j ACCEPT" % (private_ip, protocol, port))
 
 
 class NetworkPool(object):
@@ -346,8 +394,11 @@ class NetworkController(GenericNode):
             return addresses
         return self.public_net.list_networks()
         
-    def associate(self, address, instance_id):
-        pass
+    def associate_address(self, address, private_ip):
+        return self.public_net.associate_address(address, private_ip)
+        
+    def disassociate_address(self, address):
+        return self.public_net.disassociate_address(address)
         
     def _save(self):
         obj = {}
