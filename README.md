@@ -70,7 +70,7 @@ Instances
     [x] each user gets a subnet and vlan for their instances
     [x] node downloads proper image from S3 (verify image via content-md5)
     [x] instances can access their user-data, meta-data
-    [ ] hard code all instances for a user into 1 security group: deny except 22, 80, 443, and 1194
+    [ ] hard code all instances for a user into "default" security group: deny except 22, 80, 443, and 1194
     [x] instances state from multiple nodes overwrite each other (update_state code)
     [x] euca-get-console-output works
     [x] euca-terminate-instances works
@@ -80,6 +80,10 @@ Instances
     [x] can launch from many different images
     [x] ignore kernel/ramdisk from user, hardcode for now
     [x] can launch different sizes
+    [ ] NAT to public internet works from instances
+    [ ] access to other users instances only works on "default" protocols
+    [ ] BUG: running -n N+1 instances when you have N results in only N instances launched
+    [ ] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
 
 S3 / Images
 -----------
@@ -114,7 +118,7 @@ Cleanup
     [ ] Logging clean-up: system should (default?) to using syslog
     [ ] verify user is allowed to execute commands - for each API method!
     [ ] when instances are terminated, IP addresses are reclaimed
-
+    [ ] node/node_worker is bad name for instances node as storage is a node too
 
 Nasa Deploy
 -----------
