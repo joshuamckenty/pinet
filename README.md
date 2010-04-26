@@ -82,12 +82,14 @@ Instances
     [x] can launch different sizes
     [ ] NAT to public internet works from instances
     [ ] access to other users instances only works on "default" protocols
+    [ ] terminate should send to only the approriate node
     [ ] BUG: running -n N+1 instances when you have N results in only N instances launched
         - seems to be an issue with multiprocess.Process
 	the _launch call doesn't occur when two Processes are running at the same time
 	INFO:root:Done create image for: i-286573
 	DEBUG:root:Arrived in _launch, thanks to callback on deferred. <- only happens first time
     [ ] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
+    [x] describe-instances doesn't show public ips
 
 S3 / Images
 -----------

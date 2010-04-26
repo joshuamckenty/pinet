@@ -27,8 +27,6 @@ def main(argv):
     _app = api.APIServerApplication(user_manager, controllers)
 
     conn = calllib.Connection.instance()
-
-    # TODO: Attach another consumer for admin controller.
     consumer = calllib.AdapterConsumer(connection=conn,
                                        topic=FLAGS.cloud_topic,
                                        proxy=controllers['Cloud'])

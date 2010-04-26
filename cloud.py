@@ -293,7 +293,10 @@ class CloudController(object):
                         'code': instance.get('state', None),
                         'name': _STATE_NAMES[instance.get('state', None)]
                     }
+                    i['public_dns_name'] = self.network.get_public_ip_for_instance(i['instance_id'])
                     i['private_dns_name'] = instance.get('private_dns_name', None)
+                    if not i['public_dns_name']:
+                        i['public_dns_name'] = i['private_dns_name']
                     i['dns_name'] = instance.get('dns_name', None)
                     i['key_name'] = instance.get('key_name', None)
                     i['product_codes_set'] = self._convert_to_set(
@@ -335,7 +338,6 @@ class CloudController(object):
     def associate_address(self, context, instance_id, **kwargs):
         node, instance = self._get_instance(instance_id)
         rv = self.network.associate_address(kwargs['public_ip'], instance['private_dns_name'], instance_id)
-        instance['public_dns_name'] = kwargs['public_ip']
         return defer.succeed({'associateResponse': ["Address associated."]})
         
     def disassociate_address(self, context, ip, **kwargs):
@@ -404,8 +406,10 @@ class CloudController(object):
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 
-    def describe_images(self, context, **kwargs):
+    def describe_images(self, context, image_id=None, **kwargs):
         imageSet = images.list(context.user)
+        if not image_id is None:
+            imageSet = [i for i in imageSet if i['imageId'] in image_id]
         
         return defer.succeed({'imagesSet': imageSet})
     
