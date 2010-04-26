@@ -146,31 +146,47 @@ class APIRequest(object):
 class RootRequestHandler(tornado.web.RequestHandler):
     def get(self):
         # available api versions
-        self.write('2008-02-01\n')
+        versions = [
+            '1.0',
+            '2007-01-19',
+            '2007-03-01',
+            '2007-08-29',
+            '2007-10-10',
+            '2007-12-15',
+            '2008-02-01',
+            '2008-09-01',
+            '2009-04-04',
+        ]
+        for version in versions:
+            self.write('%s\n' % version)
         self.finish()
 
 class MetadataRequestHandler(tornado.web.RequestHandler):
     def print_data(self, data):
         if isinstance(data, dict):
+            output = ''
             for key in data:
                 if key == '_name':
                     continue
-                self.write(key)
+                output += key
                 if isinstance(data[key], dict):
                     if '_name' in data[key]:
-                        self.write('=' + str(data[key]['_name']))
+                        output += '=' + str(data[key]['_name'])
                     else:
-                        self.write('/')
-                self.write('\n')
+                        output += '/'
+                output += '\n'
+            self.write(output[:-1]) # cut off last \n
+        elif isinstance(data, list):
+            self.write('\n'.join(data))
         else:
-            self.write(str(data) + '\n')
+            self.write(str(data))
 
     def lookup(self, path, data):
         items = path.split('/')
         for item in items:
             if item:
                 if not isinstance(data, dict):
-                    return None
+                    return data
                 if not item in data:
                     return None
                 data = data[item]
@@ -284,7 +300,15 @@ class APIServerApplication(tornado.web.Application):
             (r'/', RootRequestHandler),
             (r'/services/([A-Za-z0-9]+)/', APIRequestHandler),
             (r'/latest/([-A-Za-z0-9/]*)', MetadataRequestHandler),
+            (r'/2009-04-04/([-A-Za-z0-9/]*)', MetadataRequestHandler),
+            (r'/2008-09-01/([-A-Za-z0-9/]*)', MetadataRequestHandler),
             (r'/2008-02-01/([-A-Za-z0-9/]*)', MetadataRequestHandler),
+            (r'/2007-12-15/([-A-Za-z0-9/]*)', MetadataRequestHandler),
+            (r'/2007-10-10/([-A-Za-z0-9/]*)', MetadataRequestHandler),
+            (r'/2007-08-29/([-A-Za-z0-9/]*)', MetadataRequestHandler),
+            (r'/2007-03-01/([-A-Za-z0-9/]*)', MetadataRequestHandler),
+            (r'/2007-01-19/([-A-Za-z0-9/]*)', MetadataRequestHandler),
+            (r'/1.0/([-A-Za-z0-9/]*)', MetadataRequestHandler),
         ], pool=multiprocessing.Pool(4), queue=multiprocessing.Queue())
         self.user_manager = user_manager
         self.controllers = controllers

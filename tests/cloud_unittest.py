@@ -94,10 +94,15 @@ class CloudTestCase(test.BaseTestCase):
                 'instance_id': 'i-%s' % num,
                 'image_id': 'ami-%s' % num,
                 'private_dns_name': '10.0.0.%s' % num,
+                'dns_name': '10.0.0%s' % num,
                 'ami_launch_index': str(num),
                 'instance_type': 'fake',
                 'availability_zone': 'fake',
                 'key_name': None,
+                'kernel_id': 'fake',
+                'ramdisk_id': 'fake',
+                'groups': ['default'],
+                'product_codes': None,
                 'state': 0x01,
                 'user_data': ''
             }

@@ -17,7 +17,6 @@ import exception
 import flags
 import crypto
 import utils
-import random
 import datetime
 import tempfile
 import zipfile
@@ -414,11 +413,11 @@ if __name__ == "__main__":
         elif sys.argv[1] == '-e':
             user = manager.get_user(sys.argv[2])
             if user:
+                fname = 'pinet.zip'
                 if len(sys.argv) > 3:
-                    with open(sys.argv[3], 'w') as f:
-                        f.write(user.get_credentials())
-                else:
-                    print user.get_credentials()
+                    fname = sys.argv[3]
+                with open(fname, 'w') as f:
+                    f.write(user.get_credentials())
         else:
             usage()
             sys.exit(2)
