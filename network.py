@@ -335,8 +335,9 @@ class NetworkController(GenericNode):
             KEEPER['vlans'] = {'start' : 3200, 'end' : 3299}
         vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
         self.vlan_pool = VlanPool.from_dict(vlan_dict)
-        public_dict = kwargs.get('public', {'vlan': FLAGS.public_vlan })
-        self.public_net = PublicNetwork.from_dict(public_dict, conn=self._conn)
+        if not KEEPER['public']:
+            KEEPER['public'] = kwargs.get('public', {'vlan': FLAGS.public_vlan })
+        self.public_net = PublicNetwork.from_dict(KEEPER['public'], conn=self._conn)
 
     def reset(self):
         KEEPER['public'] = {'vlan': FLAGS.public_vlan }
@@ -392,13 +393,17 @@ class NetworkController(GenericNode):
             for user_id in self.private_nets.keys(): 
                 addresses.extend(self.get_users_network(user_id).list_addresses())
             return addresses
-        return self.public_net.list_networks()
+        return self.public_net.list_addresses()
         
     def associate_address(self, address, private_ip):
-        return self.public_net.associate_address(address, private_ip)
+        rv = self.public_net.associate_address(address, private_ip)
+        self._save()
+        return rv
         
     def disassociate_address(self, address):
-        return self.public_net.disassociate_address(address)
+        rv = self.public_net.disassociate_address(address)
+        self._save()
+        return rv
         
     def _save(self):
         obj = {}
@@ -409,15 +414,13 @@ class NetworkController(GenericNode):
             obj['networks'].append({'user_id': user_id, 
                                     'network': str(network), 
                                     'vlan': vlan })
+            KEEPER["%s-default" % user_id] = self.private_nets[user_id].to_dict()
         KEEPER['private'] = obj
+        KEEPER['public'] = self.public_net.to_dict()
         KEEPER['vlans'] = self.vlan_pool.to_dict()
 
     def express(self):
         return
-        # TODO - use a separate connection for each node?
-        for user_id in self._private.keys(): 
-            self.get_users_network(user_id).express(self._conn)
-        self._public.express(self._conn)
         
     def report_state(self):
         pass

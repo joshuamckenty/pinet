@@ -315,6 +315,15 @@ class CloudController(object):
         instance_response = {'reservationSet' : list(reservations.values()) }
         return instance_response
 
+    def describe_addresses(self, context, **kwargs):
+        return self.format_addresses()
+        
+    def format_addresses(self):
+        addresses = []
+        for address in self.network.describe_addresses(type=network.PublicNetwork):
+            addresses.extend({'public_ip': address})
+        return {'addressSet': addresses}
+            
     def allocate_address(self, context, **kwargs):
         # TODO: Verify user is valid?
         kwargs['owner_id'] = context.user.id
