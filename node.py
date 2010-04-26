@@ -107,6 +107,7 @@ class Node(GenericNode):
         """ load configuration options for this node and connect to libvirt """
         self._instances = {}
         self._conn = self._get_connection()
+        self._pool = multiprocessing.Pool(4)
     
     @exception.wrap_exception
     def adopt_instances(self):
@@ -115,7 +116,7 @@ class Node(GenericNode):
                           for x in self._conn.listDomainsID()]
         for name in instance_names:
             try:
-                new_inst = Instance.fromName(self._conn, name)
+                new_inst = Instance.fromName(self._conn, self._pool, name)
             except:
                 pass
             self._instances[name] = new_inst
@@ -150,7 +151,7 @@ class Node(GenericNode):
             raise exception.Error(
                     'attempting to use existing instance_id: %s' % instance_id)
         # TODO(vish) check to make sure the availability zone matches
-        new_inst = Instance(self._conn, name=instance_id, **kwargs)
+        new_inst = Instance(self._conn, name=instance_id, pool=self._pool, **kwargs)
         self._instances[instance_id] = new_inst
         d = new_inst.spawn()
         d.addCallback(lambda x: new_inst)
@@ -215,6 +216,56 @@ class ProductCode(object):
         self.product_code = product_code
 
 
+def _create_image(data, libvirt_xml):
+    """ create libvirt.xml and copy files into instance path """          
+    def basepath(path=''):
+        return os.path.abspath(os.path.join(data['basepath'], path))
+
+    def imagepath(path=''):
+        return os.path.join(FLAGS.images_path, path)
+
+    def image_url(path):
+        return "%s:%s/_images/%s" % (FLAGS.s3_host, FLAGS.s3_port, path) 
+    logging.info(basepath('disk'))
+    try:
+        os.makedirs(data['basepath'])
+        logging.info('Creating image for: %s', data['instance_id'])
+        f = open(basepath('libvirt.xml'), 'w')
+        f.write(libvirt_xml)
+        f.close()
+        if not FLAGS.fake_libvirt:
+            if FLAGS.use_s3:
+                if not os.path.exists(basepath('disk')):
+                    utils.fetchfile(image_url("%s/image" % data['image_id']),
+                       basepath('disk-raw'))
+                    disk.partition(basepath('disk-raw'),
+                       basepath('disk'))
+                if not os.path.exists(basepath('kernel')):
+                    utils.fetchfile(image_url(data['kernel_id']),
+                                basepath('kernel'))
+                if not os.path.exists(basepath('ramdisk')):
+                    utils.fetchfile(image_url(data['ramdisk_id']),
+                           basepath('ramdisk'))
+            else:
+                if not os.path.exists(basepath('disk')):
+                    disk.partition(imagepath("%s/image" % data['image_id']),
+                        basepath('disk'))
+                if not os.path.exists(basepath('kernel')):
+                    shutil.copyfile(imagepath(data['kernel_id']),
+                        basepath('kernel'))
+                if not os.path.exists(basepath('ramdisk')):
+                    shutil.copyfile(imagepath(data['ramdisk_id']),
+                        basepath('ramdisk'))
+            if data['key_data']:
+                logging.info('Injecting key data into image')
+                disk.inject_key(data['key_data'], basepath('disk'))
+        else:
+            pass
+        logging.info('Done create image for: %s', data['instance_id'])
+    except Exception as ex:
+        return {'exception': ex }
+    
+
 class Instance(object):
 
     NOSTATE = 0x00
@@ -234,8 +285,9 @@ class Instance(object):
     def is_running(self):
         return self.state == Instance.RUNNING
     
-    def __init__(self, conn, name, **kwargs):
+    def __init__(self, conn, pool, name, **kwargs):
         """ spawn an instance with a given name """
+        self._pool = pool
         self._conn = conn
         
         self._s = {}
@@ -293,16 +345,16 @@ class Instance(object):
         return libvirt_xml
 
     @classmethod
-    def fromXml(cls, conn, xml):
+    def fromXml(cls, conn, pool, xml):
         parsed = ElementTree.parse(StringIO.StringIO(xml))
         elem = parsed.find('pinet')
         info = anyjson.deserialize(elem.text)
-        self = cls(conn, **info)
+        self = cls(conn=conn, pool=pool, **info)
         self.update_state()
         return self
     
     @classmethod
-    def fromName(cls, conn, name):
+    def fromName(cls, conn, pool, name):
         """ find the xml file and return fromXml """
         if FLAGS.fake_libvirt:
             raise Exception('this is a bit useless, eh?')
@@ -310,57 +362,8 @@ class Instance(object):
         # TODO(termie): this code is duplicated in __init__
         basepath = os.path.abspath(os.path.join(FLAGS.instances_path, name))
         libvirt_xml = open(os.path.join(basepath, 'libvirt.xml')).read()
-        return cls.fromXml(conn, libvirt_xml)
+        return cls.fromXml(conn, pool, libvirt_xml)
 
-    def image_url(self, path):
-        return "%s:%s/_images/%s" % (FLAGS.s3_host, FLAGS.s3_port, path) 
-
-    def _createImage(self, libvirt_xml, conn):
-        """ create libvirt.xml and copy files into instance path """          
-        try:
-            os.makedirs(self._s['basepath'])
-        except:
-            pass
-        try:
-            logging.info('Creating image for: %s', self.name)
-            f = open(self.basepath('libvirt.xml'), 'w')
-            f.write(libvirt_xml)
-            f.close()
-            if not FLAGS.fake_libvirt:
-                if FLAGS.use_s3:
-                    if not os.path.exists(self.basepath('disk')):
-                        utils.fetchfile(self.image_url("%s/image" % self._s['image_id']),
-                           self.basepath('disk-raw'))
-                        disk.partition(self.basepath('disk-raw'),
-                           self.basepath('disk'))
-                    if not os.path.exists(self.basepath('kernel')):
-                        utils.fetchfile(self.image_url(self._s['kernel_id']),
-                                    self.basepath('kernel'))
-                    if not os.path.exists(self.basepath('ramdisk')):
-                        utils.fetchfile(self.image_url(self._s['ramdisk_id']),
-                               self.basepath('ramdisk'))
-                else:
-                    if not os.path.exists(self.basepath('disk')):
-                        disk.partition(self.imagepath("%s/image" % self._s['image_id']),
-                            self.basepath('disk'))
-                    if not os.path.exists(self.basepath('kernel')):
-                        shutil.copyfile(self.imagepath(self._s['kernel_id']),
-                            self.basepath('kernel'))
-                    if not os.path.exists(self.basepath('ramdisk')):
-                        shutil.copyfile(self.imagepath(self._s['ramdisk_id']),
-                            self.basepath('ramdisk'))
-                if self._s['key_data']:
-                    logging.info('Injecting key data into image')
-                    disk.inject_key(self._s['key_data'], self.basepath('disk'))
-            else:
-                pass
-            logging.info('Done create image for: %s', self.name)
-        except Exception, e:
-            # TODO(termie): we should try to actually raise the exception
-            #               out of this guy
-            logging.exception('something is awry in _createImage')
-        conn.send("ready")
-        return
 
     @property
     def state(self):
@@ -369,12 +372,6 @@ class Instance(object):
     @property
     def name(self):
         return self._s['name']
-
-    def basepath(self, s=''):
-        return os.path.abspath(os.path.join(self._s['basepath'], s))
-
-    def imagepath(self, s=''):
-        return os.path.join(FLAGS.images_path, s)
 
     def describe(self):
         return self._s
@@ -449,28 +446,28 @@ class Instance(object):
         xml = self.toXml()
         d = defer.Deferred()
 
-        def _launch(fd,events):
-            self.ioloop.remove_handler(fd)
-            logging.debug("Arrived in _launch, thanks to callback on deferred.")
+        def _launch(kwargs):
+            logging.debug("Arrived in _launch")
+            if kwargs and 'exception' in kwargs:
+                d.errback(kwargs['exception'])
+                return
             self._conn.createXML(self.toXml(), 0)
             # TODO(termie): this should actually register a callback to check
             #               for successful boot
             self._s['state'] = Instance.RUNNING
             d.callback(True)
 
-        self.ioloop = tornado.ioloop.IOLoop.instance()
-        (conn1, conn2) = multiprocessing.Pipe()
-        proc = multiprocessing.Process(target=self._createImage,
-                                       args=(xml, conn1))
-        self.pipe = conn1
-        self.ioloop.add_handler(conn2.fileno(), _launch, self.ioloop.READ )
-        proc.start()
+        self._pool.apply_async(_create_image,
+            [self._s, xml],
+            callback=_launch)
         return d
     
     @exception.wrap_exception
     def console_output(self):
         if not FLAGS.fake_libvirt:
-            console = open(self.basepath('console.log')).read()
+            fname = os.path.abspath(os.path.join(self._s['basepath'], 'console.log'))
+            with open(fname, 'r') as f:
+                console = f.read()
         else:
             console = 'FAKE CONSOLE OUTPUT'
         return defer.succeed(console)
