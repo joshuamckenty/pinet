@@ -340,8 +340,8 @@ class CloudController(object):
         rv = self.network.associate_address(kwargs['public_ip'], instance['private_dns_name'], instance_id)
         return defer.succeed({'associateResponse': ["Address associated."]})
         
-    def disassociate_address(self, context, ip, **kwargs):
-        rv = self.network.disassociate_address(ip)
+    def disassociate_address(self, context, **kwargs):
+        rv = self.network.disassociate_address(kwargs['public_ip'])
         # TODO - Strip the IP from the instance
         return rv
 
@@ -402,8 +402,14 @@ class CloudController(object):
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 
-    def describe_images(self, context, **kwargs):
+    #def describe_images(self, context, **kwargs):
+    #    imageSet = images.list(context.user)
+    #    
+    #    return defer.succeed({'imagesSet': imageSet})
+    def describe_images(self, context, image_id=None, **kwargs):
         imageSet = images.list(context.user)
+        if not image_id is None:
+            imageSet = [i for i in imageSet if i['imageId'] in image_id]
         
         return defer.succeed({'imagesSet': imageSet})
     

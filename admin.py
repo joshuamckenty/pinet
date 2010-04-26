@@ -36,6 +36,10 @@ class AdminController(object):
         return user_dict(self.user_manager.get_user(name))
 
     @admin_only
+    def describe_users(self, context, **kwargs):
+        return {'userSet': [user_dict(u) for u in self.user_manager.get_users()] }
+
+    @admin_only
     def register_user(self, context, name, **kwargs):
         self.user_manager.create_user(name)
 

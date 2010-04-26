@@ -68,6 +68,10 @@ class User(object):
         return self.ldap_user_object[1]['uid'][0]
 
     @property
+    def name(self):
+        return self.ldap_user_object[1]['uid'][0]
+
+    @property
     def access(self):
         return self.ldap_user_object[1]['accessKey'][0]
 
@@ -250,7 +254,7 @@ class UserManager(object):
         return (private_key, signed_cert)
 
     def cert_subject(self, uid):
-        return "/C=US/ST=California/L=The_Mission/O=CloudFed/OU=PINET/CN=%s-%s" % (uid, str(datetime.datetime.utcnow().isoformat()))
+        return "/C=US/ST=California/L=NASA_Ames/O=NebulaDev/OU=NOVA/CN=%s-%s" % (uid, str(datetime.datetime.utcnow().isoformat()))
 
 class LDAPWrapper(object):
     def __init__(self):
@@ -384,6 +388,9 @@ def usage():
     print '   -e (username) [filename.zip]    - generate new X509 cert for user'
 
 if __name__ == "__main__":
+    FLAGS.ca_path="/srv/cloud/CA"
+    FLAGS.keys_path="/srv/cloud/keys"
+
     manager = UserManager()
     if len(sys.argv) > 2:
         if sys.argv[1] == '-a':

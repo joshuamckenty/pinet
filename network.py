@@ -13,6 +13,7 @@ import node
 from node import GenericNode, Node
 import utils
 from utils import runthis
+from utils import execute
 
 import contrib
 import flags
@@ -36,6 +37,10 @@ KEEPER = datastore.keeper(prefix="net")
 
 logging.getLogger().setLevel(logging.DEBUG)
 
+
+def confirm_rule(cmd):
+    execute("sudo iptables --delete %s" % (cmd))
+    execute("sudo iptables -I %s" % (cmd))
 
 class Network(object):
     def __init__(self, *args, **kwargs):
@@ -93,7 +98,7 @@ class Network(object):
                 self.hosts[address] = {
                     "address" : address, "user_id" : user_id, 'mac' : mac
                 }
-                self.express()
+                self.express(address=address)
                 return address
         raise NoMoreAddresses
     
@@ -102,13 +107,13 @@ class Network(object):
             raise NotAllocated
         del self.hosts[ip_str]
         # TODO(joshua) SCRUB from the leases file somehow
-        self.express()
+        self.express(address=ip_str)
     
     def list_addresses(self):
         for address in self.hosts.values():
             yield address
 
-    def express(self):
+    def express(self, address=None):
         pass
 
 
@@ -116,13 +121,13 @@ class Vlan(Network):
     def __init__(self, *args, **kwargs):
         super(Vlan, self).__init__(*args, **kwargs)
     
-    def express(self):
-        super(Vlan, self).express()
+    def express(self, address=None):
+        super(Vlan, self).express(address=address)
         try:                    
             logging.debug("Starting VLAN inteface for %s network" % (self.vlan))
-            runthis("Configuring VLAN type: %s", "sudo vconfig set_name_type VLAN_PLUS_VID_NO_PAD")
-            runthis("Adding VLAN %s: %%s" % (self.vlan) , "sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
-            runthis("Bringing up VLAN interface: %s", "sudo ifconfig vlan%s up" % (self.vlan))
+            execute("sudo vconfig set_name_type VLAN_PLUS_VID_NO_PAD")
+            execute("sudo vconfig add %s %s" % (FLAGS.bridge_dev, self.vlan))
+            execute("sudo ifconfig vlan%s up" % (self.vlan))
         except:
             pass   
 
@@ -142,21 +147,22 @@ class VirtNetwork(Vlan):
         libvirt_xml = libvirt_xml % xml_info
         return libvirt_xml
     
-    def express(self):
-        super(VirtNetwork, self).express()
+    def express(self, address=None):
+        super(VirtNetwork, self).express(address=address)
         if FLAGS.fake_network:
             return  
         try:                    
             logging.debug("Starting Bridge inteface for %s network" % (self.vlan))
-            runthis("Adding Bridge %s: %%s" % (self.vlan) , "sudo brctl addbr %s" % (self.bridge_name))
-            runthis("Adding Bridge Interface %s: %%s" % (self.vlan) , "sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
+            execute("sudo brctl addbr %s" % (self.bridge_name))
+            execute("sudo brctl addif %s vlan%s" % (self.bridge_name, self.vlan))
             if self.bridge_gets_ip:
-                runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s %s broadcast %s netmask %s up" % (self.bridge_name, self.gateway, self.broadcast, self.netmask))
-                runthis("Adding natting rule for new VLAN: %s", "sudo iptables --append FORWARD --in-interface %s -j ACCEPT" % (self.bridge_name))
+                execute("sudo ifconfig %s %s broadcast %s netmask %s up" % (self.bridge_name, self.gateway, self.broadcast, self.netmask))
+                confirm_rule("FORWARD --in-interface %s -j ACCEPT" % (self.bridge_name))
             else:
-                runthis("Bringing up Bridge interface: %s", "sudo ifconfig %s up" % (self.bridge_name))
+                execute("sudo ifconfig %s up" % (self.bridge_name))
         except:
             pass      
+
     
 class DHCPNetwork(VirtNetwork):
     def __init__(self, *args, **kwargs):
@@ -196,10 +202,10 @@ class DHCPNetwork(VirtNetwork):
         cmd = self.dnsmasq_cmd(conf_file)
         subprocess.Popen(str(cmd).split(" "))
     
-    def express(self):
+    def express(self, address=None):
         if FLAGS.fake_network:
             return
-        super(DHCPNetwork, self).express()
+        super(DHCPNetwork, self).express(address=address)
         self.start_dnsmasq()     
         
 
@@ -221,7 +227,7 @@ class PublicNetwork(Network):
                 self.hosts[address] = {
                     "address" : address, "user_id" : user_id, 'mac' : mac
                 }
-                self.express()
+                self.express(address=address)
                 return address
         raise NoMoreAddresses
     
@@ -230,7 +236,7 @@ class PublicNetwork(Network):
             raise NotAllocated
         del self.hosts[ip_str]
         # TODO(joshua) SCRUB from the leases file somehow
-        self.express()
+        self.express(address=ip_str)
 
     def associate_address(self, public_ip, private_ip, instance_id):
         if not self.hosts.has_key(public_ip):
@@ -239,7 +245,7 @@ class PublicNetwork(Network):
             raise Exception # Already associated
         self.hosts[public_ip]['private_ip'] = private_ip
         self.hosts[public_ip]['instance_id'] = instance_id
-        self.express()
+        self.express(address=public_ip)
 
     def disassociate_address(self, public_ip):
         if not self.hosts.has_key(public_ip):
@@ -250,20 +256,24 @@ class PublicNetwork(Network):
         del self.hosts[public_ip]['instance_id']
         # TODO Express the removal
     
-    def express(self):
+    def express(self, address=None):
         logging.debug("Todo - need to create IPTables natting entries for this net.")
-        for address in self.hosts.values():
+        addresses = self.hosts.values()
+        if address:
+            addresses = [self.hosts[address]]
+        for address in addresses:
             if not address.has_key('private_ip'):
                 continue
             public_ip = address['address']
             private_ip = address['private_ip']
             runthis("Binding IP to interface: %s", "sudo ip addr add %s dev %s" % (public_ip, FLAGS.public_interface))
-            runthis("PREROUTING DNAT rule: %s", "sudo iptables -t nat -I PREROUTING -d %s -j DNAT --to %s" % (public_ip, private_ip))
-            runthis("POSTROUTING SNAT rule: %s", "sudo iptables -t nat -I POSTROUTING -s %s -j SNAT --to %s" % (private_ip, public_ip))
+            confirm_rule("-t nat PREROUTING -d %s -j DNAT --to %s" % (public_ip, private_ip))
+            #runthis("PREROUTING DNAT rule: %s", "sudo iptables -t nat -I PREROUTING -d %s -j DNAT --to %s" % (public_ip, private_ip))
+            confirm_rule("-t nat POSTROUTING -s %s -j SNAT --to %s" % (private_ip, public_ip))
             # TODO: Get these from the secgroup datastore entries
-            for (protocol, port) in [("tcp",80), ("tcp",22), ("tcp",1194), ("tcp",443)]:
-                runthis("FORWARD ACCEPT rule: %s", "sudo iptables -I FORWARD -d %s -p %s --dport %s -j ACCEPT" % (private_ip, protocol, port))
-            runthis("FORWARD ACCEPT rule: %s", "sudo iptables -I FORWARD -d %s -p icmp -j ACCEPT" % (private_ip))
+            confirm_rule("FORWARD -d %s -p icmp -j ACCEPT" % (private_ip))
+            for (protocol, port) in [("tcp",80), ("tcp",22), ("udp",1194), ("tcp",443)]:
+                confirm_rule("FORWARD -d %s -p %s --dport %s -j ACCEPT" % (private_ip, protocol, port))
 
 
 class NetworkPool(object):
@@ -430,7 +440,7 @@ class NetworkController(GenericNode):
         KEEPER['public'] = self.public_net.to_dict()
         KEEPER['vlans'] = self.vlan_pool.to_dict()
 
-    def express(self):
+    def express(self,address=None):
         return
         
     def report_state(self):

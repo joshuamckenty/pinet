@@ -69,10 +69,12 @@ flags.DEFINE_string('node_availability_zone',
 
 
 INSTANCE_TYPES = {}
-INSTANCE_TYPES['m1.small'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 4096}
-INSTANCE_TYPES['m1.medium'] = {'memory_mb': 2048, 'vcpus': 2, 'disk_mb': 4096}
-INSTANCE_TYPES['m1.large'] = {'memory_mb': 4096, 'vcpus': 4, 'disk_mb': 4096}
-INSTANCE_TYPES['c1.medium'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 4096}
+INSTANCE_TYPES['m1.tiny'] = {'memory_mb': 512, 'vcpus': 1, 'disk_mb': 5120}
+INSTANCE_TYPES['m1.small'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 8192}
+INSTANCE_TYPES['m1.medium'] = {'memory_mb': 2048, 'vcpus': 2, 'disk_mb': 8192}
+INSTANCE_TYPES['m1.large'] = {'memory_mb': 4096, 'vcpus': 4, 'disk_mb': 8192}
+INSTANCE_TYPES['m1.xlarge'] = {'memory_mb': 8192, 'vcpus': 4, 'disk_mb': 8192}
+INSTANCE_TYPES['c1.medium'] = {'memory_mb': 2048, 'vcpus': 4, 'disk_mb': 8192}
 
 
 class GenericNode(object):

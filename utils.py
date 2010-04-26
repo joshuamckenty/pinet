@@ -21,7 +21,7 @@ def fetchfile(url, target):
     execute("curl %s -o %s" % (url, target))
 
 def execute(cmd, input=None):
-    logging.debug("Running %s" % (cmd))
+    #logging.debug("Running %s" % (cmd))
     obj = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE,
     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     result = None
@@ -30,7 +30,7 @@ def execute(cmd, input=None):
     else:
         result = obj.communicate()
     obj.stdin.close()
-    logging.debug("Result was %s" % (obj.returncode))
+    #logging.debug("Result was %s" % (obj.returncode))
     return result
 
 def abspath(s):

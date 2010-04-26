@@ -16,6 +16,7 @@ class UserInfo(object):
         return 'UserInfo:%s' % self.username
 
     def startElement(self, name, attrs, connection):
+        print 'hi'
         return None
 
     def endElement(self, name, value, connection):
@@ -60,6 +61,10 @@ class PinetAdminClient(object):
             **kwargs
         )
     
+    def get_users(self):
+        # TODO: Cache for 2 minutes
+        return self.apiconn.get_list('DescribeUsers', {}, (['item', UserInfo]))
+
     def get_user(self, name):
         # TODO: Cache for 2 minutes
         user = self.apiconn.get_object('DescribeUser', {'Name': name}, UserInfo)
