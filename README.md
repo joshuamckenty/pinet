@@ -71,7 +71,7 @@ Instances
     [x] node downloads proper image from S3 (verify image via content-md5)
     [x] instances can access their user-data, meta-data
     [ ] hard code all instances for a user into 1 security group: deny except 22, 80, 443, and 1194
-    [ ] BUG: instance data from multiple nodes overwrite each other
+    [ ] BUG: instances state from multiple nodes overwrite each other (update_state code)
     [x] euca-get-console-output works
     [x] euca-terminate-instances works
     [X] euca-run-instances uses userdata, instance size, image, keypair, ... (all api params)

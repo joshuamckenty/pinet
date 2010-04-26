@@ -377,7 +377,7 @@ class CloudController(object):
 
     def update_state(self, topic, value):
         """ accepts status reports from the queue and consolidates them """
-        logging.debug("Updating state for %s" % (topic))
+        logging.debug("Updating %s state for %s" % (topic, value.keys()[0]))
         # TODO(termie): do something smart here to aggregate this data
         # TODO(jmc): This is fugly
         # TODO(jmc): if an instance has disappeared from the node, call instance_death
@@ -392,19 +392,3 @@ class CloudController(object):
                         del self.instances['pending'][instance_id]
             setattr(self, topic, value)
         return defer.succeed(True)
-            
-    def _parse_list_param(self, name, params):
-        """
-        Describe methods take an array of names for parameters.
-        For example, DescribeKeyPairs can have:
-        KeyName.1, KeyName.2, ... KeyName.N        
-        This helper will return a list of values for 'KeyName'.
-        """
-        values = []
-        i = 1
-        key = '%s.%d' % (name, i)
-        while key in params:
-            values.append(params[key][0])
-            i += 1
-            key = '%s.%d' % (name, i)
-        return values
