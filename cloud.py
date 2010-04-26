@@ -219,9 +219,9 @@ class CloudController(object):
     def _get_by_id(self, nodes, id):
         if nodes == {}:
             raise exception.ApiError("%s not found", id)
-        for node in nodes.itervalues():
+        for node_name, node in nodes.iteritems():
             if node.has_key(id):
-                return node[id]
+                return node_name, node[id]
         raise exception.ApiError("%s not found", id)
 
     def _get_volume(self, volume_id):
@@ -233,10 +233,10 @@ class CloudController(object):
 
 
     def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
-        volume = self._get_volume(volume_id)
+        node, volume = self._get_volume(volume_id)
         if context.user.is_authorized(volume.get('user_id', None)):
             raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
-        instance = self._get_instance(instance_id)
+        node, instance = self._get_instance(instance_id)
         if context.user.is_authorized(instance.get('owner_id', None)):
             raise exception.ApiError("%s not authorized for %s", context.user.id, instance_id)
         aoe_device = volume['aoe_device']
@@ -254,11 +254,11 @@ class CloudController(object):
 
     def detach_volume(self, context, volume_id, **kwargs):
         # TODO(joshua): Make sure the updated state has been received first
-        volume = self._get_volume(volume_id)
+        node, volume = self._get_volume(volume_id)
         if context.user.is_authorized(volume.get('user_id', None)):
             raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
         instance_id = volume['instance_id']
-        instance = self._get_instance(instance_id)
+        node, instance = self._get_instance(instance_id)
         if context.user.is_authorized(instance.get('owner_id', None)):
             raise exception.ApiError("%s not authorized for %s", context.user.id, instance_id)
         mountpoint = volume['mountpoint']
@@ -336,7 +336,7 @@ class CloudController(object):
         return defer.succeed({'addressSet': [{'publicIp' : address}]})
         
     def associate_address(self, context, instance_id, **kwargs):
-        instance = self._get_instance(instance_id)
+        node, instance = self._get_instance(instance_id)
         rv = self.network.associate_address(kwargs['public_ip'], instance['private_dns_name'], instance_id)
         return defer.succeed({'associateResponse': ["Address associated."]})
         
@@ -372,7 +372,7 @@ class CloudController(object):
             kwargs['bridge_name'] = network.bridge_name
             kwargs['private_dns_name'] = str(address)
             logging.debug("Casting to node for an instance with IP of %s in the %s network" % (kwargs['private_dns_name'], kwargs['network_name']))
-            calllib.cast('node', 
+            calllib.call('node', 
                                   {"method": "run_instance", 
                                    "args" : kwargs 
                                             })
@@ -391,9 +391,13 @@ class CloudController(object):
     def terminate_instances(self, context, instance_id, **kwargs):
         # TODO: return error if not authorized
         for i in instance_id:
-            instance = self._get_instance(i)
+            node, instance = self._get_instance(i)
+            if node == 'pending':
+                raise exception.ApiError('Cannot terminate pending instance')
+            logging.debug('%s.%s' % (FLAGS.node_topic, node))
             if context.user.is_authorized(instance.get('owner_id', None)):
-                calllib.cast('node', {"method": "terminate_instance",
+                calllib.cast('%s.%s' % (FLAGS.node_topic, node),
+                             {"method": "terminate_instance",
                               "args" : {"instance_id": i}})
             try:
                 self.network.disassociate_address(instance.get('public_dns_name', 'bork'))
@@ -406,10 +410,6 @@ class CloudController(object):
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 
-    #def describe_images(self, context, **kwargs):
-    #    imageSet = images.list(context.user)
-    #    
-    #    return defer.succeed({'imagesSet': imageSet})
     def describe_images(self, context, image_id=None, **kwargs):
         imageSet = images.list(context.user)
         if not image_id is None:

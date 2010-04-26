@@ -309,6 +309,6 @@ class APIServerApplication(tornado.web.Application):
             (r'/2007-03-01/([-A-Za-z0-9/]*)', MetadataRequestHandler),
             (r'/2007-01-19/([-A-Za-z0-9/]*)', MetadataRequestHandler),
             (r'/1.0/([-A-Za-z0-9/]*)', MetadataRequestHandler),
-        ], pool=multiprocessing.Pool(4), queue=multiprocessing.Queue())
+        ], pool=multiprocessing.Pool(4))
         self.user_manager = user_manager
         self.controllers = controllers
