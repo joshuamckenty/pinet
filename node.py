@@ -8,6 +8,7 @@ import base64
 import StringIO
 import sys
 import time
+import socket
 from xml.etree import ElementTree
 
 import contrib
@@ -60,7 +61,7 @@ flags.DEFINE_string('default_instance_type',
                     'default instance type to use, testing only')
 
 flags.DEFINE_string('node_name',
-                    'node_foo',
+                    socket.gethostname(),
                     'name of this node')
 flags.DEFINE_string('node_availability_zone',
                     'pinet',

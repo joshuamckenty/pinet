@@ -44,6 +44,7 @@ import os
 import os.path
 import urllib
 from hashlib import sha1 as sha
+from M2Crypto import BN, EVP, RSA, util, Rand, m2, X509
 from binascii import hexlify, unhexlify
 
 from tornado import web
