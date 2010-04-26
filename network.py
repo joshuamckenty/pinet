@@ -231,12 +231,13 @@ class PublicNetwork(Network):
         # TODO(joshua) SCRUB from the leases file somehow
         self.express()
 
-    def associate_address(self, public_ip, private_ip):
+    def associate_address(self, public_ip, private_ip, instance_id):
         if not self.hosts.has_key(public_ip):
             raise Exception # Not allocated
         if self.hosts[public_ip].has_key('private_ip'):
             raise Exception # Already associated
         self.hosts[public_ip]['private_ip'] = private_ip
+        self.hosts[public_ip]['instance_id'] = instance_id
         self.express()
 
     def disassociate_address(self, public_ip):
@@ -245,6 +246,7 @@ class PublicNetwork(Network):
         if not self.hosts[public_ip].has_key('private_ip'):
             raise Exception # Not associated
         del self.hosts[public_ip]['private_ip']
+        del self.hosts[public_ip]['instance_id']
         # TODO Express the removal
     
     def express(self):
@@ -260,6 +262,7 @@ class PublicNetwork(Network):
             # TODO: Get these from the secgroup datastore entries
             for (protocol, port) in [("tcp",80), ("tcp",22), ("tcp",1194), ("tcp",443)]:
                 runthis("FORWARD ACCEPT rule: %s", "sudo iptables -I FORWARD -d %s -p %s --dport %s -j ACCEPT" % (private_ip, protocol, port))
+            runthis("FORWARD ACCEPT rule: %s", "sudo iptables -I FORWARD -d %s -p icmp -j ACCEPT" % (private_ip, protocol, port))
 
 
 class NetworkPool(object):
@@ -395,8 +398,8 @@ class NetworkController(GenericNode):
             return addresses
         return self.public_net.list_addresses()
         
-    def associate_address(self, address, private_ip):
-        rv = self.public_net.associate_address(address, private_ip)
+    def associate_address(self, address, private_ip, instance_id):
+        rv = self.public_net.associate_address(address, private_ip, instance_id)
         self._save()
         return rv
         
