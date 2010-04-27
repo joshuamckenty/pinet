@@ -2,6 +2,7 @@ from exception import Error
 from utils import execute as _ex
 import os
 import tempfile
+import time
 
 
 def partition(infile, outfile):
@@ -21,7 +22,7 @@ def partition(infile, outfile):
     _ex('dd if=%s of=%s bs=512 seek=%d conv=notrunc,fsync' % (infile, outfile, start))
 
 
-def inject_key(key, image):
+def inject_key(key, image, partitioned=False):
     # try to attach to loopback multiple times
     for i in range(10):
         device = _ex('sudo losetup -f')[0].strip()
@@ -30,15 +31,18 @@ def inject_key(key, image):
             if not out and not err:
                 break
             _ex('sudo losetup -d %s' % device)
+        time.sleep(2)
     else:
         raise Error('Could not attach image to loopback')
     try:
-        # create partition
-        out, err = _ex('sudo kpartx -a %s' % device)
-        if err:
-            raise Error('failed to load partition')
-        partition = '/dev/mapper/' + device.split('/')[-1] + 'p1'
-        
+        if partitioned:
+            # create partition
+            out, err = _ex('sudo kpartx -a %s' % device)
+            if err:
+                raise Error('failed to load partition')
+            partition = '/dev/mapper/' + device.split('/')[-1] + 'p1'
+        else:
+            partition = device
         out, err = _ex('sudo tune2fs -c 0 -i 0 %s' % partition)
         
         tmpdir = tempfile.mkdtemp()
@@ -57,8 +61,9 @@ def inject_key(key, image):
         finally:
             # remove temporary directory
             os.rmdir(tmpdir)
-            # remove partitions
-            _ex('sudo kpartx -d %s' % device)
+            if partitioned:
+                # remove partitions
+                _ex('sudo kpartx -d %s' % device)
     finally:
         # remove loopback
         _ex('sudo losetup -d %s' % device)

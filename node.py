@@ -240,8 +240,6 @@ def _create_image(data, libvirt_xml):
                 if not os.path.exists(basepath('disk')):
                     utils.fetchfile(image_url("%s/image" % data['image_id']),
                        basepath('disk-raw'))
-                    disk.partition(basepath('disk-raw'),
-                       basepath('disk'))
                 if not os.path.exists(basepath('kernel')):
                     utils.fetchfile(image_url(data['kernel_id']),
                                 basepath('kernel'))
@@ -250,8 +248,8 @@ def _create_image(data, libvirt_xml):
                            basepath('ramdisk'))
             else:
                 if not os.path.exists(basepath('disk')):
-                    disk.partition(imagepath("%s/image" % data['image_id']),
-                        basepath('disk'))
+                    shutil.copyfile(imagepath("%s/image" % data['image_id']),
+                        basepath('disk-raw'))
                 if not os.path.exists(basepath('kernel')):
                     shutil.copyfile(imagepath(data['kernel_id']),
                         basepath('kernel'))
@@ -260,7 +258,9 @@ def _create_image(data, libvirt_xml):
                         basepath('ramdisk'))
             if data['key_data']:
                 logging.info('Injecting key data into image')
-                disk.inject_key(data['key_data'], basepath('disk'))
+                disk.inject_key(data['key_data'], basepath('disk-raw'))
+            disk.partition(basepath('disk-raw'),
+                basepath('disk'))
         else:
             pass
         logging.info('Done create image for: %s', data['instance_id'])
