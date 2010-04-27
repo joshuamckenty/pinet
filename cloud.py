@@ -234,11 +234,12 @@ class CloudController(object):
 
     def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
         node, volume = self._get_volume(volume_id)
-        if context.user.is_authorized(volume.get('user_id', None)):
-            raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
+        # TODO: (joshua) Fix volumes to store creator id
+        # if context.user.is_authorized(volume.get('user_id', None)):
+        #    raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
         node, instance = self._get_instance(instance_id)
-        if context.user.is_authorized(instance.get('owner_id', None)):
-            raise exception.ApiError("%s not authorized for %s", context.user.id, instance_id)
+        # if context.user.is_authorized(instance.get('owner_id', None)):
+        #    raise exception.ApiError(message="%s not authorized for %s" % (context.user.id, instance_id))
         aoe_device = volume['aoe_device']
         # Needs to get right node controller for attaching to
         # TODO: Maybe have another exchange that goes to everyone?
@@ -324,9 +325,9 @@ class CloudController(object):
     def format_addresses(self):
         addresses = []
         for address_record in self.network.describe_addresses(type=network.PublicNetwork):
-            logging.debug(address_record)
+            #logging.debug(address_record)
             addresses.append({'public_ip': address_record[u'address'], 'instance_id' : address_record.get(u'instance_id', 'free')})
-        logging.debug(addresses)
+        # logging.debug(addresses)
         return {'addressesSet': addresses}
             
     def allocate_address(self, context, **kwargs):
@@ -334,6 +335,10 @@ class CloudController(object):
         kwargs['owner_id'] = context.user.id
         (address,network_name) = self.network.allocate_address(context.user.id, type=network.PublicNetwork)
         return defer.succeed({'addressSet': [{'publicIp' : address}]})
+
+    def release_address(self, context, **kwargs):
+        self.network.deallocate_address(kwargs.get('public_ip', None))
+        return defer.succeed({'releaseResponse': ["Address released."]})
         
     def associate_address(self, context, instance_id, **kwargs):
         node, instance = self._get_instance(instance_id)

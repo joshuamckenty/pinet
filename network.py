@@ -111,13 +111,16 @@ class Network(object):
             raise NotAllocated
         del self.hosts[ip_str]
         # TODO(joshua) SCRUB from the leases file somehow
-        self.express(address=ip_str)
+        self.deexpress(address=ip_str)
     
     def list_addresses(self):
         for address in self.hosts.values():
             yield address
 
     def express(self, address=None):
+        pass
+
+    def deexpress(self, address=None):
         pass
 
 
@@ -240,7 +243,7 @@ class PublicNetwork(Network):
             raise NotAllocated
         del self.hosts[ip_str]
         # TODO(joshua) SCRUB from the leases file somehow
-        self.express(address=ip_str)
+        self.deexpress(address=ip_str)
 
     def associate_address(self, public_ip, private_ip, instance_id):
         if not self.hosts.has_key(public_ip):
@@ -265,6 +268,7 @@ class PublicNetwork(Network):
         # TODO Express the removal
     
     def deexpress(self, address):
+        addr = self.hosts[address]
         public_ip = addr['address']
         private_ip = addr['private_ip']
         remove_rule("PREROUTING -t nat -d %s -j DNAT --to %s" % (public_ip, private_ip))
@@ -395,7 +399,7 @@ class NetworkController(GenericNode):
             if not self.private_nets[user_id]:
                 network_str = self.private_pool.next()
                 vlan = self.vlan_pool.next(user_id)
-                logging.debug("Constructing network %s and %s for %s" % (network_str, vlan, user_id))
+                # logging.debug("Constructing network %s and %s for %s" % (network_str, vlan, user_id))
                 self.private_nets[user_id] = PrivateNetwork(network = network_str, vlan = self.vlan_pool.vlans[user_id], conn = self._conn)
                 KEEPER["%s-default" % user_id] = self.private_nets[user_id].to_dict()
         return self.private_nets[user_id]
