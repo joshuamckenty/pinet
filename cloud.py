@@ -320,13 +320,25 @@ class CloudController(object):
         return instance_response
 
     def describe_addresses(self, context, **kwargs):
-        return self.format_addresses()
+        return self.format_addresses(context.user)
         
-    def format_addresses(self):
+    def format_addresses(self, user):
         addresses = []
+        # TODO(vish): move authorization checking into network.py
         for address_record in self.network.describe_addresses(type=network.PublicNetwork):
             #logging.debug(address_record)
-            addresses.append({'public_ip': address_record[u'address'], 'instance_id' : address_record.get(u'instance_id', 'free')})
+            if user.is_authorized(address_record[u'user_id']):
+                address = {
+                    'public_ip': address_record[u'address'],
+                    'instance_id' : address_record.get(u'instance_id', 'free')
+                }
+                # FIXME: add another field for user id
+                if user.is_admin():
+                    address['instance_id'] = "%s (%s)" % (
+                        address['instance_id'],
+                        address_record[u'user_id'],
+                    )
+                addresses.append(address)
         # logging.debug(addresses)
         return {'addressesSet': addresses}
             
