@@ -65,12 +65,12 @@ Instances
     [ ] can only launch images that user owns or is public
     [x] keypair is added when running instance
     [ ] nodes have a quota on # of instances
-    [ ] can allocate and attach public IPs
-    [ ] network state persists
+    [X] can allocate and attach public IPs
+    [X] network state persists
     [x] each user gets a subnet and vlan for their instances
     [x] node downloads proper image from S3 (verify image via content-md5)
     [x] instances can access their user-data, meta-data
-    [ ] hard code all instances for a user into "default" security group: deny except 22, 80, 443, and 1194
+    [X] hard code all instances for a user into "default" security group: deny except 22, 80, 443, and 1194
     [x] instances state from multiple nodes overwrite each other (update_state code)
     [x] euca-get-console-output works
     [x] euca-terminate-instances works
@@ -80,7 +80,7 @@ Instances
     [x] can launch from many different images
     [x] ignore kernel/ramdisk from user, hardcode for now
     [x] can launch different sizes
-    [ ] NAT to public internet works from instances
+    [X] NAT to public internet works from instances
     [ ] access to other users instances only works on "default" protocols
     [ ] terminate should send to only the approriate node
     [ ] BUG: running -n N+1 instances when you have N results in only N instances launched
@@ -90,6 +90,7 @@ Instances
 	DEBUG:root:Arrived in _launch, thanks to callback on deferred. <- only happens first time
     [ ] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
     [x] describe-instances doesn't show public ips
+    [ ] When instances are shutdown or terminated, clean them up (detach IP and volume)
 
 S3 / Images
 -----------
@@ -128,8 +129,8 @@ Cleanup
 Nasa Deploy
 -----------
 
-    [ ] Port existing users, images from euca
-    [ ] Port cloudpipe and dashboard, install them
+    [X] Port existing users, images from euca
+    [X] Port cloudpipe and dashboard, install them
     [ ] Remove secgroups from dashboard UI
     [ ] Configure instance sizes
 
