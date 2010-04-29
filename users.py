@@ -36,10 +36,10 @@ flags.DEFINE_string('credentials_template',
                     utils.abspath('pinetrc.template'),
                     'Template for creating users rc file')
 flags.DEFINE_string('ec2_url',
-                    'http://127.0.0.1:8773/services/Cloud',
+                    'http://10.255.255.1:8773/services/Cloud',
                     'Url to ec2 api server')
 flags.DEFINE_string('s3_url',
-                    'http://127.0.0.1:3333/',
+                    'http://10.255.255.1:3333/',
                     'Url to s3 api server')
 
 flags.DEFINE_string('credential_key_file', 'pk.pem',
@@ -65,6 +65,10 @@ class User(object):
 
     @property
     def id(self):
+        return self.ldap_user_object[1]['uid'][0]
+
+    @property
+    def name(self):
         return self.ldap_user_object[1]['uid'][0]
 
     @property
@@ -250,7 +254,7 @@ class UserManager(object):
         return (private_key, signed_cert)
 
     def cert_subject(self, uid):
-        return "/C=US/ST=California/L=The_Mission/O=CloudFed/OU=PINET/CN=%s-%s" % (uid, str(datetime.datetime.utcnow().isoformat()))
+        return "/C=US/ST=California/L=NASA_Ames/O=NebulaDev/OU=NOVA/CN=%s-%s" % (uid, str(datetime.datetime.utcnow().isoformat()))
 
 class LDAPWrapper(object):
     def __init__(self):
@@ -384,6 +388,9 @@ def usage():
     print '   -e (username) [filename.zip]    - generate new X509 cert for user'
 
 if __name__ == "__main__":
+    FLAGS.ca_path="/srv/cloud/CA"
+    FLAGS.keys_path="/srv/cloud/keys"
+
     manager = UserManager()
     if len(sys.argv) > 2:
         if sys.argv[1] == '-a':

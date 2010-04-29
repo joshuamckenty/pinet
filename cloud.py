@@ -219,9 +219,9 @@ class CloudController(object):
     def _get_by_id(self, nodes, id):
         if nodes == {}:
             raise exception.ApiError("%s not found", id)
-        for node in nodes.itervalues():
+        for node_name, node in nodes.iteritems():
             if node.has_key(id):
-                return node[id]
+                return node_name, node[id]
         raise exception.ApiError("%s not found", id)
 
     def _get_volume(self, volume_id):
@@ -233,12 +233,13 @@ class CloudController(object):
 
 
     def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
-        volume = self._get_volume(volume_id)
-        if context.user.is_authorized(volume.get('user_id', None)):
-            raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
-        instance = self._get_instance(instance_id)
-        if context.user.is_authorized(instance.get('owner_id', None)):
-            raise exception.ApiError("%s not authorized for %s", context.user.id, instance_id)
+        node, volume = self._get_volume(volume_id)
+        # TODO: (joshua) Fix volumes to store creator id
+        # if context.user.is_authorized(volume.get('user_id', None)):
+        #    raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
+        node, instance = self._get_instance(instance_id)
+        # if context.user.is_authorized(instance.get('owner_id', None)):
+        #    raise exception.ApiError(message="%s not authorized for %s" % (context.user.id, instance_id))
         aoe_device = volume['aoe_device']
         # Needs to get right node controller for attaching to
         # TODO: Maybe have another exchange that goes to everyone?
@@ -254,11 +255,11 @@ class CloudController(object):
 
     def detach_volume(self, context, volume_id, **kwargs):
         # TODO(joshua): Make sure the updated state has been received first
-        volume = self._get_volume(volume_id)
+        node, volume = self._get_volume(volume_id)
         if context.user.is_authorized(volume.get('user_id', None)):
             raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
         instance_id = volume['instance_id']
-        instance = self._get_instance(instance_id)
+        node, instance = self._get_instance(instance_id)
         if context.user.is_authorized(instance.get('owner_id', None)):
             raise exception.ApiError("%s not authorized for %s", context.user.id, instance_id)
         mountpoint = volume['mountpoint']
@@ -319,14 +320,26 @@ class CloudController(object):
         return instance_response
 
     def describe_addresses(self, context, **kwargs):
-        return self.format_addresses()
+        return self.format_addresses(context.user)
         
-    def format_addresses(self):
+    def format_addresses(self, user):
         addresses = []
+        # TODO(vish): move authorization checking into network.py
         for address_record in self.network.describe_addresses(type=network.PublicNetwork):
-            logging.debug(address_record)
-            addresses.append({'public_ip': address_record[u'address'], 'instance_id' : address_record.get(u'instance_id', 'free')})
-        logging.debug(addresses)
+            #logging.debug(address_record)
+            if user.is_authorized(address_record[u'user_id']):
+                address = {
+                    'public_ip': address_record[u'address'],
+                    'instance_id' : address_record.get(u'instance_id', 'free')
+                }
+                # FIXME: add another field for user id
+                if user.is_admin():
+                    address['instance_id'] = "%s (%s)" % (
+                        address['instance_id'],
+                        address_record[u'user_id'],
+                    )
+                addresses.append(address)
+        # logging.debug(addresses)
         return {'addressesSet': addresses}
             
     def allocate_address(self, context, **kwargs):
@@ -334,14 +347,18 @@ class CloudController(object):
         kwargs['owner_id'] = context.user.id
         (address,network_name) = self.network.allocate_address(context.user.id, type=network.PublicNetwork)
         return defer.succeed({'addressSet': [{'publicIp' : address}]})
+
+    def release_address(self, context, **kwargs):
+        self.network.deallocate_address(kwargs.get('public_ip', None))
+        return defer.succeed({'releaseResponse': ["Address released."]})
         
     def associate_address(self, context, instance_id, **kwargs):
-        instance = self._get_instance(instance_id)
+        node, instance = self._get_instance(instance_id)
         rv = self.network.associate_address(kwargs['public_ip'], instance['private_dns_name'], instance_id)
         return defer.succeed({'associateResponse': ["Address associated."]})
         
-    def disassociate_address(self, context, ip, **kwargs):
-        rv = self.network.disassociate_address(ip)
+    def disassociate_address(self, context, **kwargs):
+        rv = self.network.disassociate_address(kwargs['public_ip'])
         # TODO - Strip the IP from the instance
         return rv
 
@@ -372,7 +389,7 @@ class CloudController(object):
             kwargs['bridge_name'] = network.bridge_name
             kwargs['private_dns_name'] = str(address)
             logging.debug("Casting to node for an instance with IP of %s in the %s network" % (kwargs['private_dns_name'], kwargs['network_name']))
-            calllib.cast('node', 
+            calllib.call('node', 
                                   {"method": "run_instance", 
                                    "args" : kwargs 
                                             })
@@ -391,10 +408,18 @@ class CloudController(object):
     def terminate_instances(self, context, instance_id, **kwargs):
         # TODO: return error if not authorized
         for i in instance_id:
-            instance = self._get_instance(i)
+            node, instance = self._get_instance(i)
+            if node == 'pending':
+                raise exception.ApiError('Cannot terminate pending instance')
+            logging.debug('%s.%s' % (FLAGS.node_topic, node))
             if context.user.is_authorized(instance.get('owner_id', None)):
-                calllib.cast('node', {"method": "terminate_instance",
+                calllib.cast('%s.%s' % (FLAGS.node_topic, node),
+                             {"method": "terminate_instance",
                               "args" : {"instance_id": i}})
+            try:
+                self.network.disassociate_address(instance.get('public_dns_name', 'bork'))
+            except:
+                pass
         return defer.succeed(True)
         
     def delete_volume(self, context, volume_id, **kwargs):
@@ -402,8 +427,10 @@ class CloudController(object):
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 
-    def describe_images(self, context, **kwargs):
+    def describe_images(self, context, image_id=None, **kwargs):
         imageSet = images.list(context.user)
+        if not image_id is None:
+            imageSet = [i for i in imageSet if i['imageId'] in image_id]
         
         return defer.succeed({'imagesSet': imageSet})
     

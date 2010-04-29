@@ -69,10 +69,12 @@ flags.DEFINE_string('node_availability_zone',
 
 
 INSTANCE_TYPES = {}
-INSTANCE_TYPES['m1.small'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 4096}
-INSTANCE_TYPES['m1.medium'] = {'memory_mb': 2048, 'vcpus': 2, 'disk_mb': 4096}
-INSTANCE_TYPES['m1.large'] = {'memory_mb': 4096, 'vcpus': 4, 'disk_mb': 4096}
-INSTANCE_TYPES['c1.medium'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 4096}
+INSTANCE_TYPES['m1.tiny'] = {'memory_mb': 512, 'vcpus': 1, 'disk_mb': 5120}
+INSTANCE_TYPES['m1.small'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 8192}
+INSTANCE_TYPES['m1.medium'] = {'memory_mb': 2048, 'vcpus': 2, 'disk_mb': 8192}
+INSTANCE_TYPES['m1.large'] = {'memory_mb': 4096, 'vcpus': 4, 'disk_mb': 8192}
+INSTANCE_TYPES['m1.xlarge'] = {'memory_mb': 8192, 'vcpus': 4, 'disk_mb': 8192}
+INSTANCE_TYPES['c1.medium'] = {'memory_mb': 2048, 'vcpus': 4, 'disk_mb': 8192}
 
 
 class GenericNode(object):
@@ -153,9 +155,9 @@ class Node(GenericNode):
         # TODO(vish) check to make sure the availability zone matches
         new_inst = Instance(self._conn, name=instance_id, pool=self._pool, **kwargs)
         self._instances[instance_id] = new_inst
-        d = new_inst.spawn()
-        d.addCallback(lambda x: new_inst)
-        return d
+        new_inst.spawn()
+        
+        return defer.succeed(True)
     
     @exception.wrap_exception
     def terminate_instance(self, instance_id):
@@ -217,7 +219,7 @@ class ProductCode(object):
 
 
 def _create_image(data, libvirt_xml):
-    """ create libvirt.xml and copy files into instance path """          
+    """ create libvirt.xml and copy files into instance path """
     def basepath(path=''):
         return os.path.abspath(os.path.join(data['basepath'], path))
 
@@ -238,8 +240,6 @@ def _create_image(data, libvirt_xml):
                 if not os.path.exists(basepath('disk')):
                     utils.fetchfile(image_url("%s/image" % data['image_id']),
                        basepath('disk-raw'))
-                    disk.partition(basepath('disk-raw'),
-                       basepath('disk'))
                 if not os.path.exists(basepath('kernel')):
                     utils.fetchfile(image_url(data['kernel_id']),
                                 basepath('kernel'))
@@ -248,8 +248,8 @@ def _create_image(data, libvirt_xml):
                            basepath('ramdisk'))
             else:
                 if not os.path.exists(basepath('disk')):
-                    disk.partition(imagepath("%s/image" % data['image_id']),
-                        basepath('disk'))
+                    shutil.copyfile(imagepath("%s/image" % data['image_id']),
+                        basepath('disk-raw'))
                 if not os.path.exists(basepath('kernel')):
                     shutil.copyfile(imagepath(data['kernel_id']),
                         basepath('kernel'))
@@ -258,7 +258,9 @@ def _create_image(data, libvirt_xml):
                         basepath('ramdisk'))
             if data['key_data']:
                 logging.info('Injecting key data into image')
-                disk.inject_key(data['key_data'], basepath('disk'))
+                disk.inject_key(data['key_data'], basepath('disk-raw'))
+            disk.partition(basepath('disk-raw'),
+                basepath('disk'))
         else:
             pass
         logging.info('Done create image for: %s', data['instance_id'])
@@ -444,23 +446,20 @@ class Instance(object):
                     'instance: %s (state: %s)' % (self.name, self.state))
 
         xml = self.toXml()
-        d = defer.Deferred()
-
         def _launch(kwargs):
             logging.debug("Arrived in _launch")
             if kwargs and 'exception' in kwargs:
-                d.errback(kwargs['exception'])
-                return
+                raise kwargs['exception']
             self._conn.createXML(self.toXml(), 0)
             # TODO(termie): this should actually register a callback to check
             #               for successful boot
             self._s['state'] = Instance.RUNNING
-            d.callback(True)
+            logging.debug("Instance is running")
+            return
 
         self._pool.apply_async(_create_image,
             [self._s, xml],
             callback=_launch)
-        return d
     
     @exception.wrap_exception
     def console_output(self):
