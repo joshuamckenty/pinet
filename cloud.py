@@ -383,7 +383,11 @@ class CloudController(object):
             kwargs['mac_address'] = utils.generate_mac()
             #TODO(joshua) - Allocate IP based on security group
             kwargs['ami_launch_index'] = num 
-            (address, kwargs['network_name']) = self.network.allocate_address(str(kwargs['owner_id']), mac=str(kwargs['mac_address']))
+            address = None
+            if (kwargs['image_id'] == FLAGS.cloudpipe_ami):
+                (address, kwargs['network_name']) = self.network.get_cloudpipe_address(str(kwargs['owner_id']))
+            else:
+                (address, kwargs['network_name']) = self.network.allocate_address(str(kwargs['owner_id']), mac=str(kwargs['mac_address']))
             network = self.network.get_users_network(str(kwargs['owner_id']))
             kwargs['network_str'] = network.to_dict()
             kwargs['bridge_name'] = network.bridge_name
