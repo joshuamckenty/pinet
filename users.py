@@ -142,16 +142,16 @@ class User(object):
         return self.manager.get_key_pairs(self.id)
         
     def get_vpn_port(self):
-        if not KEEPER['vpn_ports']:
-            KEEPER['vpn_ports'] = {}
-        if KEEPER['vpn_ports'].has_key(self.id):
-            return KEEPER['vpn_ports'][self.id]
-        else:
-            ports = KEEPER['vpn_ports'].values()
+        port_map = KEEPER['vpn_ports']
+        if not port_map: port_map = {}
+        if not port_map.has_key(self.id):
+            ports = port_map.values()
             if len(ports) > 0:
-                KEEPER['vpn_ports'][self.id] = max(ports) + 1
+                port_map[self.id] = max(ports) + 1
             else:
-                KEEPER['vpn_ports'] = 8000
+                port_map[self.id] = 8000
+        KEEPER['vpn_ports'] = port_map
+        return KEEPER['vpn_ports'][self.id]
 
 class KeyPair(object):
     def __init__(self, ldap_key_object):
