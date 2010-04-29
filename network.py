@@ -4,6 +4,7 @@ import os
 import subprocess
 import signal
 import copy
+from math import pow
 
 # TODO(termie): clean up these imports
 import datastore
@@ -33,7 +34,10 @@ flags.DEFINE_string('networks_path', utils.abspath('../networks'),
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses') # FAKE!!! 
 flags.DEFINE_string('public_interface', 'vlan124', 'Interface for public IP addresses')
 flags.DEFINE_string('public_range', '198.10.126.128-198.10.126.191', 'Public IP address block')
+flags.DEFINE_string('cloudpipe_ip', '198.10.126.2', 'IP address of shared CloudPipe external IP')
+flags.DEFINE_integer('cloudpipe_start_port', 10000, 'Starting port for mapped CloudPipe external ports')
 KEEPER = datastore.keeper(prefix="net")
+
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -45,6 +49,12 @@ def confirm_rule(cmd):
 def remove_rule(cmd):
     execute("sudo iptables --delete %s" % (cmd))
     pass
+
+def ip_to_port(ip, vlan_mask_bits = 26, base_mask_bits = 16, start_port = 10000):
+    vlan = IP(ip).make_net(vlan_mask_bits)
+    base = IP(ip).make_net(base_mask_bits)
+    vlan_divisor = int(pow(2, (32 - vlan_mask_bits)))
+    return (vlan.int() - base.int()) / vlan_divisor + start_port
 
 class Network(object):
     def __init__(self, *args, **kwargs):
@@ -91,7 +101,8 @@ class Network(object):
         return cls.from_dict(parsed, conn=conn)
     
     def range(self):
-        for idx in range(2, len(self.network)-2):
+        # the .2 address is always CloudPipe
+        for idx in range(3, len(self.network)-2):
             yield self.network[idx]
     
     def allocate_ip(self, user_id, mac):
@@ -224,7 +235,7 @@ iptables --table nat --append POSTROUTING --out-interface vlan124 -j MASQUERADE
     def dnsmasq_cmd(self, conf_file):
         cmd = "sudo dnsmasq --strict-order --bind-interfaces --pid-file=%s/pinet-%s.pid" % (FLAGS.networks_path, self.vlan)
         cmd += " --conf-file=  --listen-address %s --except-interface lo" % (str(self.network[1]))
-        cmd += " --dhcp-range %s,%s,120s --dhcp-lease-max=61 " % (str(self.network[2]), str(self.network[-2]))
+        cmd += " --dhcp-range %s,%s,120s --dhcp-lease-max=61 " % (str(self.network[3]), str(self.network[-2]))
         cmd += " --dhcp-hostsfile=%s --dhcp-leasefile=%s/pinet-%s.leases" % (conf_file, FLAGS.networks_path, self.vlan)
         return cmd
     
@@ -259,6 +270,20 @@ class PrivateNetwork(DHCPNetwork):
     def __init__(self, conn=None, **kwargs):
         super(PrivateNetwork, self).__init__(conn=conn, **kwargs)
         self.express()
+
+    def express(self, *args, **kwargs):
+        super(PrivateNetwork, self).express(*args, **kwargs)
+        self.cloudpipe_express()
+        
+    def get_vpn_ip(self):
+        return self.network[2]
+
+    def cloudpipe_express(self):
+        # TODO: Test and see if the rule is in place
+        private_ip = self.get_vpn_ip()
+        inbound_port = ip_to_port(private_ip, vlan_mask_bits=self.network.prefixlen(), start_port=FLAGS.cloudpipe_start_port)
+        confirm_rule("PREROUTING -t nat -d %s -p udp --dport %s -j DNAT --to %s:1194" % (FLAGS.cloudpipe_ip, inbound_port, private_ip))
+    
         
 class PublicNetwork(Network):
     def __init__(self, conn=None, network="192.168.216.0/24", **kwargs):
@@ -328,7 +353,6 @@ class PublicNetwork(Network):
             private_ip = addr['private_ip']
             runthis("Binding IP to interface: %s", "sudo ip addr add %s dev %s" % (public_ip, FLAGS.public_interface))
             confirm_rule("PREROUTING -t nat -d %s -j DNAT --to %s" % (public_ip, private_ip))
-            #runthis("PREROUTING DNAT rule: %s", "sudo iptables -t nat -I PREROUTING -d %s -j DNAT --to %s" % (public_ip, private_ip))
             confirm_rule("POSTROUTING -t nat -s %s -j SNAT --to %s" % (private_ip, public_ip))
             # TODO: Get these from the secgroup datastore entries
             confirm_rule("FORWARD -d %s -p icmp -j ACCEPT" % (private_ip))
@@ -442,6 +466,11 @@ class NetworkController(GenericNode):
                 self.private_nets[user_id] = PrivateNetwork(network = network_str, vlan = self.vlan_pool.vlans[user_id], conn = self._conn)
                 KEEPER["%s-default" % user_id] = self.private_nets[user_id].to_dict()
         return self.private_nets[user_id]
+
+    def get_cloudpipe_address(self, user_id):
+        net = self.get_users_network(user_id)
+        ip = net.get_vpn_ip()
+        return (ip, net.name)
         
     def allocate_address(self, user_id, mac=None, type=PrivateNetwork):
         ip = None
