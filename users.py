@@ -7,6 +7,7 @@ except Exception, e:
     import fakeldap as ldap
 
 import fakeldap
+import datastore
 
 # TODO(termie): clean up these imports
 import os
@@ -51,6 +52,9 @@ flags.DEFINE_string('credential_rc_file', 'pinetrc',
 
 _log = logging.getLogger('auth')
 _log.setLevel(logging.WARN)
+
+KEEPER = datastore.keeper(prefix="user")
+
 
 class UserError(exception.ApiError):
     pass
@@ -136,6 +140,18 @@ class User(object):
 
     def get_key_pairs(self):
         return self.manager.get_key_pairs(self.id)
+        
+    def get_vpn_port(self):
+        if not KEEPER['vpn_ports']:
+            KEEPER['vpn_ports'] = {}
+        if KEEPER['vpn_ports'].has_key(self.id):
+            return KEEPER['vpn_ports'][self.id]
+        else:
+            ports = KEEPER['vpn_ports'].values()
+            if len(ports) > 0:
+                KEEPER['vpn_ports'][self.id] = max(ports) + 1
+            else:
+                KEEPER['vpn_ports'] = 8000
 
 class KeyPair(object):
     def __init__(self, ldap_key_object):
