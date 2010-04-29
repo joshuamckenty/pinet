@@ -181,16 +181,21 @@ class CloudController(object):
         return groups
         
     def create_security_group(self, context, group_name, **kwargs):
-        pass
+        return True
         
     def delete_security_group(self, context, group_name, **kwargs):
-        pass
+        return True
 
     def get_console_output(self, context, instance_id, **kwargs):
-        # instance_id is passed in as a list of instances
-        instance_id = instance_id[0]
-        return calllib.call('node', {"method": "get_console_output",
-                                     "args" : {"instance_id": instance_id}})
+	# instance_id is passed in as a list of instances
+	node, instance = self._get_instance(instance_id[0])
+        if node == 'pending':
+            raise exception.ApiError('Cannot get output for pending instance')
+        if not context.user.is_authorized(instance.get('owner_id', None)):
+            raise exception.ApiError('Not authorized to view output')
+        return calllib.call('%s.%s' % (FLAGS.node_topic, node),
+	    {"method": "get_console_output",
+             "args" : {"instance_id": instance_id[0]}})
 
     def _get_user_id(self, context):
         if context and context.user:
@@ -385,7 +390,7 @@ class CloudController(object):
             kwargs['ami_launch_index'] = num 
             address = None
             if (kwargs['image_id'] == FLAGS.cloudpipe_ami):
-                (address, kwargs['network_name']) = self.network.get_cloudpipe_address(str(kwargs['owner_id']))
+                (address, kwargs['network_name']) = self.network.get_cloudpipe_address(str(kwargs['owner_id']), mac=str(kwargs['mac_address']))
             else:
                 (address, kwargs['network_name']) = self.network.allocate_address(str(kwargs['owner_id']), mac=str(kwargs['mac_address']))
             network = self.network.get_users_network(str(kwargs['owner_id']))
@@ -415,7 +420,6 @@ class CloudController(object):
             node, instance = self._get_instance(i)
             if node == 'pending':
                 raise exception.ApiError('Cannot terminate pending instance')
-            logging.debug('%s.%s' % (FLAGS.node_topic, node))
             if context.user.is_authorized(instance.get('owner_id', None)):
                 calllib.cast('%s.%s' % (FLAGS.node_topic, node),
                              {"method": "terminate_instance",

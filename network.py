@@ -4,7 +4,6 @@ import os
 import subprocess
 import signal
 import copy
-from math import pow
 
 # TODO(termie): clean up these imports
 import datastore
@@ -33,8 +32,9 @@ flags.DEFINE_string('networks_path', utils.abspath('../networks'),
                     'Location to keep network config files')
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses') # FAKE!!! 
 flags.DEFINE_string('public_interface', 'vlan124', 'Interface for public IP addresses')
-flags.DEFINE_string('public_range', '198.10.126.128-198.10.126.191', 'Public IP address block')
-flags.DEFINE_string('cloudpipe_ip', '198.10.126.2', 'IP address of shared CloudPipe external IP')
+flags.DEFINE_string('public_range', '198.10.124.128-198.10.124.191', 'Public IP address block')
+flags.DEFINE_string('cloudpipe_ip', '198.10.124.2', 'IP address of shared CloudPipe external IP')
+flags.DEFINE_string('cloudpipe_ami', 'ami-A7370FE3', 'CloudPipe image')
 flags.DEFINE_integer('cloudpipe_start_port', 10000, 'Starting port for mapped CloudPipe external ports')
 KEEPER = datastore.keeper(prefix="net")
 
@@ -51,10 +51,10 @@ def remove_rule(cmd):
     pass
 
 def ip_to_port(ip, vlan_mask_bits = 26, base_mask_bits = 16, start_port = 10000):
-    vlan = IP(ip).make_net(vlan_mask_bits)
-    base = IP(ip).make_net(base_mask_bits)
-    vlan_divisor = int(pow(2, (32 - vlan_mask_bits)))
-    return (vlan.int() - base.int()) / vlan_divisor + start_port
+    vlan = IP(ip).make_net(vlan_mask_bits)
+    base = IP(ip).make_net(base_mask_bits)
+    vlan_divisor = 2 ** (32 - vlan_mask_bits)
+    return (vlan.int() - base.int()) / vlan_divisor + start_port
 
 class Network(object):
     def __init__(self, *args, **kwargs):
@@ -275,12 +275,17 @@ class PrivateNetwork(DHCPNetwork):
         super(PrivateNetwork, self).express(*args, **kwargs)
         self.cloudpipe_express()
         
-    def get_vpn_ip(self):
-        return self.network[2]
+    def get_vpn_ip(self, user_id, mac):
+        address = str(self.network[2])
+        self.hosts[address] = {
+                    "address" : address, "user_id" : user_id, 'mac' : mac
+        }
+        self.express()
+        return address
 
     def cloudpipe_express(self):
         # TODO: Test and see if the rule is in place
-        private_ip = self.get_vpn_ip()
+        private_ip = self.network[2]
         inbound_port = ip_to_port(private_ip, vlan_mask_bits=self.network.prefixlen(), start_port=FLAGS.cloudpipe_start_port)
         confirm_rule("PREROUTING -t nat -d %s -p udp --dport %s -j DNAT --to %s:1194" % (FLAGS.cloudpipe_ip, inbound_port, private_ip))
     
@@ -467,9 +472,9 @@ class NetworkController(GenericNode):
                 KEEPER["%s-default" % user_id] = self.private_nets[user_id].to_dict()
         return self.private_nets[user_id]
 
-    def get_cloudpipe_address(self, user_id):
+    def get_cloudpipe_address(self, user_id, mac=None):
         net = self.get_users_network(user_id)
-        ip = net.get_vpn_ip()
+        ip = net.get_vpn_ip(user_id, mac)
         return (ip, net.name)
         
     def allocate_address(self, user_id, mac=None, type=PrivateNetwork):
