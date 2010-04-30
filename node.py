@@ -64,7 +64,7 @@ flags.DEFINE_string('node_name',
                     socket.gethostname(),
                     'name of this node')
 flags.DEFINE_string('node_availability_zone',
-                    'pinet',
+                    'nova',
                     'availability zone of this node')
 
 
@@ -341,7 +341,7 @@ class Instance(object):
         #xml_info.update(self._s)
 
         # TODO(termie): lazy lazy hack because xml is annoying
-        xml_info['pinet'] = anyjson.serialize(self._s)
+        xml_info['nova'] = anyjson.serialize(self._s)
         libvirt_xml = libvirt_xml % xml_info
 
         return libvirt_xml
@@ -349,7 +349,7 @@ class Instance(object):
     @classmethod
     def fromXml(cls, conn, pool, xml):
         parsed = ElementTree.parse(StringIO.StringIO(xml))
-        elem = parsed.find('pinet')
+        elem = parsed.find('nova')
         info = anyjson.deserialize(elem.text)
         self = cls(conn=conn, pool=pool, **info)
         self.update_state()

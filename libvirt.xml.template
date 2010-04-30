@@ -31,5 +31,5 @@
             <target port='1'/>
         </serial>
     </devices>
-    <pinet>%(pinet)s</pinet>
+    <nova>%(nova)s</nova>
 </domain>

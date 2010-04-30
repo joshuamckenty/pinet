@@ -1,5 +1,5 @@
 """
-Pinet Storage manages creating, attaching, detaching, and destroying persistent storage volumes, ala EBS.
+Nova Storage manages creating, attaching, detaching, and destroying persistent storage volumes, ala EBS.
 Currently uses iSCSI.
 """
 
@@ -22,7 +22,7 @@ from twisted.internet import defer
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('storage_dev', '/dev/sdb', 'Physical device to use for volumes')
-flags.DEFINE_string('volume_group', 'pinet-volumes', 'Name for the VG that will contain exported volumes')
+flags.DEFINE_string('volume_group', 'nova-volumes', 'Name for the VG that will contain exported volumes')
 flags.DEFINE_string('aoe_eth_dev', 'eth0', 'Which device to export the volumes on')
 flags.DEFINE_boolean('fake_storage', False, 'Should we make real storage volumes to attach?')
 
@@ -30,7 +30,7 @@ flags.DEFINE_string('storage_name',
                     socket.gethostname(),
                     'name of this node')
 flags.DEFINE_string('storage_availability_zone',
-                    'pinet',
+                    'nova',
                     'availability zone of this node')
 KEEPER = datastore.keeper(prefix="storage")
 
@@ -77,7 +77,7 @@ class BlockStore(object):
                         "volume_id": volume_id, 
                         "size" : vol.get_size(), 
                         "aoe_device" : vol.get_aoe_device(),
-                        "availability_zone" : "pinet", 
+                        "availability_zone" : "nova", 
                         "status" : vol.get_status(), 
                         "create_time" : "1", 
                         "attachment_set" : []}

@@ -24,7 +24,7 @@ flags.DEFINE_integer('rabbit_port', 5672, 'rabbit port')
 flags.DEFINE_string('rabbit_userid', 'guest', 'rabbit userid')
 flags.DEFINE_string('rabbit_password', 'guest', 'rabbit password')
 flags.DEFINE_string('rabbit_virtual_host', '/', 'rabbit virtual host')
-flags.DEFINE_string('control_exchange', 'pinet', 'the main exchange to connect to')
+flags.DEFINE_string('control_exchange', 'nova', 'the main exchange to connect to')
 
 _log = logging.getLogger('amqplib')
 _log.setLevel(logging.WARN)

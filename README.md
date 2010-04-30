@@ -54,7 +54,7 @@ Users
 
     [X] X509 certs for users
     [x] add concept of admin
-    [X] Deliver creds to user (pinetrc, x509, ...)
+    [X] Deliver creds to user (novarc, x509, ...)
     [X] users exist and have ec2 credentials
     [X] user can create and destroy keypairs
 

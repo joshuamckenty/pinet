@@ -34,7 +34,7 @@ flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users'
 
 
 flags.DEFINE_string('credentials_template',
-                    utils.abspath('pinetrc.template'),
+                    utils.abspath('novarc.template'),
                     'Template for creating users rc file')
 flags.DEFINE_string('ec2_url',
                     'http://10.255.255.1:8773/services/Cloud',
@@ -47,7 +47,7 @@ flags.DEFINE_string('credential_key_file', 'pk.pem',
                     'Filename of private key in credentials zip')
 flags.DEFINE_string('credential_cert_file', 'cert.pem',
                     'Filename of certificate in credentials zip')
-flags.DEFINE_string('credential_rc_file', 'pinetrc',
+flags.DEFINE_string('credential_rc_file', 'novarc',
                     'Filename of rc in credentials zip')
 
 _log = logging.getLogger('auth')
@@ -131,7 +131,7 @@ class User(object):
                     'secret': self.secret,
                     'ec2': FLAGS.ec2_url,
                     's3': FLAGS.s3_url,
-                    'pinet': FLAGS.ca_file,
+                    'nova': FLAGS.ca_file,
                     'cert': FLAGS.credential_cert_file,
                     'key': FLAGS.credential_key_file,
             }
@@ -313,15 +313,15 @@ class LDAPWrapper(object):
         return res
 
     def find_users(self):
-        return self.find_objects(FLAGS.ldap_subtree, '(objectclass=pinetUser)')
+        return self.find_objects(FLAGS.ldap_subtree, '(objectclass=novaUser)')
 
     def find_key_pairs(self, uid):
         dn = 'uid=%s,%s' % (uid, FLAGS.ldap_subtree)
-        return self.find_objects(dn, '(objectclass=pinetKeyPair)')
+        return self.find_objects(dn, '(objectclass=novaKeyPair)')
 
     def find_user(self, name):
         dn = 'uid=%s,%s' % (name, FLAGS.ldap_subtree)
-        return self.find_object(dn, '(objectclass=pinetUser)')
+        return self.find_object(dn, '(objectclass=novaUser)')
 
     def user_exists(self, name):
         return self.find_user(name) != None
@@ -330,7 +330,7 @@ class LDAPWrapper(object):
         dn = 'cn=%s,uid=%s,%s' % (key_name,
                                    uid,
                                    FLAGS.ldap_subtree)
-        return self.find_object(dn, '(objectclass=pinetKeyPair)')
+        return self.find_object(dn, '(objectclass=novaKeyPair)')
 
     def delete_key_pairs(self, uid):
         key_objects = self.find_key_pairs(uid)
@@ -349,7 +349,7 @@ class LDAPWrapper(object):
             ('objectclass', ['person',
                              'organizationalPerson',
                              'inetOrgPerson',
-                             'pinetUser']),
+                             'novaUser']),
             ('ou', FLAGS.user_unit),
             ('uid', name),
             ('sn', name),
@@ -366,7 +366,7 @@ class LDAPWrapper(object):
         # TODO(vish): possibly refactor this to store keys in their own ou
         #   and put dn reference in the user object
         attr = [
-            ('objectclass', ['pinetKeyPair']),
+            ('objectclass', ['novaKeyPair']),
             ('cn', key_name),
             ('sshPublicKey', public_key),
             ('keyFingerprint', fingerprint),
@@ -441,7 +441,7 @@ if __name__ == "__main__":
         elif sys.argv[1] == '-e':
             user = manager.get_user(sys.argv[2])
             if user:
-                fname = 'pinet.zip'
+                fname = 'nova.zip'
                 if len(sys.argv) > 3:
                     fname = sys.argv[3]
                 with open(fname, 'w') as f:

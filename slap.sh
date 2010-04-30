@@ -23,21 +23,21 @@ objectclass ( 1.3.6.1.4.1.24552.500.1.1.2.0 NAME 'ldapPublicKey' SUP top AUXILIA
 	)
 LPK_SCHEMA_EOF
 
-cat >/etc/ldap/schema/pinet.schema <<PINET_SCHEMA_EOF
+cat >/etc/ldap/schema/nova.schema <<NOVA_SCHEMA_EOF
 #
-# Person object for Pinet
+# Person object for Nova
 # inetorgperson with extra attributes
 # Author: Vishvananda Ishaya <vishvananda@yahoo.com>
 # 
 #
 
 # using internet experimental oid arc as per BP64 3.1
-objectidentifier pinetSchema 1.3.6.1.3.1.666.666
-objectidentifier pinetAttrs pinetSchema:3
-objectidentifier pinetOCs pinetSchema:4
+objectidentifier novaSchema 1.3.6.1.3.1.666.666
+objectidentifier novaAttrs novaSchema:3
+objectidentifier novaOCs novaSchema:4
 
 attributetype (
-    pinetAttrs:1
+    novaAttrs:1
 	NAME 'accessKey'
 	DESC 'Key for accessing data'
 	EQUALITY caseIgnoreMatch
@@ -47,7 +47,7 @@ attributetype (
     )
 
 attributetype (
-    pinetAttrs:2
+    novaAttrs:2
 	NAME 'secretKey'
 	DESC 'Secret key'
 	EQUALITY caseIgnoreMatch
@@ -57,7 +57,7 @@ attributetype (
     )
 
 attributetype (
-    pinetAttrs:3
+    novaAttrs:3
 	NAME 'keyFingerprint'
 	DESC 'Fingerprint of private key'
 	EQUALITY caseIgnoreMatch
@@ -67,7 +67,7 @@ attributetype (
     )
 
 attributetpye (
-    pinetAttrs:4
+    novaAttrs:4
     NAME 'isAdmin'
     DESC 'Is user an administrator?'
     EQUALITY booleanMatch
@@ -76,8 +76,8 @@ attributetpye (
     )
 
 objectClass (
-    pinetOCs:1
-    NAME 'pinetUser'
+    novaOCs:1
+    NAME 'novaUser'
     DESC 'access and secret keys'
     AUXILIARY
     MUST ( uid )
@@ -85,14 +85,14 @@ objectClass (
     )
 
 objectClass (
-    pinetOCs:2
-    NAME 'pinetKeyPair'
+    novaOCs:2
+    NAME 'novaKeyPair'
     DESC 'Key pair for User'
     SUP top
     STRUCTURAL
     MUST ( cn $ sshPublicKey $ keyFingerprint )
     )
-PINET_SCHEMA_EOF
+NOVA_SCHEMA_EOF
 
 mv /etc/ldap/slapd.conf /etc/ldap/slapd.conf.orig
 cat >/etc/ldap/slapd.conf <<SLAPD_CONF_EOF
@@ -104,7 +104,7 @@ include /etc/ldap/schema/core.schema
 include /etc/ldap/schema/cosine.schema
 include /etc/ldap/schema/inetorgperson.schema
 include /etc/ldap/schema/openssh-lpk_openldap.schema
-include /etc/ldap/schema/pinet.schema
+include /etc/ldap/schema/nova.schema
 pidfile /var/run/slapd/slapd.pid
 argsfile /var/run/slapd/slapd.args
 loglevel none

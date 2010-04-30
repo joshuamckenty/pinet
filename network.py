@@ -56,7 +56,7 @@ class Network(object):
         self.network = IP(self.network_str)
         self._conn = kwargs.get('conn', None)
         self.vlan = kwargs.get('vlan', 100)
-        self.name = "pinet-%s" % (self.vlan)
+        self.name = "nova-%s" % (self.vlan)
         self.gateway = self.network[1]
         self.netmask = self.network.netmask()
         self.broadcast = self.network.broadcast()
@@ -222,23 +222,23 @@ iptables --table nat --append POSTROUTING --out-interface vlan124 -j MASQUERADE
     
     def hostDHCP(self, host):
         idx = host['address'].split(".")[-1] # Logically, the idx of instances they've launched in this net
-        return "%s,%s.pinetlocal,%s" % \
+        return "%s,%s.novalocal,%s" % \
             (host['mac'], "%s-%s-%s" % (host['user_id'], self.vlan, idx), host['address'])
     
     def dnsmasq_cmd(self, conf_file):
-        cmd = "sudo dnsmasq --strict-order --bind-interfaces --pid-file=%s/pinet-%s.pid" % (FLAGS.networks_path, self.vlan)
+        cmd = "sudo dnsmasq --strict-order --bind-interfaces --pid-file=%s/nova-%s.pid" % (FLAGS.networks_path, self.vlan)
         cmd += " --conf-file=  --listen-address %s --except-interface lo" % (str(self.network[1]))
         cmd += " --dhcp-range %s,%s,120s --dhcp-lease-max=61 " % (str(self.network[3]), str(self.network[-2]))
-        cmd += " --dhcp-hostsfile=%s --dhcp-leasefile=%s/pinet-%s.leases" % (conf_file, FLAGS.networks_path, self.vlan)
+        cmd += " --dhcp-hostsfile=%s --dhcp-leasefile=%s/nova-%s.leases" % (conf_file, FLAGS.networks_path, self.vlan)
         return cmd
     
     def start_dnsmasq(self):
-        conf_file = "%s/pinet-%s.conf" % (FLAGS.networks_path, self.vlan)
+        conf_file = "%s/nova-%s.conf" % (FLAGS.networks_path, self.vlan)
         conf = open(conf_file, "w")
         conf.write("\n".join(map(self.hostDHCP, self.hosts.values())))
         conf.close()
         
-        pid_file = "%s/pinet-%s.pid" % (FLAGS.networks_path, self.vlan)
+        pid_file = "%s/nova-%s.pid" % (FLAGS.networks_path, self.vlan)
         if os.path.exists(pid_file):
             try:
                 os.kill(int(open(pid_file).read()), signal.SIGHUP)
@@ -246,7 +246,7 @@ iptables --table nat --append POSTROUTING --out-interface vlan124 -j MASQUERADE
             except Exception, err:
                 logging.debug("Killing dnsmasq threw %s" % str(err))
         try:
-            os.unlink("%s/pinet-%s.leases" % (FLAGS.networks_path, self.vlan))
+            os.unlink("%s/nova-%s.leases" % (FLAGS.networks_path, self.vlan))
         except:
             pass
         cmd = self.dnsmasq_cmd(conf_file)

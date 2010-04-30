@@ -38,7 +38,7 @@ def generate_keypair(bits=1024):
     return (private_key, public_key)
 
 
-def generate_x509_cert(subject="/C=US/ST=California/L=The Mission/O=CloudFed/OU=PINET/CN=foo", bits=1024):
+def generate_x509_cert(subject="/C=US/ST=California/L=The Mission/O=CloudFed/OU=NOVA/CN=foo", bits=1024):
     tmpdir = tempfile.mkdtemp()
     keyfile = os.path.abspath(os.path.join(tmpdir, 'temp.key'))
     csrfile = os.path.join(tmpdir, 'temp.csr')
@@ -100,7 +100,7 @@ def mkreq(bits, subject="foo", ca=0):
     assert req.verify(pk2)
     return req, pk
 
-def mkcacert(subject='pinet', years=1):
+def mkcacert(subject='nova', years=1):
     req, pk = mkreq(2048, subject, ca=1)
     pkey = req.get_pubkey()
     sub = req.get_subject()

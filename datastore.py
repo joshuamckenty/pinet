@@ -12,7 +12,7 @@ flags.DEFINE_string('datastore_path', utils.abspath('../keeper'),
 
 
 class keeper(object):
-    def __init__(self, prefix="pinet-"):
+    def __init__(self, prefix="nova-"):
         self.prefix = prefix
         try:
             os.mkdir(FLAGS.datastore_path)

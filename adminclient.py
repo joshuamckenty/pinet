@@ -1,5 +1,5 @@
 """
-Pinet administration API client library.
+Nova administration API client library.
 """
 
 import boto
@@ -29,7 +29,7 @@ class UserInfo(object):
         elif name == 'secretkey':
             self.secretkey = str(value)
 
-class PinetAdminClient(object):
+class NovaAdminClient(object):
     def __init__(self, clc_ip='127.0.0.1', region='test', access_key='admin', 
                  secret_key='admin', **kwargs):
         self.clc_ip = clc_ip
@@ -43,7 +43,7 @@ class PinetAdminClient(object):
                                         port=8773,
                                         path='/services/Admin',
                                         **kwargs)
-        self.apiconn.APIVersion = 'pinet'
+        self.apiconn.APIVersion = 'nova'
 
         
     def connection_for(self, username, **kwargs):
@@ -84,12 +84,12 @@ class PinetAdminClient(object):
         return self.apiconn.get_object('DeregisterUser', {'Name': username}, UserInfo)
     
     def get_zip(self, username):
-        """ returns the content of a zip file containing pinetrc and access credentials.
+        """ returns the content of a zip file containing novarc and access credentials.
         """
         return self.apiconn.get_object('GenerateX509ForUser', {'Name': username}, UserInfo).file
 
 if __name__ == '__main__':
-    admin = PinetAdminClient()
+    admin = NovaAdminClient()
     print admin.create_user('test1')
     print admin.get_user('test1')
     # print admin.get_zip('test1')

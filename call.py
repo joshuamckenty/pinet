@@ -35,7 +35,7 @@ def send_message(topic, message, wait=True):
         consumer.register_callback(generic_response)
 
     publisher = messaging.Publisher(connection=calllib.Connection.instance(),
-                                    exchange="pinet",
+                                    exchange="nova",
                                     exchange_type="topic",
                                     routing_key=topic)
     publisher.send(message)
