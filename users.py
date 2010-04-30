@@ -83,6 +83,23 @@ class User(object):
     def secret(self):
         return self.ldap_user_object[1]['secretKey'][0]
 
+    @property
+    def vpn_port(self):
+        port_map = KEEPER['vpn_ports']
+        if not port_map: port_map = {}
+        if not port_map.has_key(self.id):
+            ports = port_map.values()
+            if len(ports) > 0:
+                port_map[self.id] = max(ports) + 1
+            else:
+                port_map[self.id] = 8000
+        KEEPER['vpn_ports'] = port_map
+        return KEEPER['vpn_ports'][self.id]
+
+    @property
+    def vpn_ip(self):
+        return "198.10.124.2"
+
     def is_admin(self):
         return self.ldap_user_object[1]['isAdmin'][0] == 'TRUE'
 
@@ -141,18 +158,6 @@ class User(object):
     def get_key_pairs(self):
         return self.manager.get_key_pairs(self.id)
         
-    def get_vpn_port(self):
-        port_map = KEEPER['vpn_ports']
-        if not port_map: port_map = {}
-        if not port_map.has_key(self.id):
-            ports = port_map.values()
-            if len(ports) > 0:
-                port_map[self.id] = max(ports) + 1
-            else:
-                port_map[self.id] = 8000
-        KEEPER['vpn_ports'] = port_map
-        return KEEPER['vpn_ports'][self.id]
-
 class KeyPair(object):
     def __init__(self, ldap_key_object):
         self.ldap_key_object = ldap_key_object

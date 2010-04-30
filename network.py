@@ -21,7 +21,7 @@ import anyjson
 import IPy
 from IPy import IP
 from twisted.internet import defer
-
+from users import UserManager
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool('fake_network', False, 'should we use fake network devices and addresses')
@@ -33,9 +33,8 @@ flags.DEFINE_string('networks_path', utils.abspath('../networks'),
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses') # FAKE!!! 
 flags.DEFINE_string('public_interface', 'vlan124', 'Interface for public IP addresses')
 flags.DEFINE_string('public_range', '198.10.124.128-198.10.124.191', 'Public IP address block')
-flags.DEFINE_string('cloudpipe_ip', '198.10.124.2', 'IP address of shared CloudPipe external IP')
 flags.DEFINE_string('cloudpipe_ami', 'ami-A7370FE3', 'CloudPipe image')
-flags.DEFINE_integer('cloudpipe_start_port', 10000, 'Starting port for mapped CloudPipe external ports')
+flags.DEFINE_integer('cloudpipe_start_port', 8000, 'Starting port for mapped CloudPipe external ports')
 KEEPER = datastore.keeper(prefix="net")
 
 
@@ -49,12 +48,6 @@ def confirm_rule(cmd):
 def remove_rule(cmd):
     execute("sudo iptables --delete %s" % (cmd))
     pass
-
-def ip_to_port(ip, vlan_mask_bits = 26, base_mask_bits = 16, start_port = 10000):
-    vlan = IP(ip).make_net(vlan_mask_bits)
-    base = IP(ip).make_net(base_mask_bits)
-    vlan_divisor = 2 ** (32 - vlan_mask_bits)
-    return (vlan.int() - base.int()) / vlan_divisor + start_port
 
 class Network(object):
     def __init__(self, *args, **kwargs):
@@ -79,7 +72,7 @@ class Network(object):
         return {'vlan': self.vlan,
                 'network': self.network_str,
                 'hosts': self.hosts}
-        
+ 
     def __str__(self):
         return anyjson.serialize(self.to_dict())
         
@@ -267,10 +260,19 @@ iptables --table nat --append POSTROUTING --out-interface vlan124 -j MASQUERADE
         
 
 class PrivateNetwork(DHCPNetwork):
-    def __init__(self, conn=None, **kwargs):
-        super(PrivateNetwork, self).__init__(conn=conn, **kwargs)
+    def __init__(self, external_vpn_ip, external_vpn_port, conn=None, **kwargs):
+        self.external_vpn_ip = external_vpn_ip
+        self.external_vpn_port = external_vpn_port
+	super(PrivateNetwork, self).__init__(conn=conn, **kwargs)
         self.express()
 
+    def to_dict(self):
+        return {'vlan': self.vlan,
+                'network': self.network_str,
+                'hosts': self.hosts,
+		'external_vpn_ip': self.external_vpn_ip,
+		'external_vpn_port': self.external_vpn_port}
+        
     def express(self, *args, **kwargs):
         super(PrivateNetwork, self).express(*args, **kwargs)
         self.cloudpipe_express()
@@ -286,8 +288,8 @@ class PrivateNetwork(DHCPNetwork):
     def cloudpipe_express(self):
         # TODO: Test and see if the rule is in place
         private_ip = self.network[2]
-        inbound_port = ip_to_port(private_ip, vlan_mask_bits=self.network.prefixlen(), start_port=FLAGS.cloudpipe_start_port)
-        confirm_rule("PREROUTING -t nat -d %s -p udp --dport %s -j DNAT --to %s:1194" % (FLAGS.cloudpipe_ip, inbound_port, private_ip))
+	confirm_rule("FORWARD -d %s -p udp --dport 1194 -j ACCEPT" % (private_ip, ))
+        confirm_rule("PREROUTING -t nat -d %s -p udp --dport %s -j DNAT --to %s:1194" % (self.external_vpn_ip, self.external_vpn_port, private_ip))
     
         
 class PublicNetwork(Network):
@@ -368,7 +370,7 @@ class PublicNetwork(Network):
 class NetworkPool(object):
     # TODO - Allocations need to be system global
     
-    def __init__(self, netsize=64, network="192.168.0.0/17"):
+    def __init__(self, netsize=256, network="10.128.0.0/12"):
         self.network = IP(network)
         if not netsize in [4,8,16,32,64,128,256,512,1024]:
             raise NotValidNetworkSize
@@ -427,7 +429,7 @@ class NetworkController(GenericNode):
         logging.debug("Starting up the network controller.")
         super(NetworkController, self).__init__(**kwargs)
         self._conn = self._get_connection()
-        self.netsize = kwargs.get('netsize', 64)
+        self.netsize = kwargs.get('netsize', 256)
         self.private_pool = kwargs.get('private_pool', NetworkPool(netsize=self.netsize))
         self.private_nets = kwargs.get('private_nets', {})
         if not KEEPER['private']:
@@ -462,19 +464,28 @@ class NetworkController(GenericNode):
                 return address_record[u'address']
 
     def get_users_network(self, user_id):
+	# FIXME: probably should create user manager on init
+	manager = UserManager()
+        user = manager.get_user(user_id)
         if not self.private_nets.has_key(user_id):
             self.private_nets[user_id] = self.get_network_from_name("%s-default" % user_id)
             if not self.private_nets[user_id]:
                 network_str = self.private_pool.next()
                 vlan = self.vlan_pool.next(user_id)
                 # logging.debug("Constructing network %s and %s for %s" % (network_str, vlan, user_id))
-                self.private_nets[user_id] = PrivateNetwork(network = network_str, vlan = self.vlan_pool.vlans[user_id], conn = self._conn)
+                self.private_nets[user_id] = PrivateNetwork(
+		    external_vpn_ip = user.vpn_ip,
+		    external_vpn_port = user.vpn_port,
+		    network = network_str,
+		    vlan = self.vlan_pool.vlans[user_id],
+	            conn = self._conn)
                 KEEPER["%s-default" % user_id] = self.private_nets[user_id].to_dict()
         return self.private_nets[user_id]
 
     def get_cloudpipe_address(self, user_id, mac=None):
         net = self.get_users_network(user_id)
         ip = net.get_vpn_ip(user_id, mac)
+        self._save()
         return (ip, net.name)
         
     def allocate_address(self, user_id, mac=None, type=PrivateNetwork):
@@ -521,16 +532,19 @@ class NetworkController(GenericNode):
         return rv
         
     def _save(self):
-        obj = {}
+        logging.debug("saving data")
+	obj = {}
         obj['networks'] = []
         for user_id in self.private_nets.keys():
             network = self.private_nets[user_id]
-            vlan = self.vlan_pool.vlans[user_id]
+            logging.debug("found private net")
+	    vlan = self.vlan_pool.vlans[user_id]
             obj['networks'].append({'user_id': user_id, 
                                     'network': str(network), 
                                     'vlan': vlan })
             KEEPER["%s-default" % user_id] = self.private_nets[user_id].to_dict()
-        KEEPER['private'] = obj
+        logging.debug("done private net loop")
+	KEEPER['private'] = obj
         KEEPER['public'] = self.public_net.to_dict()
         KEEPER['vlans'] = self.vlan_pool.to_dict()
 
