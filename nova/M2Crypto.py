@@ -1,8 +1,0 @@
-RSA = "foo"
-BIO = "bar"
-BN = "biff"
-EVP = "baz"
-util = "mip"
-Rand = "mop"
-m2 = "fet"
-X509 = "squirt"
