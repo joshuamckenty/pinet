@@ -10,7 +10,8 @@ import boto
 import boto.s3
 from twisted.internet import defer
 
-import calllib
+import rpc
+import nova.flags
 import flags
 import users
 import time
@@ -26,7 +27,6 @@ import base64
 import tornado
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('cloud_topic', 'cloud', 'the topic clouds listen on')
 
 
 _STATE_NAMES = {

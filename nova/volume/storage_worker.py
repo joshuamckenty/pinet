@@ -5,7 +5,7 @@ Storage Worker proxies AMQP calls into the storage library.
 """
 
 import logging
-import calllib
+import rpc
 import node
 import storage
 import server

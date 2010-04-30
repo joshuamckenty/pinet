@@ -9,7 +9,7 @@ from carrot import connection
 from carrot import messaging
 from tornado import ioloop
 
-import calllib
+import rpc
 import flags
 import network
 import server

@@ -10,7 +10,7 @@ import exception
 import time
 
 from utils import runthis
-import calllib
+import rpc
 import datastore
 
 import contrib
@@ -24,7 +24,6 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('storage_dev', '/dev/sdb', 'Physical device to use for volumes')
 flags.DEFINE_string('volume_group', 'nova-volumes', 'Name for the VG that will contain exported volumes')
 flags.DEFINE_string('aoe_eth_dev', 'eth0', 'Which device to export the volumes on')
-flags.DEFINE_boolean('fake_storage', False, 'Should we make real storage volumes to attach?')
 
 flags.DEFINE_string('storage_name',
                     socket.gethostname(),

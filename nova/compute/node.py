@@ -24,6 +24,7 @@ except Exception, e:
 
 import exception
 import fakevirt
+import nova.flags
 import flags
 import storage
 import utils
@@ -31,41 +32,10 @@ import disk
 import s3_worker # this is a dumb place for the images_path declaration
 
 from utils import runthis
-import calllib
+import rpc
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
-flags.DEFINE_bool('use_s3', True,
-                  'whether to get images from s3 or use local copy')
-flags.DEFINE_bool('fake_libvirt', False,
-                  'whether to use a fake libvirt or not')
-flags.DEFINE_string('instances_path', utils.abspath('../instances'),
-                    'where instances are stored on disk')
-flags.DEFINE_string('bridge_dev', 'eth2',
-                    'network device for bridges')
-flags.DEFINE_string('libvirt_xml_template',
-                    utils.abspath('libvirt.xml.template'),
-                    'template file to use for libvirt xml')
-flags.DEFINE_string('default_image',
-                    'ubuntu-karmic-x86_64.img',
-                    'default image to use, testing only')
-flags.DEFINE_string('default_kernel',
-                    'vmlinuz-karmic-x86_64',
-                    'default kernel to use, testing only')
-flags.DEFINE_string('default_ramdisk',
-                    'initrd-karmic-x86_64',
-                    'default ramdisk to use, testing only')
-flags.DEFINE_string('default_instance_type',
-                    'm1.small',
-                    'default instance type to use, testing only')
-
-flags.DEFINE_string('node_name',
-                    socket.gethostname(),
-                    'name of this node')
-flags.DEFINE_string('node_availability_zone',
-                    'nova',
-                    'availability zone of this node')
 
 
 INSTANCE_TYPES = {}

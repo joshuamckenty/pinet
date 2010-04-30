@@ -22,3 +22,10 @@ from gflags import *
 
 
 DEFINE_bool('verbose', False, 'show debug output')
+DEFINE_boolean('fake_rabbit', False, 'use a fake rabbit')
+DEFINE_string('rabbit_host', 'localhost', 'rabbit host')
+DEFINE_integer('rabbit_port', 5672, 'rabbit port')
+DEFINE_string('rabbit_userid', 'guest', 'rabbit userid')
+DEFINE_string('rabbit_password', 'guest', 'rabbit password')
+DEFINE_string('rabbit_virtual_host', '/', 'rabbit virtual host')
+DEFINE_string('control_exchange', 'nova', 'the main exchange to connect to')

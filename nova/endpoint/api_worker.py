@@ -5,7 +5,7 @@ import contrib
 from tornado import httpserver
 from tornado import ioloop
 
-import calllib
+import rpc
 import flags
 import server
 

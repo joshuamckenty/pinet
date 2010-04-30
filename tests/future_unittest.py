@@ -10,7 +10,7 @@ import mox
 from tornado import ioloop
 from twisted.internet import defer
 
-import calllib
+import rpc
 import cloud
 import exception
 import flags

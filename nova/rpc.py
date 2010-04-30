@@ -15,17 +15,10 @@ from tornado import ioloop
 from twisted.internet import defer
 
 import fakerabbit
-import flags
+import nova.flags
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_boolean('fake_rabbit', False, 'use a fake rabbit')
-flags.DEFINE_string('rabbit_host', 'localhost', 'rabbit host')
-flags.DEFINE_integer('rabbit_port', 5672, 'rabbit port')
-flags.DEFINE_string('rabbit_userid', 'guest', 'rabbit userid')
-flags.DEFINE_string('rabbit_password', 'guest', 'rabbit password')
-flags.DEFINE_string('rabbit_virtual_host', '/', 'rabbit virtual host')
-flags.DEFINE_string('control_exchange', 'nova', 'the main exchange to connect to')
 
 _log = logging.getLogger('amqplib')
 _log.setLevel(logging.WARN)

@@ -11,7 +11,7 @@ import mox
 from tornado import ioloop
 from twisted.internet import defer
 
-import calllib
+import rpc
 import s3server
 import users
 import exception

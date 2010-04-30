@@ -6,7 +6,6 @@ Popen bits.
 import logging
 import os.path
 import subprocess
-import calllib
 import random
 
 def fetchfile(url, target):
