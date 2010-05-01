@@ -7,17 +7,17 @@ except Exception, e:
     import fakeldap as ldap
 
 import fakeldap
-import datastore
+from nova import datastore
 
 # TODO(termie): clean up these imports
 import os
 import sys
 import signer
 import uuid
-import exception
+from nova import exception
 import flags
-import crypto
-import utils
+from nova import crypto
+from nova import utils
 import datetime
 import tempfile
 import zipfile

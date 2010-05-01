@@ -1,16 +1,14 @@
+import logging
+
 import M2Crypto
 import time
 import hashlib
 import os
 import utils
-from utils import execute
-from utils import runthis
 import tempfile
 import shutil
-import logging
 import contrib
 import flags
-import utils
 
 FLAGS = flags.FLAGS
 
@@ -23,7 +21,7 @@ def generate_keypair(bits=1024):
     
     tmpdir = tempfile.mkdtemp()
     keyfile = os.path.join(tmpdir, 'temp')
-    execute('ssh-keygen -q -b %d -N "" -f %s' % (bits, keyfile))
+    utils.execute('ssh-keygen -q -b %d -N "" -f %s' % (bits, keyfile))
     private_key = open(keyfile).read()
     public_key = open(keyfile + '.pub').read()
     shutil.rmtree(tmpdir)
@@ -43,8 +41,8 @@ def generate_x509_cert(subject="/C=US/ST=California/L=The Mission/O=CloudFed/OU=
     keyfile = os.path.abspath(os.path.join(tmpdir, 'temp.key'))
     csrfile = os.path.join(tmpdir, 'temp.csr')
     logging.debug("openssl genrsa -out %s %s" % (keyfile, bits))
-    runthis("Generating private key: %s", "openssl genrsa -out %s %s" % (keyfile, bits))
-    runthis("Generating CSR: %s", "openssl req -new -key %s -out %s -batch -subj %s" % (keyfile, csrfile, subject))
+    utils.runthis("Generating private key: %s", "openssl genrsa -out %s %s" % (keyfile, bits))
+    utils.runthis("Generating CSR: %s", "openssl req -new -key %s -out %s -batch -subj %s" % (keyfile, csrfile, subject))
     private_key = open(keyfile).read()
     csr = open(csrfile).read()
     shutil.rmtree(tmpdir)
@@ -58,7 +56,7 @@ def sign_csr(csr_text):
     start = os.getcwd()
     # Change working dir to CA
     os.chdir(FLAGS.ca_path)
-    runthis("Signing cert: %s", "openssl ca -batch -out %s/outbound.crt -config ./openssl.cnf -infiles %s/inbound.csr" % (tmpfolder, tmpfolder)) 
+    utils.runthis("Signing cert: %s", "openssl ca -batch -out %s/outbound.crt -config ./openssl.cnf -infiles %s/inbound.csr" % (tmpfolder, tmpfolder)) 
     crtfile = open("%s/outbound.crt" % (tmpfolder), "r")
     crttext = crtfile.read()
     crtfile.close()

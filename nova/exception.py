@@ -18,7 +18,11 @@ class NotAllocated(Error):
 class NotValidNetworkSize(Error):
     pass
 
+class NotFound(Error):
+    pass
 
+class NotAuthorized(Error):
+    pass
 
 def wrap_exception(f):
     def _wrap(*args, **kw):
