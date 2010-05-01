@@ -12,8 +12,8 @@ from tornado import ioloop
 from twisted.internet import defer
 
 import rpc
-import s3server
-import users
+from nova.objectstore import s3server
+from nova.auth import users
 import exception
 import flags
 import test

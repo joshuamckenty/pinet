@@ -11,12 +11,12 @@ from tornado import ioloop
 from twisted.internet import defer
 
 import rpc
-import cloud
+from nova.endpoint import cloud
 import exception
 import flags
-import node
+from nova.compute import node
 import test
-import users
+from nova.auth import users
 
 FLAGS = flags.FLAGS
 

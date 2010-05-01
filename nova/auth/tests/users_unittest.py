@@ -2,10 +2,10 @@ import os
 import unittest
 import flags
 import test
-import cloud
+from nova.endpoint import cloud
 import logging
 
-from users import UserManager
+from nova.auth.users import UserManager
 from M2Crypto import RSA, BIO, X509
 
 FLAGS = flags.FLAGS

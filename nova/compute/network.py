@@ -21,10 +21,9 @@ import anyjson
 import IPy
 from IPy import IP
 from twisted.internet import defer
-from users import UserManager
+from nova.auth.users import UserManager
 
 FLAGS = flags.FLAGS
-flags.DEFINE_bool('fake_network', False, 'should we use fake network devices and addresses')
 flags.DEFINE_string('net_libvirt_xml_template',
                     utils.abspath('net.libvirt.xml.template'),
                     'Template file for libvirt networks')

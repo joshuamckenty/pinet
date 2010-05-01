@@ -12,9 +12,9 @@ from twisted.internet import defer
 
 import exception
 import flags
-import node
-import users
-import network
+from nova.compute import node
+from nova.auth import users
+from nova.compute import network
 import test
 from IPy import IP
 

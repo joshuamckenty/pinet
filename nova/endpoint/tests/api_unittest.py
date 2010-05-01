@@ -13,10 +13,10 @@ import mox
 from tornado import httpserver
 from twisted.internet import defer
 
-import api
-import cloud
+from nova.endpoint import api
+from nova.endpoint import cloud
 import flags
-import users
+from nova.auth import users
 import test
 
 

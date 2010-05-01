@@ -13,11 +13,11 @@ from twisted.internet import defer
 import rpc
 import nova.flags
 import flags
-import users
+from nova.auth import users
 import time
-import node
+from nova.compute import node
 import crypto
-import network
+from nova.compute import network
 import utils
 from utils import runthis
 import exception

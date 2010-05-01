@@ -12,7 +12,7 @@ from twisted.internet import defer
 
 import exception
 import flags
-import node
+from nova.compute import node
 import test
 
 FLAGS = flags.FLAGS

@@ -11,10 +11,6 @@ import users
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('s3_port', 3333, 's3 port')
-flags.DEFINE_integer('s3_internal_port', 3334, 's3 port')
-flags.DEFINE_string('s3_host', '172.24.226.1', 's3 host')
-
 def main(argv):
     app = s3server.S3Application(users.UserManager())
     server = httpserver.HTTPServer(app)

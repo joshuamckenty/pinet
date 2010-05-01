@@ -26,10 +26,10 @@ import exception
 import fakevirt
 import nova.flags
 import flags
-import storage
+from nova.volume import storage
 import utils
 import disk
-import s3_worker # this is a dumb place for the images_path declaration
+import nova.objectstore
 
 from utils import runthis
 import rpc

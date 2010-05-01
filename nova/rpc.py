@@ -15,7 +15,7 @@ from tornado import ioloop
 from twisted.internet import defer
 
 import fakerabbit
-import nova.flags
+import flags
 
 FLAGS = flags.FLAGS
 

@@ -12,8 +12,8 @@ from twisted.internet import defer
 
 import exception
 import flags
-import node
-import storage
+from nova.compute import node
+from nova.volume import storage
 import test
 
 

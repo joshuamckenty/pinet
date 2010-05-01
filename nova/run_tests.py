@@ -5,6 +5,7 @@ import flags
 import nova.compute
 import nova.volume
 import nova.endpoint
+import nova.auth
 
 FLAGS = flags.FLAGS
 FLAGS.verbose = True

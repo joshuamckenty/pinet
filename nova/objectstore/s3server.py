@@ -55,8 +55,6 @@ import multiprocessing
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('buckets_path', utils.abspath('../buckets'), 'path to s3 buckets')
-flags.DEFINE_string('images_path', utils.abspath('../images'), 'path to decrypted images')
 
 logging.getLogger("s3").setLevel(logging.DEBUG)
 

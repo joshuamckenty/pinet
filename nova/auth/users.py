@@ -25,7 +25,6 @@ import shutil
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_bool('fake_users', False, 'use fake users')
 flags.DEFINE_string('ldap_url', 'ldap://localhost', 'Point this at your ldap server') 
 flags.DEFINE_string('ldap_password',  'changeme', 'LDAP password')
 flags.DEFINE_string('user_dn', 'cn=Manager,dc=example,dc=com', 'DN of admin user')
