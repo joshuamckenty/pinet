@@ -20,6 +20,7 @@ Recommended
 -----------------
 * euca2ools: python implementation of aws ec2-tools and ami tools
 * build tornado to use C module for evented section
+* sphinx for docs (http://sphinx.pocoo.org/)
 
 COMPONENTS
 ----------
@@ -189,6 +190,7 @@ Installation
 
     # fix ec2 metadata/userdata uri - where $IP is the IP of the cloud
     iptables -t nat -A PREROUTING -s 0.0.0.0/0 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination $IP:8773
+    iptables --table nat --append POSTROUTING --out-interface $PUBLICIFACE -j MASQUERADE
 
     # setup ldap (slap.sh as root will remove ldap and reinstall it)
     # run rabbitmq-server
