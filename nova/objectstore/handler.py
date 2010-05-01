@@ -36,20 +36,18 @@ from nova import crypto
 from nova import utils
 
 
-import datetime
-import shutil
 from tornado import escape
+from tornado import web
+
+import datetime
 import os
 import urllib
-
-from tornado import web
-import glob
 import anyjson
 import logging
-import flags
+import nova.flags
 import multiprocessing
 
-FLAGS = flags.FLAGS
+FLAGS = nova.flags.FLAGS
 
 # flags.DEFINE_string('buckets_path', utils.abspath('../buckets'), 'path to s3 buckets')
 # flags.DEFINE_string('images_path', utils.abspath('../images'), 'path to decrypted images')

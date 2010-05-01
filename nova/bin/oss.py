@@ -26,4 +26,4 @@ def main(argv):
     ioloop.IOLoop.instance().start()
 
 if __name__ == '__main__':
-    server.serve('s3_worker', main)
+    server.serve('oss', main)
