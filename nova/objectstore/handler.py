@@ -42,25 +42,16 @@ from tornado import web
 import datetime
 import os
 import urllib
-import anyjson
+import json
 import logging
-import nova.flags
 import multiprocessing
 
-FLAGS = nova.flags.FLAGS
-
-# flags.DEFINE_string('buckets_path', utils.abspath('../buckets'), 'path to s3 buckets')
-# flags.DEFINE_string('images_path', utils.abspath('../images'), 'path to decrypted images')
+from nova.flags import FLAGS
 
 logging.getLogger("s3").setLevel(logging.DEBUG)
 
 class Application(web.Application):
-    """Implementation of an S3-like storage server based on local files.
-
-    If bucket depth is given, we break files up into multiple directories
-    to prevent hitting file system limits for number of files in each
-    directories. 1 means one level of directories, 2 means 2, etc.
-    """
+    """Implementation of an S3-like storage server based on local files."""
     def __init__(self, user_manager):
         web.Application.__init__(self, [
             (r"/", RootHandler),
@@ -129,7 +120,7 @@ class RootHandler(BaseRequestHandler):
         buckets = [b for b in Bucket.all() if b.is_authorized(self.user)]
 
         self.render_xml({"ListAllMyBucketsResult": {
-            "Buckets": {"Bucket": [b.to_json() for b in buckets]},
+            "Buckets": {"Bucket": [b.metadata for b in buckets]},
         }})
 
 class BucketHandler(BaseRequestHandler):
@@ -206,7 +197,7 @@ class ImageHandler(BaseRequestHandler):
 
         images = [i for i in Image.all() if i.is_authorized(self.user)]
 
-        self.finish(anyjson.serialize([i.json for i in images]))
+        self.finish(json.dumps([i.metadata for i in images]))
 
     def put(self):
         """ create a new registered image """
@@ -218,7 +209,6 @@ class ImageHandler(BaseRequestHandler):
         if not image_path.startswith(FLAGS.images_path) or \
            os.path.exists(image_path):
             raise web.HTTPError(403)
-        
         
         bucket = Bucket(image_location.split("/")[0])
         
