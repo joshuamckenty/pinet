@@ -13,37 +13,44 @@ def usage():
     print '   -k (username)                   - access & secret for user'
     print '   -e (username) [filename.zip]    - generate new X509 cert for user'
 
+def print_export(user):
+    print 'export EC2_ACCESS_KEY=%s' % user.access
+    print 'export EC2_SECRET_KEY=%s' % user.secret
+
 if __name__ == "__main__":
     FLAGS.ca_path="/srv/cloud/CA"
     FLAGS.keys_path="/srv/cloud/keys"
 
     manager = UserManager()
+    if len(sys.argv) == 2 and sys.argv[1] == '-l':
+        for user in manager.get_users():
+            print user.name
+            sys.exit(0)
     if len(sys.argv) > 2:
         if sys.argv[1] == '-a':
             access, secret = None, None
             if len(sys.argv) > 3:
                 access = sys.argv[3]
             if len(sys.argv) > 4:
-                secret = sys.argv[4] 
+                secret = sys.argv[4]
             manager.create_user(sys.argv[2], access, secret, True)
             user = manager.get_user(sys.argv[2])
-            print user.access, user.secret
+            print_export(user)
         elif sys.argv[1] == '-c':
             access, secret = None, None
             if len(sys.argv) > 3:
                 access = sys.argv[3]
             if len(sys.argv) > 4:
-                secret = sys.argv[4] 
+                secret = sys.argv[4]
             manager.create_user(sys.argv[2], access, secret)
             user = manager.get_user(sys.argv[2])
-            print "export EC2_ACCESS_KEY='%s'" % user.access
-            print "export EC2_SECRET_KEY='%s'" % user.secret
+            print_export(user)
         elif sys.argv[1] == '-d':
             manager.delete_user(sys.argv[2])
         elif sys.argv[1] == '-k':
             user = manager.get_user(sys.argv[2])
             if user:
-                print user.access, user.secret
+                print_export(user)
         elif sys.argv[1] == '-e':
             user = manager.get_user(sys.argv[2])
             if user:
