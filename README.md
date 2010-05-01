@@ -128,6 +128,7 @@ Cleanup
     [ ] describe instances should be returned ordered by ami_launch_index
     [ ] multiprocess the cloud for x509 generation
     [ ] users.py uses command line flags
+    [ ] more space for instance ids
 
 Nasa Deploy
 -----------
