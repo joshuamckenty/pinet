@@ -4,24 +4,22 @@ import logging
 import random
 import copy
 
-import contrib
+from nova import contrib
 import anyjson
 import boto
 import boto.s3
 from twisted.internet import defer
 
-import rpc
+from nova import rpc, crypto
 import nova.flags
 import flags
 from nova.auth import users
 import time
 from nova.compute import node
-import crypto
 from nova.compute import network
-import utils
-from utils import runthis
-import exception
-import crypto
+from nova import utils, exception
+from nova.utils import runthis
+from nova import crypto
 import images
 import base64
 import tornado

@@ -34,7 +34,7 @@ S3 client with this module:
 import nova.contrib
 from nova import crypto
 from nova import utils
-
+from nova.objectstore import Bucket, Image, Object
 
 from tornado import escape
 from tornado import web

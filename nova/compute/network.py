@@ -6,16 +6,14 @@ import signal
 import copy
 
 # TODO(termie): clean up these imports
-import datastore
-import exception
-from exception import *
+from nova import datastore, exception, contrib
+from nova.exception import *
 import node
 from node import GenericNode, Node
-import utils
-from utils import runthis
-from utils import execute
+from nova import utils
+from nova.utils import runthis
+from nova.utils import execute
 
-import contrib
 import flags
 import anyjson
 import IPy
@@ -423,7 +421,7 @@ class NetworkController(GenericNode):
     def __init__(self, **kwargs):
         logging.debug("Starting up the network controller.")
         super(NetworkController, self).__init__(**kwargs)
-	    self.manager = UserManager()
+        self.manager = UserManager()
         self._conn = self._get_connection()
         self.netsize = kwargs.get('netsize', FLAGS.network_size)
         self.private_pool = kwargs.get('private_pool', NetworkPool(netsize=self.netsize, network=FLAGS.private_range))

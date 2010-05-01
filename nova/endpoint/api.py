@@ -7,14 +7,12 @@ import re
 # TODO(termie): replace minidom with etree
 from xml.dom import minidom
 
-import contrib
+from nova import contrib, exception, utils
 import tornado.web
 from twisted.internet import defer
 
 import cloud
-import exception
 import flags
-import utils
 import multiprocessing
 
 _log = logging.getLogger("api")

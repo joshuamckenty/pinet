@@ -1,5 +1,5 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-import contrib
+from nova import contrib
 import base64
 from tornado import web
 

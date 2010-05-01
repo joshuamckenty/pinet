@@ -11,7 +11,7 @@ import time
 import socket
 from xml.etree import ElementTree
 
-import contrib
+from nova import contrib
 import anyjson
 import tornado
 from tornado import ioloop
@@ -22,17 +22,17 @@ try:
 except Exception, e:
     logging.warning('no libvirt found')
 
-import exception
+from nova import exception
 import fakevirt
 import nova.flags
 import flags
 from nova.volume import storage
-import utils
+from nova import utils
 import disk
 import nova.objectstore
 
-from utils import runthis
-import rpc
+from nova.utils import runthis
+from nova import rpc
 
 
 FLAGS = flags.FLAGS

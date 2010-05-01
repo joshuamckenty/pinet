@@ -1,17 +1,17 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
 
-import contrib
+from nova import contrib
 from tornado import httpserver
 from tornado import ioloop
 
-import rpc
-import flags
-import server
+from nova import rpc
+from nova import flags
+from nova import server
 
 import admin
 import cloud
-import users
+from nova.auth import users
 
 import api
 

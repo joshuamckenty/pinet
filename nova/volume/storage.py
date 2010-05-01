@@ -6,14 +6,12 @@ Currently uses iSCSI.
 import logging
 import subprocess
 import random
-import exception
 import time
 
-from utils import runthis
-import rpc
-import datastore
+from nova.utils import runthis
+from nova import rpc, datastore, exception
 
-import contrib
+from nova import contrib
 import flags
 import socket
 
