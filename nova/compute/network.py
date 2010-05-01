@@ -25,7 +25,7 @@ from nova.auth.users import UserManager
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('net_libvirt_xml_template',
-                    utils.abspath('net.libvirt.xml.template'),
+                    utils.abspath('compute/net.libvirt.xml.template'),
                     'Template file for libvirt networks')
 flags.DEFINE_string('networks_path', utils.abspath('../networks'),
                     'Location to keep network config files')

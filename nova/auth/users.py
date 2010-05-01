@@ -33,7 +33,7 @@ flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users'
 
 
 flags.DEFINE_string('credentials_template',
-                    utils.abspath('novarc.template'),
+                    utils.abspath('auth/novarc.template'),
                     'Template for creating users rc file')
 flags.DEFINE_string('ec2_url',
                     'http://10.255.255.1:8773/services/Cloud',
