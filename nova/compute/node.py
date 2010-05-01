@@ -11,7 +11,7 @@ import time
 import socket
 from xml.etree import ElementTree
 
-from nova import contrib
+import nova.contrib
 import anyjson
 import tornado
 from tornado import ioloop

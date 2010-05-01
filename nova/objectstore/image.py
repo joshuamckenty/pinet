@@ -1,8 +1,11 @@
 # Got these from Euca2ools, will need to revisit them
 # from nova import objectstore
 
+import nova.contrib
+
 from nova.objectstore import Bucket
 from nova.exception import NotFound, NotAuthorized
+from nova.flags import FLAGS
 
 import glob
 import os
@@ -11,6 +14,7 @@ from xml.etree import ElementTree
 import tempfile
 from M2Crypto import EVP, RSA
 from binascii import unhexlify
+import anyjson
 
 class Image(object):
     IMAGE_IO_CHUNK = 10 * 1024

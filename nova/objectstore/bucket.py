@@ -2,9 +2,11 @@ from nova.exception import NotFound, NotAuthorized
 from nova.objectstore import Object
 
 import nova.contrib
+from nova.flags import FLAGS
 
 import os
 import anyjson
+import glob
 
 class Bucket(object):
     def __init__(self, name):
