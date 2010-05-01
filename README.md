@@ -1,5 +1,7 @@
-PiNet
+NOVA
 =====
+<em>GOTTA HAVE A nova.pth file added or it WONT WORK</em>
+
 
 an amazon/eucalyptus/rackspace cloud clone in python, amqp, tornado, ...
 
