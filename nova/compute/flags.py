@@ -37,3 +37,12 @@ if not FLAGS.has_key('node_topic'):
                         'nova',
                         'availability zone of this node')
     DEFINE_bool('fake_network', False, 'should we use fake network devices and addresses')
+    DEFINE_integer('vlan_start', 2020, 'First VLAN for private networks')
+    DEFINE_integer('vlan_end', 2039, 'Last VLAN for private networks')
+    DEFINE_integer('network_size', 256, 'Number of addresses in each private subnet') 
+    DEFINE_string('public_interface', 'vlan124', 'Interface for public IP addresses')
+    DEFINE_string('public_range', '198.10.124.128-198.10.124.191', 'Public IP address block')
+    DEFINE_string('private_range', '10.128.0.0/12', 'Private IP address block')
+    DEFINE_string('cloudpipe_ami', 'ami-A7370FE3', 'CloudPipe image')
+    DEFINE_integer('cloudpipe_start_port', 8000, 'Starting port for mapped CloudPipe external ports')
+    

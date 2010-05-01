@@ -29,3 +29,10 @@ if not FLAGS.has_key('verbose'):
     DEFINE_string('rabbit_password', 'guest', 'rabbit password')
     DEFINE_string('rabbit_virtual_host', '/', 'rabbit virtual host')
     DEFINE_string('control_exchange', 'nova', 'the main exchange to connect to')
+    DEFINE_string('ec2_url',
+                    'http://10.255.255.1:8773/services/Cloud',
+                    'Url to ec2 api server')
+    DEFINE_string('s3_url',
+                    'http://10.255.255.1:3333/',
+                    'Url to s3 api server')
+

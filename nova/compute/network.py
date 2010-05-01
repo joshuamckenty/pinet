@@ -30,10 +30,6 @@ flags.DEFINE_string('net_libvirt_xml_template',
 flags.DEFINE_string('networks_path', utils.abspath('../networks'),
                     'Location to keep network config files')
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses') # FAKE!!! 
-flags.DEFINE_string('public_interface', 'vlan124', 'Interface for public IP addresses')
-flags.DEFINE_string('public_range', '198.10.124.128-198.10.124.191', 'Public IP address block')
-flags.DEFINE_string('cloudpipe_ami', 'ami-A7370FE3', 'CloudPipe image')
-flags.DEFINE_integer('cloudpipe_start_port', 8000, 'Starting port for mapped CloudPipe external ports')
 KEEPER = datastore.keeper(prefix="net")
 
 
@@ -385,8 +381,8 @@ class NetworkPool(object):
 
 class VlanPool(object):
     def __init__(self, **kwargs):
-        self.next_vlan = kwargs.get('start', 1000)
-        self.end = kwargs.get('end', 4095)
+        self.next_vlan = kwargs.get('start', FLAGS.vlan_start)
+        self.end = kwargs.get('end', FLAGS.vlan_end)
         self.vlans = kwargs.get('vlans', {})
     
     def to_dict(self):
@@ -427,16 +423,17 @@ class NetworkController(GenericNode):
     def __init__(self, **kwargs):
         logging.debug("Starting up the network controller.")
         super(NetworkController, self).__init__(**kwargs)
+	    self.manager = UserManager()
         self._conn = self._get_connection()
-        self.netsize = kwargs.get('netsize', 256)
-        self.private_pool = kwargs.get('private_pool', NetworkPool(netsize=self.netsize))
+        self.netsize = kwargs.get('netsize', FLAGS.network_size)
+        self.private_pool = kwargs.get('private_pool', NetworkPool(netsize=self.netsize, network=FLAGS.private_range))
         self.private_nets = kwargs.get('private_nets', {})
         if not KEEPER['private']:
             KEEPER['private'] = {'networks' :[]}
         for net in KEEPER['private']['networks']:
             self.get_users_network(net['user_id'])
         if not KEEPER['vlans']:
-            KEEPER['vlans'] = {'start' : 3200, 'end' : 3299}
+            KEEPER['vlans'] = {'start' : FLAGS.vlan_start, 'end' : FLAGS.vlan_end}
         vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
         self.vlan_pool = VlanPool.from_dict(vlan_dict)
         if not KEEPER['public']:
@@ -463,9 +460,8 @@ class NetworkController(GenericNode):
                 return address_record[u'address']
 
     def get_users_network(self, user_id):
-	# FIXME: probably should create user manager on init
-	manager = UserManager()
-        user = manager.get_user(user_id)
+	    # FIXME: probably should create user manager on init
+        user = self.manager.get_user(user_id)
         if not self.private_nets.has_key(user_id):
             self.private_nets[user_id] = self.get_network_from_name("%s-default" % user_id)
             if not self.private_nets[user_id]:
@@ -532,7 +528,7 @@ class NetworkController(GenericNode):
         
     def _save(self):
         logging.debug("saving data")
-	obj = {}
+        obj = {}
         obj['networks'] = []
         for user_id in self.private_nets.keys():
             network = self.private_nets[user_id]

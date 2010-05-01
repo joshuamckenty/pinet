@@ -35,13 +35,6 @@ flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users'
 flags.DEFINE_string('credentials_template',
                     utils.abspath('auth/novarc.template'),
                     'Template for creating users rc file')
-flags.DEFINE_string('ec2_url',
-                    'http://10.255.255.1:8773/services/Cloud',
-                    'Url to ec2 api server')
-flags.DEFINE_string('s3_url',
-                    'http://10.255.255.1:3333/',
-                    'Url to s3 api server')
-
 flags.DEFINE_string('credential_key_file', 'pk.pem',
                     'Filename of private key in credentials zip')
 flags.DEFINE_string('credential_cert_file', 'cert.pem',
