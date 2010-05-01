@@ -1,12 +1,13 @@
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
 from nova.exception import NotFound, NotAuthorized
-from nova.objectstore import Object
+from object import Object
 
-import nova.contrib
 from nova.flags import FLAGS
 
-import os
-import anyjson
+import datetime
 import glob
+import json
+import os
 
 class Bucket(object):
     def __init__(self, name):
@@ -27,7 +28,7 @@ class Bucket(object):
         buckets = []
         for fn in glob.glob("%s/*.json" % FLAGS.buckets_path):
             try:
-                anyjson.deserialize(open(fn).read())
+                json.load(open(fn))
                 name = os.path.split(fn)[-1][:-5]
                 buckets.append(Bucket(name))
             except:
@@ -46,10 +47,8 @@ class Bucket(object):
         
         os.makedirs(path)
         
-        f = open(path+'.json', 'w')
-        f.write(anyjson.serialize({'ownerId': user.id}))
-        f.close()
-        
+        with open(path+'.json', 'w') as f:
+            json.dump({'ownerId': user.id}, f)
         
     def to_json(self):
         return {
@@ -60,7 +59,8 @@ class Bucket(object):
     @property
     def owner_id(self):
         try:
-            return anyjson.deserialize(open(self.path+'.json').read())['ownerId']
+            with open(self.path+'.json') as f:
+                return json.load(f)['ownerId']
         except:
             return None
     
@@ -130,10 +130,8 @@ class Bucket(object):
         return Object(self, key)
     
     def __setitem__(self, key, value):
-        fn = self._object_path(key)
-        f = open(fn, 'wb')
-        f.write(value)
-        f.close()
+        with open(self._object_path(key), 'wb') as f:
+            f.write(value)
     
     def __delitem__(self, key):
         Object(self, key).delete()

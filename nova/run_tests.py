@@ -22,7 +22,7 @@ from endpoint.tests.cloud_unittest import *
 from auth.tests.users_unittest import *
 from volume.tests.storage_unittest import *
 from endpoint.tests.network_unittest import *
-from objectstore.tests.s3_unittest import *
+from objectstore.tests.objectstore_unittest import *
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,7 @@
 from nova.exception import NotFound, NotAuthorized
+
 import os
+import nova.crypto
 
 class Object(object):
     def __init__(self, bucket, key):
@@ -16,12 +18,8 @@ class Object(object):
     @property
     def md5(self):
         """ computes the MD5 of the contents of file """
-        object_file = open(self.path, "r")
-        try:
-            hex_md5 = crypto.compute_md5(object_file)
-        finally:
-            object_file.close()
-        return hex_md5
+        with open(self.path, "r") as f:
+            return nova.crypto.compute_md5(f)
 
     @property
     def mtime(self):

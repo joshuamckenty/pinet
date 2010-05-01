@@ -4,23 +4,20 @@ import StringIO
 import time
 import unittest
 import hashlib
-from xml.etree import ElementTree
 
-import contrib
+import nova.contrib
 import mox
 from tornado import ioloop
 from twisted.internet import defer
 
-import rpc
-from nova.objectstore import s3server
+from nova import rpc
+from nova.objectstore import Bucket, Image, Object
 from nova.auth import users
-import exception
-import flags
+import nova.exception
+from nova.objectstore.flags import FLAGS
 import test
 import tempfile
 import os
-
-FLAGS = flags.FLAGS
 
 tempdir = tempfile.mkdtemp(prefix='s3-')
 
@@ -29,9 +26,9 @@ FLAGS.buckets_path = os.path.join(tempdir, 'buckets')
 FLAGS.images_path  = os.path.join(tempdir, 'images')
 
 
-class S3TestCase(test.BaseTestCase):
+class ObjectStoreTestCase(test.BaseTestCase):
     def setUp(self):
-        super(S3TestCase, self).setUp()
+        super(ObjectStoreTestCase, self).setUp()
 
         self.conn = rpc.Connection.instance()
         logging.getLogger().setLevel(logging.DEBUG)
@@ -43,8 +40,8 @@ class S3TestCase(test.BaseTestCase):
         self.um.create_user('user2')
         self.um.create_user('admin_user', admin=True)
         
-        s3server.Bucket.create('new_bucket', self.um.get_user('user1'))
-        bucket = s3server.Bucket('new_bucket')
+        Bucket.create('new_bucket', self.um.get_user('user1'))
+        bucket = Bucket('new_bucket')
         
         # creator is authorized to use bucket
         self.assert_(bucket.is_authorized(self.um.get_user('user1')))
