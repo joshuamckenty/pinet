@@ -170,43 +170,6 @@ class VirtNetwork(Vlan):
     
 class DHCPNetwork(VirtNetwork):
     """
-    iptables -t nat -A PREROUTING -s 0.0.0.0/0 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination 172.24.4.1:8773
-iptables -t nat -A PREROUTING -s 0.0.0.0/0 -d 169.254.169.254/32 -p icmp -j DNAT --to-destination 172.24.4.1
-iptables --table nat --append POSTROUTING --out-interface vlan124 -j MASQUERADE
-
-
-{"vlan": 124, "hosts": {
-"198.10.126.130": {"mac": null, "user_id": "admin", "address": "198.10.126.130"},
-"198.10.126.100": {"mac": null, "user_id": "mfrieden", "address": "198.10.126.100"},
-"198.10.126.102": {"mac": null, "user_id": "jjward", "address": "198.10.126.102"},
-"198.10.126.103": {"mac": null, "user_id": "dvsulliv", "address": "198.10.126.103"},
-"198.10.126.115": {"mac": null, "user_id": "test3", "address": "198.10.126.115"},
-"198.10.126.118": {"mac": null, "user_id": "bseltzer", "address": "198.10.126.118"},
-"198.10.126.12": {"mac": null, "user_id": "clittle", "address": "198.10.126.12"},
-"198.10.126.123": {"mac": null, "user_id": "jatchiso", "address": "198.10.126.123"},
-"198.10.126.124": {"mac": null, "user_id": "armichae", "address": "198.10.126.124"},
-"198.10.126.126": {"mac": null, "user_id": "clevit", "address": "198.10.126.126"},
-"198.10.126.127": {"mac": null, "user_id": "bdeng", "address": "198.10.126.127"},
-"198.10.126.131": {"mac": null, "user_id": "mchewspe", "address": "198.10.126.131"},
-"198.10.126.138": {"mac": null, "user_id": "kptran", "address": "198.10.126.138"},
-"198.10.126.139": {"mac": null, "user_id": "wendter", "address": "198.10.126.139"},
-"198.10.126.142": {"mac": null, "user_id": "bjbrewer", "address": "198.10.126.142"},
-"198.10.126.149": {"mac": null, "user_id": "eromande", "address": "198.10.126.149"},
-"198.10.126.15": {"mac": null, "user_id": "lbarrows", "address": "198.10.126.15"},
-"198.10.126.150": {"mac": null, "user_id": "mlinton", "address": "198.10.126.150"},
-"198.10.126.151": {"mac": null, "user_id": "arcblogger", "address": "198.10.126.151"},
-"198.10.126.153": {"mac": null, "user_id": "dencisco", "address": "198.10.126.153"},
-"198.10.126.155": {"mac": null, "user_id": "sdhoward", "address": "198.10.126.155"},
-"198.10.126.160": {"mac": null, "user_id": "clevit", "address": "198.10.126.160"},
-"198.10.126.161": {"mac": null, "user_id": "bdeng", "address": "198.10.126.161"},
-"198.10.126.162": {"mac": null, "user_id": "jatchiso", "address": "198.10.126.162"},
-"198.10.126.171": {"mac": null, "user_id": "jesse", "address": "198.10.126.171"},
-"198.10.126.172": {"mac": null, "user_id": "sabe", "address": "198.10.126.172"},
-"198.10.126.174": {"mac": null, "user_id": "devcamcar", "address": "198.10.126.174"},
-"198.10.126.52": {"mac": null, "user_id": "kadannam", "address": "198.10.126.52"},
-"198.10.126.97": {"mac": null, "user_id": "admin", "address": "198.10.126.97"},
-}, "network": "198.10.126.0/24"}
-
     """
     def __init__(self, *args, **kwargs):
         super(DHCPNetwork, self).__init__(*args, **kwargs)
