@@ -84,13 +84,13 @@ Instances
     [x] can launch different sizes
     [X] NAT to public internet works from instances
     [ ] access to other users instances only works on "default" protocols
-    [ ] terminate should send to only the approriate node
-    [ ] BUG: running -n N+1 instances when you have N results in only N instances launched
+    [X] terminate should send to only the approriate node
+    [X] BUG: running -n N+1 instances when you have N results in only N instances launched
         - seems to be an issue with multiprocess.Process
 	the _launch call doesn't occur when two Processes are running at the same time
 	INFO:root:Done create image for: i-286573
 	DEBUG:root:Arrived in _launch, thanks to callback on deferred. <- only happens first time
-    [ ] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
+    [X] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
     [x] describe-instances doesn't show public ips
     [ ] When instances are shutdown or terminated, clean them up (detach IP and volume)
 
@@ -113,7 +113,7 @@ Volumes
 Cleanup
 -------
 
-    [x] s3server's register decryption should be done in bkg:
+    [X] s3server's register decryption should be done in bkg:
     [ ] build debs - perhaps use git-buildpackage?
     [ ] remove eucalyptus specific terminology in favor of amazon (emi -> ami, ?)
     [ ] documentation/SOPs for backup, updating, ?
@@ -141,7 +141,7 @@ Nasa Deploy
 Optimizations
 -------------
 
-    [ ] dd warns blocksize of 512 is slow in partition2disk.convert
+    [X] dd warns blocksize of 512 is slow in partition2disk.convert
     [ ] tiny (5x overcommitted CPU) shouldn't be on same nodes as regular sizes
     [ ] lvm instead of file based disk images?
     [ ] decrypt in python is slow!
