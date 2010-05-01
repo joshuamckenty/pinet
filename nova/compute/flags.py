@@ -15,7 +15,7 @@ if not FLAGS.has_key('node_topic'):
     DEFINE_string('bridge_dev', 'eth2',
                         'network device for bridges')
     DEFINE_string('libvirt_xml_template',
-                        abspath('libvirt.xml.template'),
+                        abspath('compute/libvirt.xml.template'),
                         'template file to use for libvirt xml')
     DEFINE_string('default_image',
                         'ubuntu-karmic-x86_64.img',

@@ -33,7 +33,7 @@ class S3TestCase(test.BaseTestCase):
     def setUp(self):
         super(S3TestCase, self).setUp()
 
-        self.conn = calllib.Connection.instance()
+        self.conn = rpc.Connection.instance()
         logging.getLogger().setLevel(logging.DEBUG)
 
         self.um = users.UserManager()

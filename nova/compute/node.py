@@ -100,7 +100,7 @@ class Node(GenericNode):
         instances = []
         rv = yield self.describe_instances()
         instances = {FLAGS.node_name: rv}
-        calllib.cast("cloud",  
+        rpc.cast("cloud",  
                             {"method": "update_state",
                              "args" : {"topic": "instances",
                                        "value": instances

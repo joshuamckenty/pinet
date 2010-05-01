@@ -24,8 +24,8 @@ flags.DEFINE_integer('storage_report_state_interval', 10,
 def main(argv):
     bs = storage.BlockStore()
     
-    conn = calllib.Connection.instance()
-    consumer = calllib.AdapterConsumer(
+    conn = rpc.Connection.instance()
+    consumer = rpc.AdapterConsumer(
             connection=conn, topic=NODE_TOPIC, proxy=bs)
     
     io_inst = ioloop.IOLoop.instance()

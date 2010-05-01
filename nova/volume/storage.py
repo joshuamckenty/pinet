@@ -90,7 +90,7 @@ class BlockStore(object):
 
     def report_state(self):
         logging.debug("Reporting State")
-        calllib.cast("cloud",  {"method": "update_state", "args" : {"topic": "volumes", "value": self.describe_volumes()}}) 
+        rpc.cast("cloud",  {"method": "update_state", "args" : {"topic": "volumes", "value": self.describe_volumes()}}) 
 
     def _restart_exports(self):
         if FLAGS.fake_storage:

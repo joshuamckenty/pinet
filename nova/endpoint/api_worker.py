@@ -26,8 +26,8 @@ def main(argv):
     }
     _app = api.APIServerApplication(user_manager, controllers)
 
-    conn = calllib.Connection.instance()
-    consumer = calllib.AdapterConsumer(connection=conn,
+    conn = rpc.Connection.instance()
+    consumer = rpc.AdapterConsumer(connection=conn,
                                        topic=FLAGS.cloud_topic,
                                        proxy=controllers['Cloud'])
 

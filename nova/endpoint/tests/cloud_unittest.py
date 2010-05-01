@@ -25,19 +25,19 @@ class CloudTestCase(test.BaseTestCase):
     def setUp(self):
         super(CloudTestCase, self).setUp()
 
-        self.conn = calllib.Connection.instance()
+        self.conn = rpc.Connection.instance()
         logging.getLogger().setLevel(logging.DEBUG)
 
         # set up our cloud
         self.cloud = cloud.CloudController()
-        self.cloud_consumer = calllib.AdapterConsumer(connection=self.conn,
+        self.cloud_consumer = rpc.AdapterConsumer(connection=self.conn,
                                                       topic=FLAGS.cloud_topic,
                                                       proxy=self.cloud)
         self.injected.append(self.cloud_consumer.attach_to_tornado(self.ioloop))
         
         # set up a node
         self.node = node.Node()
-        self.node_consumer = calllib.AdapterConsumer(connection=self.conn,
+        self.node_consumer = rpc.AdapterConsumer(connection=self.conn,
                                                      topic=FLAGS.node_topic,
                                                      proxy=self.node)
         self.injected.append(self.node_consumer.attach_to_tornado(self.ioloop))

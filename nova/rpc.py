@@ -177,7 +177,7 @@ def send_message(topic, message, wait=True):
     _log.debug('message %s', message)
 
     if wait:
-        consumer = messaging.Consumer(connection=calllib.Connection.instance(),
+        consumer = messaging.Consumer(connection=rpc.Connection.instance(),
                                       queue=msg_id,
                                       exchange=msg_id,
                                       auto_delete=True,
@@ -185,7 +185,7 @@ def send_message(topic, message, wait=True):
                                       routing_key=msg_id)
         consumer.register_callback(generic_response)
 
-    publisher = messaging.Publisher(connection=calllib.Connection.instance(),
+    publisher = messaging.Publisher(connection=rpc.Connection.instance(),
                                     exchange="nova",
                                     exchange_type="topic",
                                     routing_key=topic)

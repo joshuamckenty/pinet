@@ -193,7 +193,7 @@ class CloudController(object):
             raise exception.ApiError('Cannot get output for pending instance')
         if not context.user.is_authorized(instance.get('owner_id', None)):
             raise exception.ApiError('Not authorized to view output')
-        return calllib.call('%s.%s' % (FLAGS.node_topic, node),
+        return rpc.call('%s.%s' % (FLAGS.node_topic, node),
 	    {"method": "get_console_output",
              "args" : {"instance_id": instance_id[0]}})
 
@@ -216,7 +216,7 @@ class CloudController(object):
         return defer.succeed({'volumeSet': volumes})
 
     def create_volume(self, context, size, **kwargs):
-        calllib.cast('storage', {"method": "create_volume", 
+        rpc.cast('storage', {"method": "create_volume", 
                                  "args" : {"size": size,
                                            "user_id": context.user.id}})
         return defer.succeed(True)
@@ -248,11 +248,11 @@ class CloudController(object):
         aoe_device = volume['aoe_device']
         # Needs to get right node controller for attaching to
         # TODO: Maybe have another exchange that goes to everyone?
-        calllib.cast('node', {"method": "attach_volume",
+        rpc.cast('node', {"method": "attach_volume",
                                  "args" : {"aoe_device": aoe_device,
                                            "instance_id" : instance_id,
                                            "mountpoint" : device}})
-        calllib.cast('storage', {"method": "attach_volume",
+        rpc.cast('storage', {"method": "attach_volume",
                                  "args" : {"volume_id": volume_id,
                                            "instance_id" : instance_id,
                                            "mountpoint" : device}})
@@ -268,10 +268,10 @@ class CloudController(object):
         if context.user.is_authorized(instance.get('owner_id', None)):
             raise exception.ApiError("%s not authorized for %s", context.user.id, instance_id)
         mountpoint = volume['mountpoint']
-        calllib.cast('node', {"method": "detach_volume",
+        rpc.cast('node', {"method": "detach_volume",
                                  "args" : {"instance_id": instance_id,
                                            "mountpoint": mountpoint}})
-        calllib.cast('storage', {"method": "detach_volume",
+        rpc.cast('storage', {"method": "detach_volume",
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 
@@ -398,7 +398,7 @@ class CloudController(object):
             kwargs['bridge_name'] = network.bridge_name
             kwargs['private_dns_name'] = str(address)
             logging.debug("Casting to node for an instance with IP of %s in the %s network" % (kwargs['private_dns_name'], kwargs['network_name']))
-            calllib.call('node', 
+            rpc.call('node', 
                                   {"method": "run_instance", 
                                    "args" : kwargs 
                                             })
@@ -421,7 +421,7 @@ class CloudController(object):
             if node == 'pending':
                 raise exception.ApiError('Cannot terminate pending instance')
             if context.user.is_authorized(instance.get('owner_id', None)):
-                calllib.cast('%s.%s' % (FLAGS.node_topic, node),
+                rpc.cast('%s.%s' % (FLAGS.node_topic, node),
                              {"method": "terminate_instance",
                               "args" : {"instance_id": i}})
             try:
@@ -431,7 +431,7 @@ class CloudController(object):
         return defer.succeed(True)
         
     def delete_volume(self, context, volume_id, **kwargs):
-        calllib.cast('storage', {"method": "delete_volume",
+        rpc.cast('storage', {"method": "delete_volume",
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 

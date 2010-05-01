@@ -27,13 +27,13 @@ def main(argv):
     d = n.adopt_instances()
     d.addCallback(lambda x: logging.info('Adopted %d instances', x))
 
-    conn = calllib.Connection.instance()
-    consumer_all = calllib.AdapterConsumer(
+    conn = rpc.Connection.instance()
+    consumer_all = rpc.AdapterConsumer(
             connection=conn,
             topic='%s' % FLAGS.node_topic,
             proxy=n)
     
-    consumer_node = calllib.AdapterConsumer(
+    consumer_node = rpc.AdapterConsumer(
             connection=conn,
             topic='%s.%s' % (FLAGS.node_topic, FLAGS.node_name),
             proxy=n)
