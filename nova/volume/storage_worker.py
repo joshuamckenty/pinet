@@ -5,10 +5,10 @@ Storage Worker proxies AMQP calls into the storage library.
 """
 
 import logging
-import rpc
-import node
+from nova import rpc
+from nova.compute import node
 import storage
-import server
+from nova import server
 
 from tornado import ioloop
 
