@@ -129,6 +129,7 @@ Cleanup
     [ ] multiprocess the cloud for x509 generation
     [ ] users.py uses command line flags
     [ ] more space for instance ids
+    [ ] get Dean to update switch configuration
 
 Nasa Deploy
 -----------
