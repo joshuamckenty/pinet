@@ -1,20 +1,19 @@
 # Got these from Euca2ools, will need to revisit them
 # from nova import objectstore
 
-import nova.contrib
-
 from nova.objectstore import Bucket
-from nova.exception import NotFound, NotAuthorized
+from nova.exception import NotFound
 from nova.flags import FLAGS
 
 import glob
 import os
 import tarfile
+import json
+import shutil
 from xml.etree import ElementTree
 import tempfile
 from M2Crypto import EVP, RSA
 from binascii import unhexlify
-import anyjson
 
 class Image(object):
     IMAGE_IO_CHUNK = 10 * 1024
@@ -41,7 +40,7 @@ class Image(object):
         try:
             return self.json['isPublic'] or self.json['imageOwnerId'] == user.id
         except:
-            pass
+            return False
 
     @staticmethod
     def all():
@@ -50,14 +49,14 @@ class Image(object):
             try:
                 image_id = fn.split('/')[-2]
                 images.append(Image(image_id))
-            except Exception, e:
+            except:
                 pass
         return images
 
     @property
     def json(self):
-        fn = os.path.join(self.path, 'info.json')
-        return anyjson.deserialize(open(fn).read())
+        with open(os.path.join(self.path, 'info.json')) as f:
+            return json.load(f)
     
     @staticmethod
     def create(image_id, image_location, user):
@@ -72,18 +71,19 @@ class Image(object):
             'imageId': image_id,
             'imageLocation': image_location,
             'imageOwnerId': user.id,
-            'imageState': 'pending',
-            'isPublic': False, # FIXME: grab from bundle manifest
-            'architecture': 'x86_64', # FIXME: grab from bundle manifest
+            'isPublic': False, # FIXME: grab public from manifest
+            'architecture': 'x86_64', # FIXME: grab architecture from manifest
             'type' : 'machine',
         }
+        
+        def write_state(state):
+            info['imageState'] = state
+            with open(os.path.join(image_path, 'info.json'), "w") as f:
+                json.dump(info, f)
+        
+        write_state('pending')
 
-        with open(os.path.join(image_path, 'info.json'), "w") as f:
-            f.write(anyjson.serialize(info))
-
-        tmpdir = tempfile.mkdtemp()
         rawfile = tempfile.NamedTemporaryFile(delete=False)
-        encrypted_filename = rawfile.name
 
         manifest = ElementTree.fromstring(bucket[manifest_path].read())
         encrypted_key = manifest.find("image/ec2_encrypted_key").text
@@ -95,33 +95,26 @@ class Image(object):
         
         rawfile.close() 
         
-        info['imageState'] = 'decrypting'
-        with open(os.path.join(image_path, 'info.json'), "w") as f:
-            f.write(anyjson.serialize(info))
+        write_state('decrypting')
         
         private_key_path = os.path.join(FLAGS.ca_path, "private/cakey.pem")
         decrypted_filename = os.path.join(image_path, 'image.tar.gz')
-        Image.decrypt_image(encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename)
+        Image.decrypt_image(rawfile.name, encrypted_key, encrypted_iv, private_key_path, decrypted_filename)
 
-        info['imageState'] = 'untarring'
-        with open(os.path.join(image_path, 'info.json'), "w") as f:
-            f.write(anyjson.serialize(info))
+        write_state('untarring')
 
         filenames = Image.untarzip_image(image_path, decrypted_filename)
         shutil.move(os.path.join(image_path, filenames[0]), os.path.join(image_path, 'image'))
         
-        info['imageState'] = 'available'
-        with open(os.path.join(image_path, 'info.json'), "w") as f:
-            f.write(anyjson.serialize(info))
-            
+        write_state('available')
+
     @staticmethod
     def decrypt_image(encrypted_filename, encrypted_key, encrypted_iv, private_key_path, decrypted_filename):
         user_priv_key = RSA.load_key(private_key_path)
         key = user_priv_key.private_decrypt(unhexlify(encrypted_key), RSA.pkcs1_padding)
         iv = user_priv_key.private_decrypt(unhexlify(encrypted_iv), RSA.pkcs1_padding)
-        k=EVP.Cipher(alg='aes_128_cbc', key=unhexlify(key), iv=unhexlify(iv), op=0)
+        k = EVP.Cipher(alg='aes_128_cbc', key=unhexlify(key), iv=unhexlify(iv), op=0)
 
-        # decrypted_filename = encrypted_filename.replace('.enc', '')
         decrypted_file = open(decrypted_filename, "wb")
         encrypted_file = open(encrypted_filename, "rb")
         Image.crypt_file(k, encrypted_file, decrypted_file)
@@ -131,18 +124,17 @@ class Image(object):
 
     @staticmethod
     def untarzip_image(path, filename):
-        untarred_filename = filename.replace('.tar.gz', '') 
         tar_file = tarfile.open(filename, "r|gz")
         tar_file.extractall(path)
-        untarred_names = tar_file.getnames()
+        files = tar_file.getnames()
         tar_file.close()
-        return untarred_names 
+        return files
 
     @staticmethod
     def crypt_file(cipher, in_file, out_file) :
         while True:
-            buf=in_file.read(Image.IMAGE_IO_CHUNK)
+            buf = in_file.read(Image.IMAGE_IO_CHUNK)
             if not buf:
-               break
+                break
             out_file.write(cipher.update(buf))
         out_file.write(cipher.final())

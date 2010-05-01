@@ -18,13 +18,15 @@ from nova.objectstore.flags import FLAGS
 import test
 import tempfile
 import os
+import glob
 
 tempdir = tempfile.mkdtemp(prefix='s3-')
+# FIXME: delete all the tempdirs with the same prefix besides tempdir
 
 FLAGS.fake_users   = True
 FLAGS.buckets_path = os.path.join(tempdir, 'buckets')
 FLAGS.images_path  = os.path.join(tempdir, 'images')
-
+FLAGS.ca_path = os.path.join(os.path.dirname(__file__), 'CA')
 
 class ObjectStoreTestCase(test.BaseTestCase):
     def setUp(self):
@@ -90,14 +92,34 @@ class ObjectStoreTestCase(test.BaseTestCase):
         self.assert_(exception)
         
     def test_images(self):
-        # TODO: generate a random image
-        # TODO: bundling using euca-bundle-image
-        # TODO: upload to bucket
-        # TODO: register
-        # TODO: verify that md5 and size are same
-        # TODO: verify that only user can see it        
-        pass
-    
+        self.um.create_user('image_creator')
+        image_user = self.um.get_user('image_creator')
+
+        # create a bucket for our bundle
+        Bucket.create('image_bucket', image_user)
+        bucket = Bucket('image_bucket')
+        
+        # upload an image manifest/parts
+        bundle_path = os.path.join(os.path.dirname(__file__), 'bundle')
+        print 'bundle_path', bundle_path
+        for path in glob.glob(bundle_path + '/*'):
+            bucket[os.path.basename(path)] = open(path, 'rb').read()
+        
+        # register an image
+        Image.create('i-testing', 'image_bucket/1mb.manifest.xml', image_user)
+        
+        # verify image
+        my_img = Image('i-testing')
+        result_image_file = os.path.join(my_img.path, 'image')
+        self.assertEqual(os.stat(result_image_file).st_size, 1048576)
+        
+        sha = hashlib.sha1(open(result_image_file).read()).hexdigest()
+        self.assertEqual(sha, '3b71f43ff30f4b15b5cd85dd9e95ebc7e84eb5a3')
+        
+        # verify image permissions
+        new_user = self.um.get_user('new_user')
+        self.assert_(my_img.is_authorized(new_user) == False)
+
     def test_http_api(self):
         pass
         
