@@ -7,24 +7,8 @@ Welcome to nova's documentation!
 ================================
 
 
-
 an amazon/eucalyptus/rackspace cloud clone in python, amqp, tornado, ...
 
-DEPENDENCIES
-------------
-
-* RabbitMQ: messaging queue, used for all communication between components
-* OpenLDAP: users, groups (maybe cut)
-* Tornado: scalable non blocking web server for api requests
-* Twisted: just for the twisted.internet.defer package
-* boto: python api for aws api
-* M2Crypto: python library interface for openssl
-* IPy: library for managing ip addresses
-
-Recommended
------------------
-* euca2ools: python implementation of aws ec2-tools and ami tools
-* build tornado to use C module for evented section
 
 COMPONENTS
 ----------
@@ -54,6 +38,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
    
+   getting.started
    modules
 
 Indices and tables
