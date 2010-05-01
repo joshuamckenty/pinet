@@ -7,13 +7,10 @@ import shutil
 import base64
 import StringIO
 import sys
-import time
-import socket
 from xml.etree import ElementTree
 
 import nova.contrib
 import anyjson
-import tornado
 from tornado import ioloop
 from twisted.internet import defer
 
@@ -24,19 +21,13 @@ except Exception, e:
 
 from nova import exception
 import fakevirt
-import nova.flags
-import flags
-from nova.volume import storage
 from nova import utils
 import disk
-import nova.objectstore
 
 from nova.utils import runthis
 from nova import rpc
 
-
-FLAGS = flags.FLAGS
-
+from flags import FLAGS
 
 INSTANCE_TYPES = {}
 INSTANCE_TYPES['m1.tiny'] = {'memory_mb': 512, 'vcpus': 1, 'disk_mb': 5120}

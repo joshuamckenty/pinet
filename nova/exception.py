@@ -9,15 +9,6 @@ class ApiError(Error):
         self.message = message
         self.code = code
 
-class NoMoreAddresses(Error):
-    pass
-
-class NotAllocated(Error):
-    pass
-
-class NotValidNetworkSize(Error):
-    pass
-
 class NotFound(Error):
     pass
 

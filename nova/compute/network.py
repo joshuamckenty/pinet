@@ -3,12 +3,11 @@ import logging
 import os
 import subprocess
 import signal
-import copy
 
 # TODO(termie): clean up these imports
 from nova import datastore, exception, contrib
-from nova.exception import *
-import node
+from nova.exception import NotFound, NotAuthorized
+from exception import *
 from node import GenericNode, Node
 from nova import utils
 from nova.utils import runthis
@@ -101,11 +100,11 @@ class Network(object):
                 }
                 self.express(address=address)
                 return address
-        raise NoMoreAddresses
+        raise NoMoreAddresses()
     
     def deallocate_ip(self, ip_str):
         if not ip_str in self.hosts.keys():
-            raise NotAllocated
+            raise AddressNotAllocated()
         del self.hosts[ip_str]
         # TODO(joshua) SCRUB from the leases file somehow
         self.deexpress(address=ip_str)
@@ -263,32 +262,32 @@ class PublicNetwork(Network):
                 }
                 self.express(address=address)
                 return address
-        raise NoMoreAddresses
+        raise NoMoreAddresses()
     
     def deallocate_ip(self, ip_str):
-        if not ip_str in self.hosts.keys():
-            raise NotAllocated
+        if not ip_str in self.hosts:
+            raise AddressNotAllocated()
         del self.hosts[ip_str]
         # TODO(joshua) SCRUB from the leases file somehow
         self.deexpress(address=ip_str)
 
     def associate_address(self, public_ip, private_ip, instance_id):
-        if not self.hosts.has_key(public_ip):
-            raise Exception # Not allocated
+        if not public_ip in self.hosts:
+            raise AddressNotAllocated()
         for addr in self.hosts.values():
             if addr.has_key('private_ip') and addr['private_ip'] == private_ip:
-                raise Exception # Already associated
+                raise AddressAlreadyAssociated()
         if self.hosts[public_ip].has_key('private_ip'):
-            raise Exception # Already associated
+            raise AddressAlreadyAssociated()
         self.hosts[public_ip]['private_ip'] = private_ip
         self.hosts[public_ip]['instance_id'] = instance_id
         self.express(address=public_ip)
 
     def disassociate_address(self, public_ip):
-        if not self.hosts.has_key(public_ip):
-            raise Exception # Not allocated
+        if not public_ip in self.hosts:
+            raise AddressNotAllocated()
         if not self.hosts[public_ip].has_key('private_ip'):
-            raise Exception # Not associated
+            raise AddressNotAssociated()
         self.deexpress(self.hosts[public_ip])
         del self.hosts[public_ip]['private_ip']
         del self.hosts[public_ip]['instance_id']
@@ -329,7 +328,7 @@ class NetworkPool(object):
     def __init__(self, netsize=256, network="10.128.0.0/12"):
         self.network = IP(network)
         if not netsize in [4,8,16,32,64,128,256,512,1024]:
-            raise NotValidNetworkSize
+            raise NotValidNetworkSize()
         self.netsize = netsize
         self.allocations = []
     
@@ -373,7 +372,7 @@ class VlanPool(object):
     
     def next(self, user_id):
         if self.next_vlan == self.end:
-            raise NotAllocated
+            raise AddressNotAllocated()
         self.vlans[user_id] = self.next_vlan
         self.next_vlan += 1
         return self.vlans[user_id]
@@ -467,7 +466,7 @@ class NetworkController(GenericNode):
                 rv = self.get_users_network(user_id).deallocate_ip(address)
                 self._save()
                 return rv
-        raise NotAllocated
+        raise AddressNotAllocated()
 
     def describe_addresses(self, type=PrivateNetwork):
         if type == PrivateNetwork:

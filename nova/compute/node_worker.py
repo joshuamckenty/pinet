@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
-import logging.handlers
-import sys
 
-import contrib
+import nova.contrib
 from carrot import connection
 from carrot import messaging
 from tornado import ioloop
