@@ -37,10 +37,17 @@ class Bucket(object):
         return buckets
     
     @staticmethod
-    def create(name, user):
-        """ create a new bucket owned by a specific user """
+    def create(bucket_name, user):
+        """Create a new bucket owned by a user.
+        
+        @bucket_name: a string representing the name of the bucket to create
+        @user: a nova.auth.user who should own the bucket.
+        
+        Raises:
+            NotAuthorized: if the bucket is already exists or has invalid name
+        """
         path = os.path.abspath(os.path.join(
-            FLAGS.buckets_path, name))
+            FLAGS.buckets_path, bucket_name))
         if not path.startswith(os.path.abspath(FLAGS.buckets_path)) or \
            os.path.exists(path):
             raise NotAuthorized
@@ -50,7 +57,12 @@ class Bucket(object):
         with open(path+'.json', 'w') as f:
             json.dump({'ownerId': user.id}, f)
         
-    def to_json(self):
+    @property
+    def metadata(self):
+        """ dictionary of metadata around bucket,
+        keys are 'Name' and 'CreationDate' 
+        """
+        
         return {
             "Name": self.name,
             "CreationDate": datetime.datetime.utcfromtimestamp(self.ctime),

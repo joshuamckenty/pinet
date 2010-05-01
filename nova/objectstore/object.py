@@ -27,8 +27,13 @@ class Object(object):
         return os.path.getmtime(self.path)
     
     def read(self):
-        """ returns the contents of the key """
-        return open(self.path, 'rb').read()
+         """ read all contents of key into memory and return """
+         return self.file.read()
+    
+    @property
+    def file(self):
+        """ return a file object for the key """
+        return open(self.path, 'rb')
     
     def delete(self):
         """ deletes the file """

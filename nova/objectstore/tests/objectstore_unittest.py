@@ -101,7 +101,6 @@ class ObjectStoreTestCase(test.BaseTestCase):
         
         # upload an image manifest/parts
         bundle_path = os.path.join(os.path.dirname(__file__), 'bundle')
-        print 'bundle_path', bundle_path
         for path in glob.glob(bundle_path + '/*'):
             bucket[os.path.basename(path)] = open(path, 'rb').read()
         
