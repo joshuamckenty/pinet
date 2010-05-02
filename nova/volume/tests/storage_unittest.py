@@ -10,7 +10,7 @@ import mox
 from tornado import ioloop
 from twisted.internet import defer
 
-import exception
+from nova import exception
 import flags
 from nova.compute import node
 from nova.volume import storage
@@ -32,7 +32,7 @@ class StorageTestCase(unittest.TestCase):
             self.mystorage = storage.BlockStore()
     
     def test_run_create_volume(self):
-        vol_size = '500'
+        vol_size = '5'
         user_id = 'fake'
         volume = self.mystorage.create_volume(vol_size, user_id)
         rv = self.mystorage.describe_volumes()
@@ -47,7 +47,7 @@ class StorageTestCase(unittest.TestCase):
         # Create one volume and one node to test with
         self.instance_id = "storage-test"
         rv = self.mynode.run_instance(self.instance_id)
-        vol_size = "500"
+        vol_size = "5"
         user_id = "fake"
         self.test_volume = self.mystorage.create_volume(vol_size, user_id)
         rv = self.mystorage.attach_volume(self.test_volume.volume_id, self.instance_id, "/dev/sdf")

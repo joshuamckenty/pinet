@@ -12,11 +12,11 @@ from twisted.internet import defer
 
 import rpc
 from nova.endpoint import cloud
-import exception
 import flags
 from nova.compute import node
 import test
 from nova.auth import users
+from nova.endpoint import api
 
 FLAGS = flags.FLAGS
 
@@ -42,7 +42,10 @@ class CloudTestCase(test.BaseTestCase):
                                                      proxy=self.node)
         self.injected.append(self.node_consumer.attach_to_tornado(self.ioloop))
         
-        self.user_mocker = mox.Mox()
+        user_mocker = mox.Mox()
+        self.admin = user_mocker.CreateMock(users.User)
+        self.admin.is_authorized(mox.IgnoreArg()).AndReturn(True)
+        self.context = api.APIRequestContext(handler=None,user=self.admin) 
 
     def test_console_output(self):
         if FLAGS.fake_libvirt:
@@ -50,7 +53,7 @@ class CloudTestCase(test.BaseTestCase):
             return
         instance_id = 'foo'
         inst = yield self.node.run_instance(instance_id)
-        output = yield self.cloud.get_console_output(None, [instance_id])
+        output = yield self.cloud.get_console_output(self.context, [instance_id])
         logging.debug(output)
         self.assert_(output)
         rv = yield self.node.terminate_instance(instance_id)
@@ -65,7 +68,7 @@ class CloudTestCase(test.BaseTestCase):
         kwargs = {'image_id': image_id,
                   'instance_type': instance_type,
                   'max_count': max_count}
-        rv = yield self.cloud.run_instances(None, **kwargs)
+        rv = yield self.cloud.run_instances(self.context, **kwargs)
         # TODO: check for proper response
         instance = rv['reservationSet'][0][rv['reservationSet'][0].keys()[0]][0]
         logging.debug("Need to watch instance %s until it's running..." % instance['instance_id'])
@@ -107,10 +110,7 @@ class CloudTestCase(test.BaseTestCase):
                 'user_data': ''
             }
         
-        admin = self.user_mocker.CreateMock(users.User)
-        admin.is_authorized(mox.IgnoreArg()).AndReturn(True)
-        
-        rv = self.cloud.format_instances(admin)
+        rv = self.cloud.format_instances(self.admin)
         self.assert_(len(rv['reservationSet']) == 0)
 
         # simulate launch of 5 instances
@@ -119,7 +119,7 @@ class CloudTestCase(test.BaseTestCase):
             inst = instance(i)
             self.cloud.instances['pending'][inst['instance_id']] = inst
 
-        rv = self.cloud.format_instances(admin)
+        rv = self.cloud.format_instances(self.admin)
         self.assert_(len(rv['reservationSet']) == 1)
         self.assert_(len(rv['reservationSet'][0]['instances_set']) == 5)
         
@@ -131,7 +131,7 @@ class CloudTestCase(test.BaseTestCase):
         self.assert_(len(self.cloud.instances['pending'].keys()) == 1)
 
         # check that the reservations collapse
-        rv = self.cloud.format_instances(admin)
+        rv = self.cloud.format_instances(self.admin)
         self.assert_(len(rv['reservationSet']) == 1)
         self.assert_(len(rv['reservationSet'][0]['instances_set']) == 5)
 

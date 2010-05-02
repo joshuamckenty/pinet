@@ -23,19 +23,23 @@ import glob
 tempdir = tempfile.mkdtemp(prefix='s3-')
 # FIXME: delete all the tempdirs with the same prefix besides tempdir
 
-FLAGS.fake_users   = True
-FLAGS.buckets_path = os.path.join(tempdir, 'buckets')
-FLAGS.images_path  = os.path.join(tempdir, 'images')
-FLAGS.ca_path = os.path.join(os.path.dirname(__file__), 'CA')
 
 class ObjectStoreTestCase(test.BaseTestCase):
     def setUp(self):
         super(ObjectStoreTestCase, self).setUp()
+        FLAGS.fake_users   = True
+        FLAGS.buckets_path = os.path.join(tempdir, 'buckets')
+        FLAGS.images_path  = os.path.join(tempdir, 'images')
+        FLAGS.ca_path = os.path.join(os.path.dirname(__file__), 'CA')
 
         self.conn = rpc.Connection.instance()
         logging.getLogger().setLevel(logging.DEBUG)
 
         self.um = users.UserManager()
+    
+    def tearDown(self):
+        FLAGS.Reset()
+        super(ObjectStoreTestCase, self).tearDown()
 
     def test_buckets(self):
         self.um.create_user('user1')
