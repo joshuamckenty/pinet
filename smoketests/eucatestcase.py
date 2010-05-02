@@ -20,29 +20,29 @@ class EucaTestCase(unittest.TestCase):
             EUCA_ACCESS_KEY,
             EUCA_SECRET_KEY
         )
-        
+
     def tearDown(self):
         self.euca = None
-        
+
     def connect_ssh(self, ip, key_name):
         # TODO: set a more reasonable connection timeout time
         client = SSHClient()
         client.load_system_host_keys()
         client.set_missing_host_key_policy(WarningPolicy())
         return client.connect(ip, key_filename='/tmp/%s.pem' % key_name)
-        
+
     def can_ping(self, ip):
         return getstatusoutput('ping -c 1 %s' % ip)[0] == 0
-        
+
     def connection_for(self, username):
         return self.euca.connection_for(username)
-        
+
     def create_user(self, username):
         return self.euca.create_user(username)
-        
+
     def delete_user(self, username):
         return self.euca.delete_user(username)
-    
+
     def create_key_pair(self, conn, key_name):
         try:
             os.remove('/tmp/%s.pem' % key_name)
@@ -80,13 +80,13 @@ class EucaTestCase(unittest.TestCase):
         id = None
         status, output = getstatusoutput('euca-register %s/%s.manifest.xml' % (BUCKET_NAME, image))
         print '\n' + output
-        if status == 0: 
+        if status == 0:
             match = re.search('e[mrk]i-\w{8}', output)
             id = match.group(0)
         else:
             raise Exception(output)
         return id
-    
+
     def setUp_test_image(self, image, kernel=False):
         self.bundle_image(image, kernel=kernel)
         self.upload_image(image)
