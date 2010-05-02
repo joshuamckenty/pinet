@@ -35,7 +35,7 @@ class Image(object):
             
     def is_authorized(self, user):
         try:
-            return self.json['isPublic'] or self.json['imageOwnerId'] == user.id
+            return self.metadata['isPublic'] or self.metadata['imageOwnerId'] == user.id
         except:
             return False
 
