@@ -56,6 +56,7 @@ def sign_csr(csr_text):
     start = os.getcwd()
     # Change working dir to CA
     os.chdir(FLAGS.ca_path)
+    logging.debug("Flags path: %s" % FLAGS.ca_path)
     utils.runthis("Signing cert: %s", "openssl ca -batch -out %s/outbound.crt -config ./openssl.cnf -infiles %s/inbound.csr" % (tmpfolder, tmpfolder)) 
     crtfile = open("%s/outbound.crt" % (tmpfolder), "r")
     crttext = crtfile.read()

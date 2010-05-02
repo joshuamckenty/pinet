@@ -11,7 +11,6 @@ from nova import datastore
 
 # TODO(termie): clean up these imports
 import os
-import sys
 import signer
 import uuid
 from nova import exception

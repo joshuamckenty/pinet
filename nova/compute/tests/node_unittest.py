@@ -10,7 +10,7 @@ import mox
 from tornado import ioloop
 from twisted.internet import defer
 
-import exception
+from nova import exception
 import flags
 from nova.compute import node
 import test

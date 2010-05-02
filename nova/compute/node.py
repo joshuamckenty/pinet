@@ -7,13 +7,10 @@ import shutil
 import base64
 import StringIO
 import sys
-import time
-import socket
 from xml.etree import ElementTree
 
 import nova.contrib
 import anyjson
-import tornado
 from tornado import ioloop
 from twisted.internet import defer
 
@@ -24,19 +21,13 @@ except Exception, e:
 
 from nova import exception
 import fakevirt
-import nova.flags
-import flags
-from nova.volume import storage
 from nova import utils
 import disk
-import nova.objectstore
 
 from nova.utils import runthis
 from nova import rpc
 
-
-FLAGS = flags.FLAGS
-
+from flags import FLAGS
 
 INSTANCE_TYPES = {}
 INSTANCE_TYPES['m1.tiny'] = {'memory_mb': 512, 'vcpus': 1, 'disk_mb': 5120}
@@ -125,9 +116,10 @@ class Node(GenericNode):
         # TODO(vish) check to make sure the availability zone matches
         new_inst = Instance(self._conn, name=instance_id, pool=self._pool, **kwargs)
         self._instances[instance_id] = new_inst
-        new_inst.spawn()
-        
-        return defer.succeed(True)
+        d = defer.Deferred()
+        # d.addCallbacks(lambda x: x, lambda x: x.raiseException())
+        new_inst.spawn(d)
+        return d
     
     @exception.wrap_exception
     def terminate_instance(self, instance_id):
@@ -135,8 +127,9 @@ class Node(GenericNode):
         if instance_id not in self._instances:
             raise exception.Error(
                     'trying to terminate unknown instance: %s' % instance_id)
-        d = self._instances[instance_id].destroy()
+        d = defer.Deferred()
         d.addCallback(lambda x: self._instances.pop(instance_id))
+        self._instances[instance_id].destroy(d)
         return d
 
     @exception.wrap_exception
@@ -201,6 +194,10 @@ def _create_image(data, libvirt_xml):
     logging.info(basepath('disk'))
     try:
         os.makedirs(data['basepath'])
+    except OSError:
+        # TODO: there is already an instance with this name, do something
+        pass
+    try:
         logging.info('Creating image for: %s', data['instance_id'])
         f = open(basepath('libvirt.xml'), 'w')
         f.write(libvirt_xml)
@@ -229,6 +226,8 @@ def _create_image(data, libvirt_xml):
             if data['key_data']:
                 logging.info('Injecting key data into image')
                 disk.inject_key(data['key_data'], basepath('disk-raw'))
+            if os.path.exists(basepath('disk')):
+                os.remove(basepath('disk'))
             disk.partition(basepath('disk-raw'),
                 basepath('disk'))
         else:
@@ -363,7 +362,7 @@ class Instance(object):
         self._s['state'] = info['state']
     
     @exception.wrap_exception
-    def destroy(self):
+    def destroy(self, d):
         if self.is_destroyed():
             raise exception.Error('trying to destroy already destroyed'
                                   ' instance: %s' % self.name)
@@ -372,8 +371,6 @@ class Instance(object):
         
         virt_dom = self._conn.lookupByName(self.name)
         virt_dom.destroy()
-        
-        d = defer.Deferred()
         
         # TODO(termie): short-circuit me for tests
         timer = ioloop.PeriodicCallback(callback=None, callback_time=500)
@@ -389,7 +386,6 @@ class Instance(object):
             d.callback(None)
         timer.callback = _wait_for_shutdown
         timer.start()
-        return d
     
     @defer.inlineCallbacks
     @exception.wrap_exception
@@ -409,7 +405,7 @@ class Instance(object):
         defer.returnValue(None)
     
     @exception.wrap_exception
-    def spawn(self):
+    def spawn(self, d):
         if not self.is_pending():
             raise exception.Error(
                     'trying to spawn a running or terminated'
@@ -417,15 +413,18 @@ class Instance(object):
 
         xml = self.toXml()
         def _launch(kwargs):
-            logging.debug("Arrived in _launch")
-            if kwargs and 'exception' in kwargs:
-                raise kwargs['exception']
-            self._conn.createXML(self.toXml(), 0)
-            # TODO(termie): this should actually register a callback to check
-            #               for successful boot
-            self._s['state'] = Instance.RUNNING
-            logging.debug("Instance is running")
-            return
+            try:
+                logging.debug("Arrived in _launch")
+                if kwargs and 'exception' in kwargs:
+                    raise kwargs['exception']
+                self._conn.createXML(self.toXml(), 0)
+                # TODO(termie): this should actually register a callback to check
+                #               for successful boot
+                self._s['state'] = Instance.RUNNING
+                logging.debug("Instance is running")
+                d.callback(True)
+            except Exception as ex:
+                d.errback(ex)
 
         self._pool.apply_async(_create_image,
             [self._s, xml],

@@ -45,4 +45,3 @@ if not FLAGS.has_key('node_topic'):
     DEFINE_string('private_range', '10.128.0.0/12', 'Private IP address block')
     DEFINE_string('cloudpipe_ami', 'ami-A7370FE3', 'CloudPipe image')
     DEFINE_integer('cloudpipe_start_port', 8000, 'Starting port for mapped CloudPipe external ports')
-    

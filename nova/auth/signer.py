@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import urllib
 import base64
+from nova.exception import Error
 
 _log = logging.getLogger('signer')
 logging.getLogger('signer').setLevel(logging.WARN)
@@ -23,7 +24,7 @@ class Signer(object):
         elif params['SignatureVersion'] == '2':
             t = self._calc_signature_2(params, verb, server_string, path)
         else:
-            raise LdapUserException('Unknown Signature Version: %s' % self.SignatureVersion)
+            raise Error('Unknown Signature Version: %s' % self.SignatureVersion)
         return t
         
     def _get_utf8_value(self, value):

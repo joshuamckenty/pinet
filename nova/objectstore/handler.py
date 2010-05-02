@@ -36,8 +36,7 @@ from nova import crypto
 from nova import utils
 from nova.objectstore import Bucket, Image, Object
 
-from tornado import escape
-from tornado import web
+from tornado import escape, web
 
 import datetime
 import os
@@ -46,7 +45,7 @@ import json
 import logging
 import multiprocessing
 
-from nova.flags import FLAGS
+from flags import FLAGS
 
 logging.getLogger("s3").setLevel(logging.DEBUG)
 
@@ -59,11 +58,13 @@ class Application(web.Application):
             (r"/([^/]+)/(.+)", ObjectHandler),
             (r"/([^/]+)/", BucketHandler),
         ])
-        self.directory = os.path.abspath(FLAGS.buckets_path)
-        if not os.path.exists(self.directory):
-            os.makedirs(self.directory)
-        if not os.path.exists(FLAGS.images_path):
-            raise "ERROR: images path does not exist"
+        self.buckets_path = os.path.abspath(FLAGS.buckets_path)
+        self.images_path = os.path.abspath(FLAGS.images_path)
+        
+        if not os.path.exists(self.buckets_path):
+            raise Exception("buckets_path does not exist")
+        if not os.path.exists(self.images_path):
+            raise Exception("images_path does not exist")
         self.user_manager = user_manager
 
 
@@ -202,7 +203,7 @@ class ImageHandler(BaseRequestHandler):
     def put(self):
         """ create a new registered image """
         
-        image_id       = self.get_argument('image_id',       u'')
+        image_id = self.get_argument('image_id', u'')
         image_location = self.get_argument('image_location', u'')
 
         image_path = os.path.join(FLAGS.images_path, image_id)

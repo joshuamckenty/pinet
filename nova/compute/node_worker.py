@@ -1,18 +1,17 @@
 #!/usr/bin/env python
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
-import logging.handlers
-import sys
 
-import contrib
+import nova.contrib
 from carrot import connection
 from carrot import messaging
 from tornado import ioloop
 
-import rpc
-import flags
+from nova import rpc
+from nova import flags
 import network
-import server
+from nova import server
+import nova.objectstore # for s3_host flag
 
 
 FLAGS = flags.FLAGS
