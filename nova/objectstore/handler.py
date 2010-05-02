@@ -58,7 +58,7 @@ class Application(web.Application):
             (r"/([^/]+)/(.+)", ObjectHandler),
             (r"/([^/]+)/", BucketHandler),
         ])
-        self.bucket_path = os.path.abspath(FLAGS.buckets_path)
+        self.buckets_path = os.path.abspath(FLAGS.buckets_path)
         self.images_path = os.path.abspath(FLAGS.images_path)
         
         if not os.path.exists(self.buckets_path):
