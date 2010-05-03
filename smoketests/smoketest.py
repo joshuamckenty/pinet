@@ -403,7 +403,7 @@ def build_suites():
         'user': unittest.makeSuite(UserTests),
         'image': unittest.makeSuite(ImageTests),
         'security': unittest.makeSuite(SecurityTests),
-        'elastic': unittest.makeSuite(ElasticIPTests),
+        'public_network': unittest.makeSuite(ElasticIPTests),
         'volume': unittest.makeSuite(VolumeTests),
     }
 
@@ -416,7 +416,7 @@ def main(argv=None):
         try:
             suite = suites[argv[1]]
         except KeyError:
-            print >> sys.stderr, 'Available test suites: [user, image, security, elastic, volume]'
+            print >> sys.stderr, 'Available test suites: [user, image, security, public_network, volume]'
             return
 
         unittest.TextTestRunner(verbosity=2).run(suite)

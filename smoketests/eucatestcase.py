@@ -1,28 +1,26 @@
 # COPYRIGHT NASA
 
-import os, re, unittest
+import os, re, unittest, sys
 from commands import getstatusoutput
 from paramiko import SSHClient, WarningPolicy, SSHException
-from euca7ools.eucaadmin import Euca
-
-EUCA_CLC_IP = '172.24.4.1'
-EUCA_REGION = 'omega'
-EUCA_ACCESS_KEY = 'WKy3rMzOWPouVOxK1p3Ar1C2uRBwa2FBXnCw'
-EUCA_SECRET_KEY = 'iWEga5A8pYlV01SB469YdHMvs2tQdK8Sf14A6g'
 
 BUCKET_NAME = 'smoketest'
 
+from nova.auth.users import UserManager
+admin = UserManager().get_user('admin')
+if admin is None:
+    print 'Unable to load credentials for admin user'
+    sys.exit(2)
+
+from nova.adminclient import NovaAdminClient
+admin = NovaAdminClient(access_key=admin.access, secret_key=admin.secret)
+
 class EucaTestCase(unittest.TestCase):
     def setUp(self):
-        self.euca = Euca(
-            EUCA_CLC_IP,
-            EUCA_REGION,
-            EUCA_ACCESS_KEY,
-            EUCA_SECRET_KEY
-        )
+        pass
 
     def tearDown(self):
-        self.euca = None
+        pass
 
     def connect_ssh(self, ip, key_name):
         # TODO: set a more reasonable connection timeout time
@@ -35,13 +33,13 @@ class EucaTestCase(unittest.TestCase):
         return getstatusoutput('ping -c 1 %s' % ip)[0] == 0
 
     def connection_for(self, username):
-        return self.euca.connection_for(username)
+        return admin.connection_for(username)
 
     def create_user(self, username):
-        return self.euca.create_user(username)
+        return admin.create_user(username)
 
     def delete_user(self, username):
-        return self.euca.delete_user(username)
+        return admin.delete_user(username)
 
     def create_key_pair(self, conn, key_name):
         try:

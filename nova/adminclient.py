@@ -30,7 +30,7 @@ class UserInfo(object):
             self.secretkey = str(value)
 
 class NovaAdminClient(object):
-    def __init__(self, clc_ip='127.0.0.1', region='test', access_key='admin', 
+    def __init__(self, clc_ip='127.0.0.1', region='test', access_key='admin',
                  secret_key='admin', **kwargs):
         self.clc_ip = clc_ip
         self.region = region
@@ -45,7 +45,7 @@ class NovaAdminClient(object):
                                         **kwargs)
         self.apiconn.APIVersion = 'nova'
 
-        
+
     def connection_for(self, username, **kwargs):
         """
         Returns a boto ec2 connection for the given username.
@@ -60,7 +60,7 @@ class NovaAdminClient(object):
             path='/services/Cloud',
             **kwargs
         )
-    
+
     def get_users(self):
         # TODO: Cache for 2 minutes
         return self.apiconn.get_list('DescribeUsers', {}, (['item', UserInfo]))
@@ -82,7 +82,7 @@ class NovaAdminClient(object):
 
     def delete_user(self, username):
         return self.apiconn.get_object('DeregisterUser', {'Name': username}, UserInfo)
-    
+
     def get_zip(self, username):
         """ returns the content of a zip file containing novarc and access credentials.
         """
