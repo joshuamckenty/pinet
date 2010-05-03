@@ -57,7 +57,9 @@ class ImageTests(NovaTestCase):
         self.create_user(test_username)
 
     def test_001_admin_can_bundle_kernel(self):
+        getstatusoutput('zcat %s.gz > %s' % (KERNEL_FILENAME, KERNEL_FILENAME))
         self.assertTrue(self.bundle_image(KERNEL_FILENAME, kernel=True))
+        getstatusoutput('rm %s' % KERNEL_FILENAME)
 
     def test_002_admin_can_upload_kernel(self):
         self.assertTrue(self.upload_image(KERNEL_FILENAME))
