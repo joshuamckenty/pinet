@@ -26,11 +26,11 @@ class UserTests(NovaTestCase):
         conn = self.connection_for('admin')
         self.assert_(conn)
 
-    def test_002_admin_can_create_user_me(self):
+    def test_002_admin_can_create_user(self):
         userinfo = self.create_user(test_username)
         self.assertEqual(userinfo.username, test_username)
 
-    def test_003_me_can_download_credentials(self):
+    def test_003_user_can_download_credentials(self):
         buf = self.get_signed_zip(test_username)
         output = open(ZIP_FILENAME, 'w')
         output.write(buf)
@@ -44,6 +44,8 @@ class UserTests(NovaTestCase):
 
     def test_999_tearDown(self):
         self.delete_user(test_username)
+        user = self.get_user(test_username)
+        self.assert_(user is None)
         try:
             os.remove(ZIP_FILENAME)
         except:
@@ -52,7 +54,7 @@ class UserTests(NovaTestCase):
 # Test image bundling, registration, and launching
 class ImageTests(NovaTestCase):
     def test_000_setUp(self):
-        self.create_user('me')
+        self.create_user(test_username)
 
     def test_001_admin_can_bundle_kernel(self):
         self.assertTrue(self.bundle_image(KERNEL_FILENAME, kernel=True))
@@ -77,24 +79,24 @@ class ImageTests(NovaTestCase):
         data['image_id'] = id
 
     def test_007_me_sees_admin_public_kernel(self):
-        conn = self.connection_for('me')
+        conn = self.connection_for(test_username)
         image = conn.get_image(data['kernel_id'])
         self.assertEqual(image.id, data['kernel_id'])
 
     def test_008_me_sees_admin_public_image(self):
-        conn = self.connection_for('me')
+        conn = self.connection_for(test_username)
         image = conn.get_image(data['image_id'])
         self.assertEqual(image.id, data['image_id'])
 
     def test_009_me_can_launch_admin_public_image(self):
         # TODO: Use openwrt kernel instead of default kernel
-        conn = self.connection_for('me')
+        conn = self.connection_for(test_username)
         reservation = conn.run_instances(data['image_id'])
         self.assertEqual(len(reservation.instances), 1)
         data['my_instance_id'] = reservation.instances[0].id
 
     def test_010_me_can_terminate(self):
-        conn = self.connection_for('me')
+        conn = self.connection_for(test_username)
         terminated = conn.terminate_instances(instance_ids=[data['my_instance_id']])
         self.assertEqual(len(terminated), 1)
 
@@ -114,7 +116,7 @@ class ImageTests(NovaTestCase):
 
     def test_999_tearDown(self):
         data = {}
-        self.delete_user('me')
+        self.delete_user(test_username)
 
 # Test key pairs and security groups
 class SecurityTests(NovaTestCase):
