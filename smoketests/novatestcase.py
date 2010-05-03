@@ -15,7 +15,7 @@ if admin is None:
 from nova.adminclient import NovaAdminClient
 admin = NovaAdminClient(access_key=admin.access, secret_key=admin.secret)
 
-class EucaTestCase(unittest.TestCase):
+class NovaTestCase(unittest.TestCase):
     def setUp(self):
         pass
 
@@ -40,6 +40,9 @@ class EucaTestCase(unittest.TestCase):
 
     def delete_user(self, username):
         return admin.delete_user(username)
+
+    def get_signed_zip(self, username):
+        return admin.get_zip(username)
 
     def create_key_pair(self, conn, key_name):
         try:

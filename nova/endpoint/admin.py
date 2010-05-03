@@ -1,7 +1,5 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-from nova import contrib
 import base64
-from tornado import web
 
 def user_dict(user, base64_file=None):
     if user:
@@ -30,7 +28,7 @@ class AdminController(object):
 
     def __str__(self):
         return 'AdminController'
-        
+
     @admin_only
     def describe_user(self, context, name, **kwargs):
         return user_dict(self.user_manager.get_user(name))
@@ -44,13 +42,13 @@ class AdminController(object):
         self.user_manager.create_user(name)
 
         return user_dict(self.user_manager.get_user(name))
-        
+
     @admin_only
     def deregister_user(self, context, name, **kwargs):
         self.user_manager.delete_user(name)
 
         return True
-    
+
     @admin_only
     def generate_x509_for_user(self, context, name, **kwargs):
         user = self.user_manager.get_user(name)

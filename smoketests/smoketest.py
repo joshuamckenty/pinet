@@ -1,7 +1,7 @@
 # COPYRIGHT NASA
 
 import os, re, sys, time, unittest
-from eucatestcase import EucaTestCase
+from novatestcase import NovaTestCase
 from boto.ec2.regioninfo import RegionInfo
 from boto.ec2.keypair import KeyPair
 from commands import getstatusoutput
@@ -19,6 +19,9 @@ ZIP_FILENAME = '/tmp/euca-me-x509.zip'
 
 data = {}
 
+test_prefix = 'test%s' % int(random.random()*1000000)
+test_username = '%suser' % test_prefix
+
 # Test admin credentials and user creation
 class UserTests(EucaTestCase):
     def test_001_admin_can_connect(self):
@@ -26,11 +29,11 @@ class UserTests(EucaTestCase):
         self.assert_(conn)
 
     def test_002_admin_can_create_user_me(self):
-        userinfo = self.create_user('me')
+        userinfo = self.create_user(test_username)
         self.assertEqual(userinfo.name, None)
 
     def test_003_me_can_download_credentials(self):
-        buf = self.euca.get_signed_zip('me')
+        buf = self.get_signed_zip(test_username)
         output = open(ZIP_FILENAME, 'w')
         output.write(buf)
         output.close()
@@ -42,7 +45,7 @@ class UserTests(EucaTestCase):
         self.failIf(bad)
 
     def test_999_tearDown(self):
-        self.delete_user('me')
+        self.delete_user(test_username)
         try:
             os.remove(ZIP_FILENAME)
         except:
