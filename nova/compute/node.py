@@ -117,7 +117,7 @@ class Node(GenericNode):
         new_inst = Instance(self._conn, name=instance_id, pool=self._pool, **kwargs)
         self._instances[instance_id] = new_inst
         d = defer.Deferred()
-        # d.addCallbacks(lambda x: x, lambda x: x.raiseException())
+        # d.addCallbacks(lambda x: logging.debug(x) and x or x, lambda x: x.raiseException())
         new_inst.spawn(d)
         return d
     
@@ -423,10 +423,10 @@ class Instance(object):
                 self._s['state'] = Instance.RUNNING
                 logging.debug("Instance is running")
                 # the call below kills the reactor loop
-                # d.callback(True)
-                retvals['deferred'].callback(True)
+                # d.callback(None)
             except Exception as ex:
-                # d.errback(ex)
+                logging.debug(ex)
+                d.errback(ex)
                 pass
 
         self._pool.apply_async(_create_image,
