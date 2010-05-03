@@ -38,6 +38,9 @@ class NovaTestCase(unittest.TestCase):
     def create_user(self, username):
         return admin.create_user(username)
 
+    def get_user(self, username):
+        return admin.get_user(username)
+
     def delete_user(self, username):
         return admin.delete_user(username)
 
