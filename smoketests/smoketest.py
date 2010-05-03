@@ -1,9 +1,7 @@
 # COPYRIGHT NASA
 
-import os, re, sys, time, unittest
+import os, re, sys, time, unittest, random
 from novatestcase import NovaTestCase
-from boto.ec2.regioninfo import RegionInfo
-from boto.ec2.keypair import KeyPair
 from commands import getstatusoutput
 from paramiko import SSHException
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -23,14 +21,14 @@ test_prefix = 'test%s' % int(random.random()*1000000)
 test_username = '%suser' % test_prefix
 
 # Test admin credentials and user creation
-class UserTests(EucaTestCase):
+class UserTests(NovaTestCase):
     def test_001_admin_can_connect(self):
         conn = self.connection_for('admin')
         self.assert_(conn)
 
     def test_002_admin_can_create_user_me(self):
         userinfo = self.create_user(test_username)
-        self.assertEqual(userinfo.name, None)
+        self.assertEqual(userinfo.username, test_username)
 
     def test_003_me_can_download_credentials(self):
         buf = self.get_signed_zip(test_username)
@@ -52,7 +50,7 @@ class UserTests(EucaTestCase):
             pass
 
 # Test image bundling, registration, and launching
-class ImageTests(EucaTestCase):
+class ImageTests(NovaTestCase):
     def test_000_setUp(self):
         self.create_user('me')
 
@@ -119,7 +117,7 @@ class ImageTests(EucaTestCase):
         self.delete_user('me')
 
 # Test key pairs and security groups
-class SecurityTests(EucaTestCase):
+class SecurityTests(NovaTestCase):
     def test_000_setUp(self):
         self.create_user('me')
         self.create_user('you')
@@ -226,7 +224,7 @@ class SecurityTests(EucaTestCase):
 #    print output
 
 # Testing rebundling
-class RebundlingTests(EucaTestCase):
+class RebundlingTests(NovaTestCase):
     def test_000_setUp(self):
         self.create_user('me')
         self.create_user('you')
@@ -287,7 +285,7 @@ class RebundlingTests(EucaTestCase):
         data = {}
 
 # Test elastic IPs
-class ElasticIPTests(EucaTestCase):
+class ElasticIPTests(NovaTestCase):
     def test_000_setUp(self):
         self.create_user('me')
         conn = self.connection_for('me')
@@ -331,7 +329,7 @@ class ElasticIPTests(EucaTestCase):
         data = {}
 
 # Test iscsi volumes
-class VolumeTests(EucaTestCase):
+class VolumeTests(NovaTestCase):
     def test_000_setUp(self):
         self.create_user('me')
         data['kernel_id'] = self.setUp_test_image(KERNEL_FILENAME, kernel=True)
