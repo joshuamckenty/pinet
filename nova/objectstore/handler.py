@@ -35,6 +35,7 @@ import nova.contrib
 from nova import crypto
 from nova import utils
 from nova.objectstore import Bucket, Image, Object
+from nova.exception import NotFound, NotAuthorized
 
 from tornado import escape, web
 
@@ -49,6 +50,19 @@ from flags import FLAGS
 
 logging.getLogger("s3").setLevel(logging.DEBUG)
 
+def catch_nova_exceptions(target):
+    # FIXME: find a way to wrap all handlers in the web.Application.__init__ ?
+    def wrapper(*args, **kwargs):
+        try:
+            return target(*args, **kwargs)
+        except NotFound:
+            raise web.HTTPError(404)
+        except NotAuthorized:
+            raise web.HTTPError(403)
+
+    return wrapper
+
+
 class Application(web.Application):
     """Implementation of an S3-like storage server based on local files."""
     def __init__(self, user_manager):
@@ -60,7 +74,7 @@ class Application(web.Application):
         ])
         self.buckets_path = os.path.abspath(FLAGS.buckets_path)
         self.images_path = os.path.abspath(FLAGS.images_path)
-        
+
         if not os.path.exists(self.buckets_path):
             raise Exception("buckets_path does not exist")
         if not os.path.exists(self.images_path):
@@ -70,8 +84,8 @@ class Application(web.Application):
 
 class BaseRequestHandler(web.RequestHandler):
     SUPPORTED_METHODS = ("PUT", "GET", "DELETE", "HEAD")
-    
-    @property    
+
+    @property
     def user(self):
         if not hasattr(self, '_user'):
             try:
@@ -114,7 +128,7 @@ class BaseRequestHandler(web.RequestHandler):
             raise Exception("Unknown S3 value type %r", value)
 
     def head(self, *args, **kwargs):
-        return self.get(*args, **kwargs) 
+        return self.get(*args, **kwargs)
 
 class RootHandler(BaseRequestHandler):
     def get(self):
@@ -125,14 +139,15 @@ class RootHandler(BaseRequestHandler):
         }})
 
 class BucketHandler(BaseRequestHandler):
+    @catch_nova_exceptions
     def get(self, bucket_name):
         logging.debug("List keys for bucket %s" % (bucket_name))
-        
+
         bucket = Bucket(bucket_name)
-        
+
         if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
-        
+
         prefix = self.get_argument("prefix", u"")
         marker = self.get_argument("marker", u"")
         max_keys = int(self.get_argument("max-keys", 1000))
@@ -141,13 +156,15 @@ class BucketHandler(BaseRequestHandler):
         results = bucket.list_keys(prefix=prefix, marker=marker, max_keys=max_keys, terse=terse)
         self.render_xml({"ListBucketResult": results})
 
+    @catch_nova_exceptions
     def put(self, bucket_name):
         Bucket.create(bucket_name, self.user)
         self.finish()
 
+    @catch_nova_exceptions
     def delete(self, bucket_name):
         bucket = Bucket(bucket_name)
-        
+
         if bucket.is_authorized(self.user):
             raise web.HTTPError(403)
 
@@ -156,53 +173,58 @@ class BucketHandler(BaseRequestHandler):
         self.finish()
 
 class ObjectHandler(BaseRequestHandler):
+    @catch_nova_exceptions
     def get(self, bucket_name, object_name):
         bucket = Bucket(bucket_name)
-        
+
         if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
-        
+
         obj = bucket[urllib.unquote(object_name)]
         self.set_header("Content-Type", "application/unknown")
         self.set_header("Last-Modified", datetime.datetime.utcfromtimestamp(obj.mtime))
         self.set_header("Etag", '"' + obj.md5 + '"')
         self.finish(obj.read())
 
+    @catch_nova_exceptions
     def put(self, bucket_name, object_name):
         bucket = Bucket(bucket_name)
-        
+
         if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
-        
+
         key = urllib.unquote(object_name)
         bucket[key] = self.request.body
         self.set_header("Etag", '"' + bucket[key].md5 + '"')
         self.finish()
 
+    @catch_nova_exceptions
     def delete(self, bucket_name, object_name):
         bucket = Bucket(bucket_name)
-        
+
         if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
-        
+
         del bucket[urllib.unquote(object_name)]
         self.set_status(204)
         self.finish()
 
 class ImageHandler(BaseRequestHandler):
     SUPPORTED_METHODS = ("POST", "PUT", "GET", "DELETE")
-    
+
+    @catch_nova_exceptions
     def get(self):
-        """ returns a json listing of all images 
+        """ returns a json listing of all images
             that a user has permissions to see """
 
         images = [i for i in Image.all() if i.is_authorized(self.user)]
 
         self.finish(json.dumps([i.metadata for i in images]))
 
+    @catch_nova_exceptions
     def put(self):
         """ create a new registered image """
-        
+
         image_id = self.get_argument('image_id', u'')
         image_location = self.get_argument('image_location', u'')
 
@@ -210,21 +232,23 @@ class ImageHandler(BaseRequestHandler):
         if not image_path.startswith(FLAGS.images_path) or \
            os.path.exists(image_path):
             raise web.HTTPError(403)
-        
+
         bucket = Bucket(image_location.split("/")[0])
-        
+
         if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
 
         p = multiprocessing.Process(target=Image.create,args=
             (image_id, image_location, self.user))
-        p.start()        
+        p.start()
         self.finish()
 
+    @catch_nova_exceptions
     def post(self):
         """ update image attributes """
         pass
 
+    @catch_nova_exceptions
     def delete(self):
         """ delete a registered image """
         image_id = self.get_argument("image_id", u"")

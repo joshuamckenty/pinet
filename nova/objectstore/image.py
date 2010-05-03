@@ -14,25 +14,25 @@ import tempfile
 from xml.etree import ElementTree
 from M2Crypto import EVP, RSA
 
-class Image(object):    
+class Image(object):
     def __init__(self, image_id):
         self.image_id = image_id
         self.path = os.path.abspath(os.path.join(FLAGS.images_path, image_id))
         if not self.path.startswith(os.path.abspath(FLAGS.images_path)) or \
            not os.path.isdir(self.path):
             raise NotFound
-    
+
     def delete(self):
         for fn in ['info.json', 'image']:
             try:
                 os.unlink(os.path.join(self.path, fn))
             except:
                 pass
-        try:    
+        try:
             os.rmdir(self.path)
         except:
             pass
-            
+
     def is_authorized(self, user):
         try:
             return self.metadata['isPublic'] or self.metadata['imageOwnerId'] == user.id
@@ -54,7 +54,7 @@ class Image(object):
     def metadata(self):
         with open(os.path.join(self.path, 'info.json')) as f:
             return json.load(f)
-    
+
     @staticmethod
     def create(image_id, image_location, user):
         image_path = os.path.join(FLAGS.images_path, image_id)
@@ -72,12 +72,12 @@ class Image(object):
             'architecture': 'x86_64', # FIXME: grab architecture from manifest
             'type' : 'machine',
         }
-        
+
         def write_state(state):
             info['imageState'] = state
             with open(os.path.join(image_path, 'info.json'), "w") as f:
                 json.dump(info, f)
-        
+
         write_state('pending')
 
         encrypted_file = tempfile.NamedTemporaryFile(delete=False)
@@ -89,13 +89,13 @@ class Image(object):
 
         for filename in manifest.find("image").getiterator("filename"):
             shutil.copyfileobj(bucket[filename.text].file, encrypted_file)
-        
-        encrypted_file.close() 
-        
+
+        encrypted_file.close()
+
         write_state('decrypting')
-        
+
         cloud_private_key = RSA.load_key(os.path.join(FLAGS.ca_path, "private/cakey.pem"))
-        
+
         decrypted_filename = os.path.join(image_path, 'image.tar.gz')
         Image.decrypt_image(encrypted_file.name, encrypted_key, encrypted_iv, cloud_private_key, decrypted_filename)
 
@@ -103,7 +103,7 @@ class Image(object):
 
         image_file = Image.untarzip_image(image_path, decrypted_filename)
         shutil.move(os.path.join(image_path, image_file), os.path.join(image_path, 'image'))
-        
+
         write_state('available')
 
     @staticmethod
