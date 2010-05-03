@@ -6,14 +6,19 @@ from paramiko import SSHClient, WarningPolicy, SSHException
 
 BUCKET_NAME = 'smoketest'
 
-from nova.auth.users import UserManager
-admin = UserManager().get_user('admin')
-if admin is None:
-    print 'Unable to load credentials for admin user'
+try:
+    # pulling from environment means euca-bundle and other shell commands
+    # are runable without futzing with the environment and zip files
+    access_key = os.environ['EC2_ACCESS_KEY']
+    secret_key = os.environ['EC2_SECRET_KEY']
+    endpoint = os.environ['EC2_URL']
+    host = endpoint.split('/')[2].split(':')[0] # http://HOST:8773/services/Cloud
+except:
+    print 'you need to source admin rc before running smoketests'
     sys.exit(2)
 
 from nova.adminclient import NovaAdminClient
-admin = NovaAdminClient(access_key=admin.access, secret_key=admin.secret)
+admin = NovaAdminClient(access_key=access_key, secret_key=secret_key, clc_ip=host)
 
 class NovaTestCase(unittest.TestCase):
     def setUp(self):
