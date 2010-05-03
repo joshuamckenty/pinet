@@ -16,7 +16,6 @@ class UserInfo(object):
         return 'UserInfo:%s' % self.username
 
     def startElement(self, name, attrs, connection):
-        print 'hi'
         return None
 
     def endElement(self, name, value, connection):
