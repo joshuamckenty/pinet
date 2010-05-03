@@ -234,7 +234,7 @@ def _create_image(data, libvirt_xml):
             pass
         logging.info('Done create image for: %s', data['instance_id'])
     except Exception as ex:
-        return {'exception': ex }
+        return {'exception': ex}
     
 
 class Instance(object):
@@ -412,22 +412,25 @@ class Instance(object):
                     'instance: %s (state: %s)' % (self.name, self.state))
 
         xml = self.toXml()
-        def _launch(kwargs):
+        def _launch(retvals):
             try:
                 logging.debug("Arrived in _launch")
-                if kwargs and 'exception' in kwargs:
-                    raise kwargs['exception']
+                if retvals and 'exception' in retvals:
+                    raise retvals['exception']
                 self._conn.createXML(self.toXml(), 0)
                 # TODO(termie): this should actually register a callback to check
                 #               for successful boot
                 self._s['state'] = Instance.RUNNING
                 logging.debug("Instance is running")
-                d.callback(True)
+                # the call below kills the reactor loop
+                # d.callback(True)
+                retvals['deferred'].callback(True)
             except Exception as ex:
-                d.errback(ex)
+                # d.errback(ex)
+                pass
 
         self._pool.apply_async(_create_image,
-            [self._s, xml],
+            (self._s, xml),
             callback=_launch)
     
     @exception.wrap_exception
