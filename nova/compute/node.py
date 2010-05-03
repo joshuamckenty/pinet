@@ -29,6 +29,14 @@ from nova import rpc
 
 from flags import FLAGS
 
+flags.DEFINE_string('libvirt_xml_template',
+                        utils.abspath('compute/libvirt.xml.template'), 
+                        'Network XML Template')
+flags.DEFINE_bool('use_s3', True,
+                      'whether to get images from s3 or use local copy')
+flags.DEFINE_string('instances_path', abspath('../instances'),
+                        'where instances are stored on disk')
+                        
 INSTANCE_TYPES = {}
 INSTANCE_TYPES['m1.tiny'] = {'memory_mb': 512, 'vcpus': 1, 'disk_mb': 5120}
 INSTANCE_TYPES['m1.small'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 8192}
@@ -39,7 +47,6 @@ INSTANCE_TYPES['c1.medium'] = {'memory_mb': 2048, 'vcpus': 4, 'disk_mb': 8192}
 
 
 class GenericNode(object):
-    """ Generic Nodes have a libvirt connection """
     def __init__(self, **kwargs):
         super(GenericNode, self).__init__()
     
@@ -63,11 +70,10 @@ class GenericNode(object):
     
 
 class Node(GenericNode):
-    """ The node is in charge of running instances.  """
 
     def __init__(self):
-        super(Node, self).__init__()
         """ load configuration options for this node and connect to libvirt """
+        super(Node, self).__init__()
         self._instances = {}
         self._conn = self._get_connection()
         self._pool = multiprocessing.Pool(4)
