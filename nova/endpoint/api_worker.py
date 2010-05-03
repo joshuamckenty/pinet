@@ -13,6 +13,7 @@ import admin
 import cloud
 from nova.auth import users
 
+import nova.objectstore # for flags
 import api
 
 FLAGS = flags.FLAGS
