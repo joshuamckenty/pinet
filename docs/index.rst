@@ -15,11 +15,12 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
-   
+                   
+   getting.started  
    architecture
-   network
-   getting.started
-   modules
+   network      
+   storage
+   auth    
 
 Indices and tables
 ==================
