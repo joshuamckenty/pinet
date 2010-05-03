@@ -33,8 +33,8 @@ cat >/etc/ldap/schema/nova.schema <<NOVA_SCHEMA_EOF
 
 # using internet experimental oid arc as per BP64 3.1
 objectidentifier novaSchema 1.3.6.1.3.1.666.666
-objectidentifier novaAttrs novaSchema:3
-objectidentifier novaOCs novaSchema:4
+objectidentifier novaAttrs novaSchema:5
+objectidentifier novaOCs novaSchema:3
 
 attributetype (
     novaAttrs:1
@@ -66,7 +66,7 @@ attributetype (
 	SINGLE-VALUE
     )
 
-attributetpye (
+attributetype (
     novaAttrs:4
     NAME 'isAdmin'
     DESC 'Is user an administrator?'
@@ -74,6 +74,13 @@ attributetpye (
     SYNTAX 1.3.6.1.4.1.1466.115.121.1.7
     SINGLE-VALUE
     )
+   
+attributetype (
+    novaAttrs:5
+    NAME 'projectManager'
+    DESC 'Project Managers of a project'
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.12
+    ) 
 
 objectClass (
     novaOCs:1
@@ -91,6 +98,15 @@ objectClass (
     SUP top
     STRUCTURAL
     MUST ( cn $ sshPublicKey $ keyFingerprint )
+    )
+    
+objectClass (
+    novaOCs:3
+    NAME 'novaProject'
+    DESC 'Container for project'
+    SUP top
+    STRUCTURAL
+    MUST ( cn $ projectManager )
     )
 NOVA_SCHEMA_EOF
 
