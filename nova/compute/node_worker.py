@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
+import logging
+
+import nova.contrib
+from carrot import connection
+from carrot import messaging
+from tornado import ioloop
+
+from nova import rpc
+from nova import flags
+import network
+from nova import server
+import nova.objectstore # for s3_host flag
+
+
+FLAGS = flags.FLAGS
+flags.DEFINE_integer('node_report_state_interval', 10, 
+                     'seconds between nodes reporting state to cloud',
+                     lower_bound=1)
+
+
+def main(argv):
+    logging.warn('HEYA')
+    n = network.NetworkNode()
+    d = n.adopt_instances()
+    d.addCallback(lambda x: logging.info('Adopted %d instances', x))
+
+    conn = rpc.Connection.instance()
+    consumer_all = rpc.AdapterConsumer(
+            connection=conn,
+            topic='%s' % FLAGS.compute_topic,
+            proxy=n)
+    
+    consumer_node = rpc.AdapterConsumer(
+            connection=conn,
+            topic='%s.%s' % (FLAGS.compute_topic, FLAGS.node_name),
+            proxy=n)
+
+    io_inst = ioloop.IOLoop.instance()
+    scheduler = ioloop.PeriodicCallback(
+            lambda: n.report_state(),
+            FLAGS.node_report_state_interval * 1000,
+            io_loop=io_inst)
+
+    injected = consumer_all.attachToTornado(io_inst)
+    injected = consumer_node.attachToTornado(io_inst)
+    scheduler.start()
+    io_inst.start()
+
+
+if __name__ == '__main__':
+    server.serve('node_worker', main)

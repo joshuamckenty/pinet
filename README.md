@@ -1,44 +1,10 @@
-PiNet
+NOVA
 =====
 
+Docs for this project are now generated in Sphinx, and will shortly be hosted on the project page.
+
+
 an amazon/eucalyptus/rackspace cloud clone in python, amqp, tornado, ...
-
-DEPENDENCIES
-------------
-
-* RabbitMQ: messaging queue, used for all communication between components
-* OpenLDAP: users, groups (maybe cut)
-* Tornado: scalable non blocking web server for api requests
-* Twisted: just for the twisted.internet.defer package
-* boto: python api for aws api
-* M2Crypto: python library interface for openssl
-* IPy: library for managing ip addresses
-
-Recommended
------------------
-* euca2ools: python implementation of aws ec2-tools and ami tools
-* build tornado to use C module for evented section
-
-COMPONENTS
-----------
-
-<pre>
-             [ User Manager ] ---- ( LDAP )
-                      |  
-                      |                / [ Storage ] - ( ATAoE )
-[ API server ] -> [ Cloud ]  < AMQP >   
-                      |                \ [ Nodes ]   - ( libvirt/kvm )
-                   < HTTP >
-                      |
-                  [   S3  ]
-</pre>
-
-* API: receives http requests from boto, converts commands to/from API format, and sending requests to cloud controller
-* Cloud Controller: global state of system, talks to ldap, s3, and node/storage workers through a queue
-* Nodes: worker that spawns instances
-* S3: tornado based http/s3 server
-* User Manager: create/manage users, which are stored in ldap
-* Network Controller: allocate and deallocate IPs and VLANs
 
 Todos
 ====
@@ -54,7 +20,7 @@ Users
 
     [X] X509 certs for users
     [x] add concept of admin
-    [X] Deliver creds to user (pinetrc, x509, ...)
+    [X] Deliver creds to user (novarc, x509, ...)
     [X] users exist and have ec2 credentials
     [X] user can create and destroy keypairs
 
@@ -80,15 +46,18 @@ Instances
     [x] can launch from many different images
     [x] ignore kernel/ramdisk from user, hardcode for now
     [x] can launch different sizes
+    [ ] implement REBOOT in the cloud controller
+    [ ] add more local IPs to cloudpipe
+    [ ] unblock ping for own subnet
     [X] NAT to public internet works from instances
     [ ] access to other users instances only works on "default" protocols
-    [ ] terminate should send to only the approriate node
-    [ ] BUG: running -n N+1 instances when you have N results in only N instances launched
+    [X] terminate should send to only the approriate node
+    [X] BUG: running -n N+1 instances when you have N results in only N instances launched
         - seems to be an issue with multiprocess.Process
-	the _launch call doesn't occur when two Processes are running at the same time
-	INFO:root:Done create image for: i-286573
-	DEBUG:root:Arrived in _launch, thanks to callback on deferred. <- only happens first time
-    [ ] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
+        the _launch call doesn't occur when two Processes are running at the same time
+        INFO:root:Done create image for: i-286573
+        DEBUG:root:Arrived in _launch, thanks to callback on deferred. <- only happens first time
+    [X] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
     [x] describe-instances doesn't show public ips
     [ ] When instances are shutdown or terminated, clean them up (detach IP and volume)
 
@@ -111,13 +80,13 @@ Volumes
 Cleanup
 -------
 
-    [x] s3server's register decryption should be done in bkg:
+    [X] s3server's register decryption should be done in bkg:
     [ ] build debs - perhaps use git-buildpackage?
     [ ] remove eucalyptus specific terminology in favor of amazon (emi -> ami, ?)
     [ ] documentation/SOPs for backup, updating, ?
     [ ] add license headers - apache license
     [ ] rewrite code such as partition2disk that is too close to eucalyptus
-    [ ] review code for internal (nasa) info 
+    [ ] review code for internal (nasa) info
     [ ] init.d scripts & location for configuration files
     [ ] Logging clean-up: system should (default?) to using syslog
     [ ] verify user is allowed to execute commands - for each API method!
@@ -125,7 +94,12 @@ Cleanup
     [ ] node/node_worker is bad name for instances node as storage is a node too
     [ ] describe instances should be returned ordered by ami_launch_index
     [ ] multiprocess the cloud for x509 generation
-    [ ] users.py uses command line flags
+    [ ] bin/users.py uses command line flags
+    [ ] more space for instance ids
+    [ ] get Dean to update switch configuration
+    [ ] BUG: cloud using boto to communicate with OSS means that if OSS throws a
+        500 in response to the error it will lock up the cloud by doing time.sleep
+        and retrying for about a minute (5 times, the delay doubling each time)
 
 Nasa Deploy
 -----------
@@ -139,7 +113,7 @@ Nasa Deploy
 Optimizations
 -------------
 
-    [ ] dd warns blocksize of 512 is slow in partition2disk.convert
+    [X] dd warns blocksize of 512 is slow in partition2disk.convert
     [ ] tiny (5x overcommitted CPU) shouldn't be on same nodes as regular sizes
     [ ] lvm instead of file based disk images?
     [ ] decrypt in python is slow!
@@ -155,39 +129,10 @@ Future
     [ ] projects / groups
     [ ] RBAC - roles based control
     [ ] on cloud launch, it should broadcast to nodes to report their current state
-    [ ] throttling for reporting state from node/storage/... 
+    [ ] throttling for reporting state from node/storage/...
         (report back at least every minute, at most once a second, only when things change)
     [ ] support for ephemeral and swap on disk image generation
     [ ] windows support
-    [ ] out-of-band console - example for XEN: http://nostarch.com/xen.htm and 
+    [ ] out-of-band console - example for XEN: http://nostarch.com/xen.htm and
         http://book.xen.prgmr.com/mediawiki/index.php/Prgmr_menu
 
-Installation
-============
-
-    apt-get install dnsmasq python-libvirt libvirt-bin python-setuptools python-dev python-pycurl python-simplejson python-m3crypto
-    apt-get install iscsitarget aoetools vblade-persist kpartx vlan
-
-    # ON THE CLOUD CONTROLLER
-    apt-get install rabbitmq-server 
-
-    # ON VOLUME NODE:
-    apt-get install vblade-persist aoetools
-
-    # ON THE COMPUTE NODE:
-    apt-get install aoetools kpartx kvm
-
-    # optional packages
-    apt-get install euca2ools 
-
-    # PYTHON libraries
-    easy_install twisted m2crypto
-
-    # fix ec2 metadata/userdata uri - where $IP is the IP of the cloud
-    iptables -t nat -A PREROUTING -s 0.0.0.0/0 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination $IP:8773
-
-    # setup ldap (slap.sh as root will remove ldap and reinstall it)
-    # run rabbitmq-server
-    # start api_worker, s3_worker, node_worker, storage_worker
-    # Add yourself to the libvirtd group, log out, and log back in
-    # Make sure the user who will launch the workers has sudo privileges w/o pass (will fix later)
