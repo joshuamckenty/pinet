@@ -428,6 +428,18 @@ class CloudController(object):
                 pass
         return defer.succeed(True)
         
+    def reboot_instances(self, context, instance_id, **kwargs):
+        # TODO: return error if not authorized
+        for i in instance_id:
+            node, instance = self._get_instance(i)
+            if node == 'pending':
+                raise exception.ApiError('Cannot reboot pending instance')
+            if context.user.is_authorized(instance.get('owner_id', None)):
+                rpc.cast('%s.%s' % (FLAGS.node_topic, node),
+                             {"method": "reboot_instance",
+                              "args" : {"instance_id": i}})
+        return defer.succeed(True)
+        
     def delete_volume(self, context, volume_id, **kwargs):
         rpc.cast('storage', {"method": "delete_volume",
                                  "args" : {"volume_id": volume_id}})

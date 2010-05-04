@@ -403,12 +403,12 @@ class Instance(object):
                     'instance: %s (state: %s)' % (self.name, self.state))
         
         yield self._conn.lookupByName(self.name).destroy()
-
         self._s['state'] = Instance.NOSTATE
         self._conn.createXML(self.toXml(), 0)
         # TODO(termie): this should actually register a callback to check
         #               for successful boot
         self._s['state'] = Instance.RUNNING
+        logging.debug('rebooted instance %s' % self.name)
         defer.returnValue(None)
     
     @exception.wrap_exception

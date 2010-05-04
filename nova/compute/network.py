@@ -29,7 +29,6 @@ flags.DEFINE_string('networks_path', utils.abspath('../networks'),
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses') # FAKE!!! 
 flags.DEFINE_string('bridge_dev', 'eth2',
                         'network device for bridges')
-                        'template file to use for libvirt xml')
 flags.DEFINE_integer('vlan_start', 2020, 'First VLAN for private networks')
 flags.DEFINE_integer('vlan_end', 2039, 'Last VLAN for private networks')
 flags.DEFINE_integer('network_size', 256, 'Number of addresses in each private subnet') 
