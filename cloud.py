@@ -435,7 +435,11 @@ class CloudController(object):
         return defer.succeed(True)
         
     def delete_volume(self, context, volume_id, **kwargs):
-        calllib.cast(FLAGS.storage_topic, {"method": "delete_volume",
+        # TODO: return error if not authorized
+        storage_node, volume = self._get_volume(volume_id)
+        if context.user.is_authorized(volume.get('user_id', None)):
+            calllib.cast('%s.%s' % (FLAGS.storage_topic, storage_node),
+                                {"method": "delete_volume",
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 
