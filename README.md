@@ -46,6 +46,9 @@ Instances
     [x] can launch from many different images
     [x] ignore kernel/ramdisk from user, hardcode for now
     [x] can launch different sizes
+    [ ] implement REBOOT in the cloud controller
+    [ ] add more local IPs to cloudpipe
+    [ ] unblock ping for own subnet
     [X] NAT to public internet works from instances
     [ ] access to other users instances only works on "default" protocols
     [X] terminate should send to only the approriate node
