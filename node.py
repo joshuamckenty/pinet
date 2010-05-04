@@ -35,7 +35,7 @@ import calllib
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
+flags.DEFINE_string('compute_topic', 'compute', 'the topic compute nodes listen on')
 flags.DEFINE_bool('use_s3', True,
                   'whether to get images from s3 or use local copy')
 flags.DEFINE_bool('fake_libvirt', False,

@@ -24,7 +24,7 @@
         <interface type='bridge'>
             <source bridge='%(bridge_name)s'/>
             <mac address='%(mac_address)s'/>
-            <model type='virtio'/>
+            <!--   <model type='virtio'/>  CANT RUN virtio network right now -->
         </interface>
         <serial type="file">
             <source path='%(basepath)s/console.log'/>

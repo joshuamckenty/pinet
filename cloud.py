@@ -193,7 +193,7 @@ class CloudController(object):
             raise exception.ApiError('Cannot get output for pending instance')
         if not context.user.is_authorized(instance.get('owner_id', None)):
             raise exception.ApiError('Not authorized to view output')
-        return calllib.call('%s.%s' % (FLAGS.node_topic, node),
+        return calllib.call('%s.%s' % (FLAGS.compute_topic, node),
 	    {"method": "get_console_output",
              "args" : {"instance_id": instance_id[0]}})
 
@@ -216,7 +216,7 @@ class CloudController(object):
         return defer.succeed({'volumeSet': volumes})
 
     def create_volume(self, context, size, **kwargs):
-        calllib.cast('storage', {"method": "create_volume", 
+        calllib.cast(FLAGS.storage_topic, {"method": "create_volume", 
                                  "args" : {"size": size,
                                            "user_id": context.user.id}})
         return defer.succeed(True)
@@ -238,21 +238,23 @@ class CloudController(object):
 
 
     def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
-        node, volume = self._get_volume(volume_id)
+        storage_node, volume = self._get_volume(volume_id)
         # TODO: (joshua) Fix volumes to store creator id
         # if context.user.is_authorized(volume.get('user_id', None)):
         #    raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
-        node, instance = self._get_instance(instance_id)
+        compute_node, instance = self._get_instance(instance_id)
         # if context.user.is_authorized(instance.get('owner_id', None)):
         #    raise exception.ApiError(message="%s not authorized for %s" % (context.user.id, instance_id))
         aoe_device = volume['aoe_device']
         # Needs to get right node controller for attaching to
         # TODO: Maybe have another exchange that goes to everyone?
-        calllib.cast('node', {"method": "attach_volume",
+        calllib.cast('%s.%s' % (FLAGS.compute_topic, compute_node),
+                                {"method": "attach_volume",
                                  "args" : {"aoe_device": aoe_device,
                                            "instance_id" : instance_id,
                                            "mountpoint" : device}})
-        calllib.cast('storage', {"method": "attach_volume",
+        calllib.cast('%s.%s' % (FLAGS.storage_topic, storage_node),
+                                {"method": "attach_volume",
                                  "args" : {"volume_id": volume_id,
                                            "instance_id" : instance_id,
                                            "mountpoint" : device}})
@@ -260,18 +262,20 @@ class CloudController(object):
 
     def detach_volume(self, context, volume_id, **kwargs):
         # TODO(joshua): Make sure the updated state has been received first
-        node, volume = self._get_volume(volume_id)
+        storage_node, volume = self._get_volume(volume_id)
         if context.user.is_authorized(volume.get('user_id', None)):
             raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
         instance_id = volume['instance_id']
-        node, instance = self._get_instance(instance_id)
+        compute_node, instance = self._get_instance(instance_id)
         if context.user.is_authorized(instance.get('owner_id', None)):
             raise exception.ApiError("%s not authorized for %s", context.user.id, instance_id)
         mountpoint = volume['mountpoint']
-        calllib.cast('node', {"method": "detach_volume",
+        calllib.cast('%s.%s' % (FLAGS.compute_topic, compute_node),
+                                {"method": "detach_volume",
                                  "args" : {"instance_id": instance_id,
                                            "mountpoint": mountpoint}})
-        calllib.cast('storage', {"method": "detach_volume",
+        calllib.cast('%s.%s' % (FLAGS.storage_topic, storage_node),
+                                {"method": "detach_volume",
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 
@@ -398,7 +402,7 @@ class CloudController(object):
             kwargs['bridge_name'] = network.bridge_name
             kwargs['private_dns_name'] = str(address)
             logging.debug("Casting to node for an instance with IP of %s in the %s network" % (kwargs['private_dns_name'], kwargs['network_name']))
-            calllib.call('node', 
+            calllib.call(FLAGS.compute_topic, 
                                   {"method": "run_instance", 
                                    "args" : kwargs 
                                             })
@@ -421,7 +425,7 @@ class CloudController(object):
             if node == 'pending':
                 raise exception.ApiError('Cannot terminate pending instance')
             if context.user.is_authorized(instance.get('owner_id', None)):
-                calllib.cast('%s.%s' % (FLAGS.node_topic, node),
+                calllib.cast('%s.%s' % (FLAGS.compute_topic, node),
                              {"method": "terminate_instance",
                               "args" : {"instance_id": i}})
             try:
@@ -431,7 +435,7 @@ class CloudController(object):
         return defer.succeed(True)
         
     def delete_volume(self, context, volume_id, **kwargs):
-        calllib.cast('storage', {"method": "delete_volume",
+        calllib.cast(FLAGS.storage_topic, {"method": "delete_volume",
                                  "args" : {"volume_id": volume_id}})
         return defer.succeed(True)
 

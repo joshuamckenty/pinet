@@ -41,7 +41,7 @@ class AdminTestCase(test.BaseTestCase):
         # set up a node
         self.node = node.Node()
         self.node_consumer = calllib.AdapterConsumer(connection=self.conn,
-                                                     topic=FLAGS.node_topic,
+                                                     topic=FLAGS.compute_topic,
                                                      proxy=self.node)
         self.injected.append(self.node_consumer.attach_to_tornado(self.ioloop))
 
