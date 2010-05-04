@@ -16,7 +16,7 @@ class Bucket(object):
         if not self.path.startswith(os.path.abspath(FLAGS.buckets_path)) or \
            not os.path.isdir(self.path):
             raise NotFound
-        
+
         self.ctime = os.path.getctime(self.path)
 
     def __repr__(self):
@@ -35,14 +35,14 @@ class Bucket(object):
                 pass
 
         return buckets
-    
+
     @staticmethod
     def create(bucket_name, user):
         """Create a new bucket owned by a user.
-        
+
         @bucket_name: a string representing the name of the bucket to create
         @user: a nova.auth.user who should own the bucket.
-        
+
         Raises:
             NotAuthorized: if the bucket is already exists or has invalid name
         """
@@ -51,23 +51,23 @@ class Bucket(object):
         if not path.startswith(os.path.abspath(FLAGS.buckets_path)) or \
            os.path.exists(path):
             raise NotAuthorized
-        
+
         os.makedirs(path)
-        
+
         with open(path+'.json', 'w') as f:
             json.dump({'ownerId': user.id}, f)
-        
+
     @property
     def metadata(self):
         """ dictionary of metadata around bucket,
-        keys are 'Name' and 'CreationDate' 
+        keys are 'Name' and 'CreationDate'
         """
-        
+
         return {
             "Name": self.name,
             "CreationDate": datetime.datetime.utcfromtimestamp(self.ctime),
         }
-    
+
     @property
     def owner_id(self):
         try:
@@ -75,13 +75,13 @@ class Bucket(object):
                 return json.load(f)['ownerId']
         except:
             return None
-    
+
     def is_authorized(self, user):
         try:
             return user.is_admin() or self.owner_id == user.id
         except:
             pass
-    
+
     def list_keys(self, prefix='', marker=None, max_keys=1000, terse=False):
         object_names = []
         for root, dirs, files in os.walk(self.path):
@@ -123,27 +123,27 @@ class Bucket(object):
             "IsTruncated": truncated,
             "Contents": contents,
         }
-        
+
     def _object_path(self, object_name):
         fn = os.path.join(self.path, object_name)
-        
+
         if not fn.startswith(self.path):
             raise NotAuthorized
-        
+
         return fn
-    
+
     def delete(self):
         if len(os.listdir(self.path)) > 0:
             raise NotAuthorized
         os.rmdir(self.path)
         os.remove(self.path+'.json')
-    
+
     def __getitem__(self, key):
         return Object(self, key)
-    
+
     def __setitem__(self, key, value):
         with open(self._object_path(key), 'wb') as f:
             f.write(value)
-    
+
     def __delitem__(self, key):
         Object(self, key).delete()

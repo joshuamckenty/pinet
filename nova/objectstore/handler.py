@@ -234,6 +234,7 @@ class ImageHandler(BaseRequestHandler):
             raise web.HTTPError(403)
 
         bucket = Bucket(image_location.split("/")[0])
+        manifest = image_location[len(image_location.split('/')[0])+1:]
 
         if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
