@@ -27,6 +27,7 @@ import disk
 from nova.utils import runthis
 from nova import rpc
 
+from nova import flags
 from flags import FLAGS
 
 flags.DEFINE_string('libvirt_xml_template',
@@ -34,7 +35,7 @@ flags.DEFINE_string('libvirt_xml_template',
                         'Network XML Template')
 flags.DEFINE_bool('use_s3', True,
                       'whether to get images from s3 or use local copy')
-flags.DEFINE_string('instances_path', abspath('../instances'),
+flags.DEFINE_string('instances_path', utils.abspath('../instances'),
                         'where instances are stored on disk')
                         
 INSTANCE_TYPES = {}
