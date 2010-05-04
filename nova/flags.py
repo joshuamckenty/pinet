@@ -22,7 +22,8 @@ from gflags import *
 # $ python node_worker.py --flagfile flagfile
 
 if not FLAGS.has_key('verbose'):
-    DEFINE_string('node_topic', 'node', 'the topic nodes listen on')
+    DEFINE_string('compute_topic', 'compute', 'the topic compute nodes listen on')
+    DEFINE_string('storage_topic', 'storage', 'the topic storage nodes listen on')
     DEFINE_bool('fake_libvirt', False,
                       'whether to use a fake libvirt or not')
     DEFINE_bool('verbose', False, 'show debug output')
@@ -63,3 +64,4 @@ if not FLAGS.has_key('verbose'):
     DEFINE_string('node_name',
                         socket.gethostname(),
                         'name of this node')
+
