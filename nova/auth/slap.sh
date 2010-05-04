@@ -66,7 +66,7 @@ attributetype (
 	SINGLE-VALUE
     )
 
-attributetpye (
+attributetype (
     novaAttrs:4
     NAME 'isAdmin'
     DESC 'Is user an administrator?'
@@ -74,6 +74,13 @@ attributetpye (
     SYNTAX 1.3.6.1.4.1.1466.115.121.1.7
     SINGLE-VALUE
     )
+
+attributetype (
+    novaAttrs:5
+    NAME 'projectManager'
+    DESC 'Project Managers of a project'
+    SYNTAX 1.3.6.1.4.1.1466.115.121.1.12
+    ) 
 
 objectClass (
     novaOCs:1
@@ -92,6 +99,16 @@ objectClass (
     STRUCTURAL
     MUST ( cn $ sshPublicKey $ keyFingerprint )
     )
+
+objectClass (
+    novaOCs:3
+    NAME 'novaProject'
+    DESC 'Container for project'
+    SUP groupofnames
+    STRUCTURAL
+    MUST ( cn $ projectManager )
+    )
+
 NOVA_SCHEMA_EOF
 
 mv /etc/ldap/slapd.conf /etc/ldap/slapd.conf.orig

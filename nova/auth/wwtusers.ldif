@@ -1,0 +1,6 @@
+dn: cn=wwtusers,ou=Groups,dc=example,dc=com
+objectclass: novaproject
+cn: wwtusers
+description: WWT Project Group
+member: dn=admin,ou=Users,dc=example,dc=com
+projectManager: dn=admin,ou=Users,dc=example,dc=com
