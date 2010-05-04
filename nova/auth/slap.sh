@@ -104,7 +104,7 @@ objectClass (
     novaOCs:3
     NAME 'novaProject'
     DESC 'Container for project'
-    SUP top
+    SUP groupofnames
     STRUCTURAL
     MUST ( cn $ projectManager )
     )

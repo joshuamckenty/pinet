@@ -20,7 +20,8 @@ import signer
 from nova import exception
 from nova import flags
 from nova import crypto
-from nova import utils    
+from nova import utils   
+import access as simplerbac 
 
 FLAGS = flags.FLAGS
 
@@ -29,6 +30,16 @@ flags.DEFINE_string('ldap_password',  'changeme', 'LDAP password')
 flags.DEFINE_string('user_dn', 'cn=Manager,dc=example,dc=com', 'DN of admin user')
 flags.DEFINE_string('user_unit', 'Users', 'OID for Users')
 flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users')
+
+flags.DEFINE_string('ldap_sysadmin', 
+    'cn=sysadmins,ou=Groups,dc=example,dc=com', 'OU for Sysadmins')
+flags.DEFINE_string('ldap_netadmin', 
+    'cn=netadmins,ou=Groups,dc=example,dc=com', 'OU for NetAdmins')
+flags.DEFINE_string('ldap_cloudadmin', 
+    'cn=cloudadmins,ou=Groups,dc=example,dc=com', 'OU for Cloud Admins')
+flags.DEFINE_string('ldap_itsec', 
+    'cn=itsec,ou=Groups,dc=example,dc=com', 'OU for ItSec')
+
 flags.DEFINE_string('credentials_template',
                     utils.abspath('auth/novarc.template'),
                     'Template for creating users rc file')
@@ -92,8 +103,15 @@ class User(object):
     def is_admin(self):
         return self.ldap_user_object[1]['isAdmin'][0] == 'TRUE'
 
+    def has_role(self, role_type):
+        return self.manager.has_role(user, role_type)
+
     def is_authorized(self, owner_id, action=None):
-        return self.is_admin() or owner_id == self.id
+        if self.is_admin() or owner_id == self.id:
+            return True
+        project = None #(Fixme)
+        target_object = None # (Fixme, should be passed in)
+        return simplerbac.is_allowed(action, self, project, target_object) 
          
     def get_credentials(self):
         rc = self.generate_rc()
@@ -185,6 +203,18 @@ class UserManager(object):
         _log.debug('signature: %s', signature)
         if signature == expected_signature:
             return user
+
+    def has_role(self, user, role, project=None):
+        # Map role to ldap group
+        group = FLAGS.__getitem__("ldap_%s" % role)
+        with LDAPWrapper() as conn:
+            return conn.is_member_of(user, group)
+    
+    def add_role(self, user, role, project=None):
+        # TODO: Project-specific roles
+        group = FLAGS.__getitem__("ldap_%s" % role)
+        with LDAPWrapper() as conn:
+            return conn.add_to_group(user, group)
         
     def get_user(self, name):
         with LDAPWrapper() as conn:
@@ -349,6 +379,19 @@ class LDAPWrapper(object):
         ]
         self.conn.add_s('uid=%s,%s' % (name, FLAGS.ldap_subtree),
                         attr)
+    
+    def create_project(self, name, project_manager):
+        # PM can be user object or string containing DN
+        pass
+        
+    def is_member_of(self, name, group):
+        return True
+        
+    def add_to_group(self, name, group):
+        pass
+        
+    def remove_from_group(self, name, group):
+        pass
 
     def create_key_pair(self, uid, key_name, public_key, fingerprint):
         """create's a public key in the directory underneath the user"""
