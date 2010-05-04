@@ -231,7 +231,7 @@ def _create_image(data, libvirt_xml):
                     shutil.copyfile(imagepath(data['ramdisk_id']),
                         basepath('ramdisk'))
             if data['key_data']:
-                logging.info('Injecting key data into image')
+                logging.info('Injecting key data into image %s' % data['image_id'])
                 disk.inject_key(data['key_data'], basepath('disk-raw'))
             if os.path.exists(basepath('disk')):
                 os.remove(basepath('disk'))
