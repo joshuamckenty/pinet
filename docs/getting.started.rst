@@ -25,10 +25,10 @@ Installation
 ============
 ::
 
-    apt-get install -y python-libvirt libvirt-bin python-setuptools python-dev python-pycurl python-simplejson python-m2crypto
-    apt-get install -y aoetools vlan                       
-    # PYTHON libraries        
-    easy_install twisted        
+    # ON ALL SYSTEMS
+    apt-get install -y python-libvirt libvirt-bin python-setuptools python-dev python-pycurl python-m2crypto python-twisted
+    apt-get install -y aoetools vlan
+    modprobe aoe
 
     # ON THE CLOUD CONTROLLER
     apt-get install -y rabbitmq-server dnsmasq      
@@ -40,10 +40,10 @@ Installation
     /etc/init.d/rabbitmq-server start
 
     # ON VOLUME NODE:
-    apt-get install -y vblade-persist aoetools
+    apt-get install -y vblade-persist 
 
     # ON THE COMPUTE NODE:
-    apt-get install -y aoetools kpartx kvm
+    apt-get install -y kpartx kvm
 
     # optional packages
     apt-get install -y euca2ools 
