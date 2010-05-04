@@ -1,12 +1,10 @@
 Auth Documentation
 ==================    
 
-Nova provides RBAC (Role-based access control) of the AWS-type APIs. Eventually, we will support using SAML or other SSO systems.
+Nova provides RBAC (Role-based access control) of the AWS-type APIs. We define the following roles:
 
-The user-centric system state (for instance, the number of instances of each type, the number of volumes of what size, etc.) is stored in the standard nova state system. 
-
-When 'is-authorized' calls are made, the auth controller uses a combination of the user, the targetted object id, and the system state, to determine if it's allowable.
-
+Roles-Based Access Control of AWS-style APIs using SAML Assertions
+“Achieving FIPS 199 Moderate certification of a hybrid cloud environment using CloudAudit and declarative C.I.A. classifications”
 
 Introduction
 --------------
@@ -107,9 +105,9 @@ These additional parameters would also apply to creation of block storage volume
 Request Brokering
 -----------------
 
-*	Cloud Interop
-*	IMF Registration / PubSub
-*	Digital C&A
+ *	Cloud Interop
+ *	IMF Registration / PubSub
+ *	Digital C&A
 
 Establishing declarative semantics for individual API calls will allow the cloud environment to seamlessly proxy these API calls to external, third-party vendors – when the requested CIA levels match.
 
@@ -130,9 +128,9 @@ Network discovery protocols (ARP, CDP) can be applied in this case, and existing
 The Details
 -----------
 
-*	Preliminary Roles Definitions
-*	Categorization of available API calls
-*	SAML assertion vocabulary
+ *	Preliminary Roles Definitions
+ *	Categorization of available API calls
+ *	SAML assertion vocabulary
 
 System limits
 -------------

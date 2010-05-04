@@ -1,16 +1,10 @@
 Getting Started with Nova
 =========================
 
-Basic steps:
-
-* Install nova
-* Install dependencies
-* Configure flagfiles
-* Start workers
 
 GOTTA HAVE A nova.pth file added or it WONT WORK (will write setup.py file soon)
 
-Dependencies
+DEPENDENCIES
 ------------
 
 * RabbitMQ: messaging queue, used for all communication between components
