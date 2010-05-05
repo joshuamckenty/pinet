@@ -80,7 +80,9 @@ class NovaTestCase(unittest.TestCase):
         return True
 
     def upload_image(self, bucket_name, image):
-        status, output = getstatusoutput('euca-upload-bundle -b %s -m /tmp/%s.manifest.xml' % (bucket_name, image))
+        cmd = 'euca-upload-bundle -b %s -m /tmp/%s.manifest.xml' % (bucket_name, image)
+        status, output = getstatusoutput(cmd)
+        print '%s -> \n %s' % (cmd, output)
         if status != 0:
             print '%s -> \n %s' % (cmd, output)
             raise Exception(output)

@@ -215,20 +215,20 @@ def _create_image(data, libvirt_xml):
                     utils.fetchfile(image_url("%s/image" % data['image_id']),
                        basepath('disk-raw'))
                 if not os.path.exists(basepath('kernel')):
-                    utils.fetchfile(image_url(data['kernel_id']),
+                    utils.fetchfile(image_url("%s/image" % data['kernel_id']),
                                 basepath('kernel'))
                 if not os.path.exists(basepath('ramdisk')):
-                    utils.fetchfile(image_url(data['ramdisk_id']),
+                    utils.fetchfile(image_url("%s/image" % data['ramdisk_id']),
                            basepath('ramdisk'))
             else:
                 if not os.path.exists(basepath('disk')):
                     shutil.copyfile(imagepath("%s/image" % data['image_id']),
                         basepath('disk-raw'))
                 if not os.path.exists(basepath('kernel')):
-                    shutil.copyfile(imagepath(data['kernel_id']),
+                    shutil.copyfile(imagepath("%s/image" % data['kernel_id']),
                         basepath('kernel'))
                 if not os.path.exists(basepath('ramdisk')):
-                    shutil.copyfile(imagepath(data['ramdisk_id']),
+                    shutil.copyfile(imagepath("%s/image" % data['ramdisk_id']),
                         basepath('ramdisk'))
             if data['key_data']:
                 logging.info('Injecting key data into image %s' % data['image_id'])
