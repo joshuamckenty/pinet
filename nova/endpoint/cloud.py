@@ -465,7 +465,10 @@ class CloudController(object):
                 
         return defer.succeed({'imageId': image_id})
             
-    def register_image(self, context, image_location, **kwargs):
+    def register_image(self, context, image_location=None, **kwargs):
+        if image_location is None and kwargs.has_key('name'):
+            image_location = kwargs['name']
+
         image_id = images.register(context.user, image_location)
         logging.debug("Registered %s as %s" % (image_location, image_id))
         

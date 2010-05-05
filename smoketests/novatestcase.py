@@ -93,8 +93,9 @@ class NovaTestCase(unittest.TestCase):
 
     def setUp_test_image(self, image, kernel=False):
         self.bundle_image(image, kernel=kernel)
-        self.upload_image(image)
-        return self.register_image(image)
+        bucket = "auto_test_%s" % int(random.random() * 1000000)
+        self.upload_image(bucket, image)
+        return self.register_image(bucket, image)
 
     def tearDown_test_image(self, conn, image_id):
         conn.deregister_image(image_id)
