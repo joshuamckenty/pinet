@@ -3,6 +3,7 @@
 import os, re, unittest, sys
 from commands import getstatusoutput
 from paramiko import SSHClient, WarningPolicy, SSHException
+import random
 
 BUCKET_NAME = 'smoketest'
 

@@ -20,6 +20,7 @@ def print_export(user):
 if __name__ == "__main__":
     FLAGS.ca_path="/srv/cloud/CA"
     FLAGS.keys_path="/srv/cloud/keys"
+    # sys.argv = FLAGS(sys.argv)
 
     manager = UserManager()
     if len(sys.argv) == 2 and sys.argv[1] == '-l':
@@ -51,6 +52,8 @@ if __name__ == "__main__":
             user = manager.get_user(sys.argv[2])
             if user:
                 print_export(user)
+            else:
+                print("User doesnt exist")
         elif sys.argv[1] == '-e':
             user = manager.get_user(sys.argv[2])
             if user:
