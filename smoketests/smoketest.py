@@ -70,9 +70,7 @@ class ImageTests(NovaTestCase):
         data['kernel_id'] = image_id
 
     def test_004_admin_can_bundle_image(self):
-        getstatusoutput('zcat %s.gz > %s' % (IMAGE_FILENAME, IMAGE_FILENAME))
         self.assertTrue(self.bundle_image(IMAGE_FILENAME))
-        getstatusoutput('rm %s' % IMAGE_FILENAME)
 
     def test_005_admin_can_upload_image(self):
         self.assertTrue(self.upload_image(test_bucket, IMAGE_FILENAME))
