@@ -73,28 +73,23 @@ class NovaTestCase(unittest.TestCase):
         if kernel:
             cmd += ' --kernel true'
         status, output = getstatusoutput(cmd)
-        print '\n' + output
         if status != 0:
+            print '%s -> \n %s' % (cmd, output)
             raise Exception(output)
         return True
 
-    def upload_image(self, image):
-        status, output = getstatusoutput('euca-upload-bundle -b %s -m /tmp/%s.manifest.xml' % (BUCKET_NAME, image))
-        print '\n' + output
+    def upload_image(self, bucket_name, image):
+        status, output = getstatusoutput('euca-upload-bundle -b %s -m /tmp/%s.manifest.xml' % (bucket_name, image))
         if status != 0:
+            print '%s -> \n %s' % (cmd, output)
             raise Exception(output)
         return True
 
-    def register_image(self, image):
-        id = None
-        status, output = getstatusoutput('euca-register %s/%s.manifest.xml' % (BUCKET_NAME, image))
-        print '\n' + output
-        if status == 0:
-            match = re.search('e[mrk]i-\w{8}', output)
-            id = match.group(0)
-        else:
-            raise Exception(output)
-        return id
+    def register_image(self, bucket_name, manifest):
+        conn = admin.connection_for('admin')
+        image_id = conn.register_image("%s/%s.manifest.xml" % (bucket_name, manifest))
+        match = re.search('a[mrk]i-\w{6}', image_id)
+        return match.group(0)
 
     def setUp_test_image(self, image, kernel=False):
         self.bundle_image(image, kernel=kernel)

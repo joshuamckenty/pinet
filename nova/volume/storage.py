@@ -1,6 +1,6 @@
 """
 Nova Storage manages creating, attaching, detaching, and destroying persistent storage volumes, ala EBS.
-Currently uses iSCSI.
+Currently uses Ata-over-Ethernet.
 """
 
 import logging
@@ -31,8 +31,7 @@ flags.DEFINE_string('storage_availability_zone',
                     'availability zone of this node')
 KEEPER = datastore.keeper(prefix="storage")
 
-class BlockStore(object):
-    """ The BlockStore is in charge of iSCSI volumes and exports."""
+class BlockStore(object):                                            
 
     def __init__(self):
         super(BlockStore, self).__init__()
@@ -129,9 +128,7 @@ class FakeBlockStore(BlockStore):
         pass
     
 
-class Volume(object):
-    """Volumes represent a single logical persistent iSCSI target.
-    """
+class Volume(object):                                 
     
     def __init__(self, volume_id = None, size = None, user_id = None):
         self.volume_id = None

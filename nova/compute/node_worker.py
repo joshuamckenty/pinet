@@ -29,12 +29,12 @@ def main(argv):
     conn = rpc.Connection.instance()
     consumer_all = rpc.AdapterConsumer(
             connection=conn,
-            topic='%s' % FLAGS.node_topic,
+            topic='%s' % FLAGS.compute_topic,
             proxy=n)
     
     consumer_node = rpc.AdapterConsumer(
             connection=conn,
-            topic='%s.%s' % (FLAGS.node_topic, FLAGS.node_name),
+            topic='%s.%s' % (FLAGS.compute_topic, FLAGS.node_name),
             proxy=n)
 
     io_inst = ioloop.IOLoop.instance()

@@ -27,8 +27,17 @@ import disk
 from nova.utils import runthis
 from nova import rpc
 
-from flags import FLAGS
+from nova import flags
+from nova.flags import FLAGS
 
+flags.DEFINE_string('libvirt_xml_template',
+                        utils.abspath('compute/libvirt.xml.template'), 
+                        'Network XML Template')
+flags.DEFINE_bool('use_s3', True,
+                      'whether to get images from s3 or use local copy')
+flags.DEFINE_string('instances_path', utils.abspath('../instances'),
+                        'where instances are stored on disk')
+                        
 INSTANCE_TYPES = {}
 INSTANCE_TYPES['m1.tiny'] = {'memory_mb': 512, 'vcpus': 1, 'disk_mb': 5120}
 INSTANCE_TYPES['m1.small'] = {'memory_mb': 1024, 'vcpus': 1, 'disk_mb': 8192}
@@ -39,7 +48,6 @@ INSTANCE_TYPES['c1.medium'] = {'memory_mb': 2048, 'vcpus': 4, 'disk_mb': 8192}
 
 
 class GenericNode(object):
-    """ Generic Nodes have a libvirt connection """
     def __init__(self, **kwargs):
         super(GenericNode, self).__init__()
     
@@ -63,11 +71,10 @@ class GenericNode(object):
     
 
 class Node(GenericNode):
-    """ The node is in charge of running instances.  """
 
     def __init__(self):
-        super(Node, self).__init__()
         """ load configuration options for this node and connect to libvirt """
+        super(Node, self).__init__()
         self._instances = {}
         self._conn = self._get_connection()
         self._pool = multiprocessing.Pool(4)
@@ -117,7 +124,7 @@ class Node(GenericNode):
         new_inst = Instance(self._conn, name=instance_id, pool=self._pool, **kwargs)
         self._instances[instance_id] = new_inst
         d = defer.Deferred()
-        # d.addCallbacks(lambda x: x, lambda x: x.raiseException())
+        # d.addCallbacks(lambda x: logging.debug(x) and x or x, lambda x: x.raiseException())
         new_inst.spawn(d)
         return d
     
@@ -224,7 +231,7 @@ def _create_image(data, libvirt_xml):
                     shutil.copyfile(imagepath(data['ramdisk_id']),
                         basepath('ramdisk'))
             if data['key_data']:
-                logging.info('Injecting key data into image')
+                logging.info('Injecting key data into image %s' % data['image_id'])
                 disk.inject_key(data['key_data'], basepath('disk-raw'))
             if os.path.exists(basepath('disk')):
                 os.remove(basepath('disk'))
@@ -396,12 +403,12 @@ class Instance(object):
                     'instance: %s (state: %s)' % (self.name, self.state))
         
         yield self._conn.lookupByName(self.name).destroy()
-
         self._s['state'] = Instance.NOSTATE
         self._conn.createXML(self.toXml(), 0)
         # TODO(termie): this should actually register a callback to check
         #               for successful boot
         self._s['state'] = Instance.RUNNING
+        logging.debug('rebooted instance %s' % self.name)
         defer.returnValue(None)
     
     @exception.wrap_exception
@@ -423,10 +430,10 @@ class Instance(object):
                 self._s['state'] = Instance.RUNNING
                 logging.debug("Instance is running")
                 # the call below kills the reactor loop
-                # d.callback(True)
-                retvals['deferred'].callback(True)
+                # d.callback(None)
             except Exception as ex:
-                # d.errback(ex)
+                logging.debug(ex)
+                d.errback(ex)
                 pass
 
         self._pool.apply_async(_create_image,

@@ -13,7 +13,7 @@ from nova import utils
 from nova.utils import runthis
 from nova.utils import execute
 
-import flags
+from nova import flags
 import anyjson
 import IPy
 from IPy import IP
@@ -27,6 +27,17 @@ flags.DEFINE_string('net_libvirt_xml_template',
 flags.DEFINE_string('networks_path', utils.abspath('../networks'),
                     'Location to keep network config files')
 flags.DEFINE_integer('public_vlan', 2000, 'VLAN for public IP addresses') # FAKE!!! 
+flags.DEFINE_string('bridge_dev', 'eth2',
+                        'network device for bridges')
+flags.DEFINE_integer('vlan_start', 2020, 'First VLAN for private networks')
+flags.DEFINE_integer('vlan_end', 2039, 'Last VLAN for private networks')
+flags.DEFINE_integer('network_size', 256, 'Number of addresses in each private subnet') 
+flags.DEFINE_string('public_interface', 'vlan124', 'Interface for public IP addresses')
+flags.DEFINE_string('public_range', '198.10.124.128-198.10.124.191', 'Public IP address block')
+flags.DEFINE_string('private_range', '10.128.0.0/12', 'Private IP address block')
+flags.DEFINE_string('cloudpipe_ami', 'ami-A7370FE3', 'CloudPipe image')
+flags.DEFINE_integer('cloudpipe_start_port', 8000, 'Starting port for mapped CloudPipe external ports')
+
 KEEPER = datastore.keeper(prefix="net")
 
 

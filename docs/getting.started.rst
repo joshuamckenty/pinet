@@ -23,31 +23,32 @@ Recommended
 
 Installation
 ============
+::
 
-    apt-get install dnsmasq python-libvirt libvirt-bin python-setuptools python-dev python-pycurl python-simplejson python-m3crypto
-    apt-get install iscsitarget aoetools vblade-persist kpartx vlan
+    # ON ALL SYSTEMS
+    apt-get install -y python-libvirt libvirt-bin python-setuptools python-dev python-pycurl python-m2crypto python-twisted
+    apt-get install -y aoetools vlan
+    modprobe aoe
 
     # ON THE CLOUD CONTROLLER
-    apt-get install rabbitmq-server 
-
-    # ON VOLUME NODE:
-    apt-get install vblade-persist aoetools
-
-    # ON THE COMPUTE NODE:
-    apt-get install aoetools kpartx kvm
-
-    # optional packages
-    apt-get install euca2ools 
-
-    # PYTHON libraries
-    easy_install twisted m2crypto
-
+    apt-get install -y rabbitmq-server dnsmasq      
     # fix ec2 metadata/userdata uri - where $IP is the IP of the cloud
     iptables -t nat -A PREROUTING -s 0.0.0.0/0 -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -j DNAT --to-destination $IP:8773
-    iptables --table nat --append POSTROUTING --out-interface $PUBLICIFACE -j MASQUERADE
+    iptables --table nat --append POSTROUTING --out-interface $PUBLICIFACE -j MASQUERADE     
+    # setup ldap (slap.sh as root will remove ldap and reinstall it)   
+    auth/slap.sh     
+    /etc/init.d/rabbitmq-server start
 
-    # setup ldap (slap.sh as root will remove ldap and reinstall it)
-    # run rabbitmq-server
+    # ON VOLUME NODE:
+    apt-get install -y vblade-persist 
+
+    # ON THE COMPUTE NODE:
+    apt-get install -y kpartx kvm
+
+    # optional packages
+    apt-get install -y euca2ools 
+                                   
+    # Set up flagfiles with the appropriate hostnames, etc.                                     
     # start api_worker, s3_worker, node_worker, storage_worker
     # Add yourself to the libvirtd group, log out, and log back in
-    # Make sure the user who will launch the workers has sudo privileges w/o pass (will fix later)
+    # Make sure the user who will launch the workers has sudo privileges w/o pass (will fix later)           

@@ -23,7 +23,7 @@ FLAGS = flags.FLAGS
 
 class AdminTestCase(test.BaseTestCase):
     def setUp(self):
-        super(CloudTestCase, self).setUp()
+        super(AdminTestCase, self).setUp()
         FLAGS.fake_libvirt = True
         FLAGS.fake_rabbit = True
 
@@ -41,7 +41,7 @@ class AdminTestCase(test.BaseTestCase):
         # set up a node
         self.node = node.Node()
         self.node_consumer = rpc.AdapterConsumer(connection=self.conn,
-                                                     topic=FLAGS.node_topic,
+                                                     topic=FLAGS.compute_topic,
                                                      proxy=self.node)
         self.injected.append(self.node_consumer.attach_to_tornado(self.ioloop))
 

@@ -19,6 +19,7 @@ data = {}
 
 test_prefix = 'test%s' % int(random.random()*1000000)
 test_username = '%suser' % test_prefix
+test_bucket = '%s_bucket' % test_prefix
 
 # Test admin credentials and user creation
 class UserTests(NovaTestCase):
@@ -57,35 +58,36 @@ class ImageTests(NovaTestCase):
         self.create_user(test_username)
 
     def test_001_admin_can_bundle_kernel(self):
-        getstatusoutput('zcat %s.gz > %s' % (KERNEL_FILENAME, KERNEL_FILENAME))
         self.assertTrue(self.bundle_image(KERNEL_FILENAME, kernel=True))
-        getstatusoutput('rm %s' % KERNEL_FILENAME)
 
     def test_002_admin_can_upload_kernel(self):
-        self.assertTrue(self.upload_image(KERNEL_FILENAME))
+        self.assertTrue(self.upload_image(test_bucket, KERNEL_FILENAME))
 
     def test_003_admin_can_register_kernel(self):
-        id = self.register_image(KERNEL_FILENAME)
-        self.assert_(id)
-        data['kernel_id'] = id
+        # FIXME: registeration should verify that bucket/manifest exists before returning successfully!
+        image_id = self.register_image(test_bucket, KERNEL_FILENAME)
+        data['kernel_id'] = image_id
 
     def test_004_admin_can_bundle_image(self):
+        getstatusoutput('zcat %s.gz > %s' % (IMAGE_FILENAME, IMAGE_FILENAME))
         self.assertTrue(self.bundle_image(IMAGE_FILENAME))
+        getstatusoutput('rm %s' % IMAGE_FILENAME)
 
     def test_005_admin_can_upload_image(self):
-        self.assertTrue(self.upload_image(IMAGE_FILENAME))
+        self.assertTrue(self.upload_image(test_bucket, IMAGE_FILENAME))
 
     def test_006_admin_can_register_image(self):
-        id = self.register_image(IMAGE_FILENAME)
-        self.assert_(id)
+        id = self.register_image(test_bucket, IMAGE_FILENAME)
         data['image_id'] = id
 
     def test_007_me_sees_admin_public_kernel(self):
+        # FIXME: verify image is available within 1 minute
         conn = self.connection_for(test_username)
         image = conn.get_image(data['kernel_id'])
         self.assertEqual(image.id, data['kernel_id'])
 
     def test_008_me_sees_admin_public_image(self):
+        # FIXME: verify image is available within 1 minute
         conn = self.connection_for(test_username)
         image = conn.get_image(data['image_id'])
         self.assertEqual(image.id, data['image_id'])

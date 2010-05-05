@@ -1,5 +1,11 @@
-#!/usr/bin/env python
-import logging
+#!/usr/bin/env python 
+import datetime  
+import logging   
+import os        
+import shutil   
+import tempfile      
+import uuid     
+import zipfile                                   
 
 try:
     import ldap
@@ -9,18 +15,12 @@ except Exception, e:
 import fakeldap
 from nova import datastore
 
-# TODO(termie): clean up these imports
-import os
-import signer
-import uuid
+# TODO(termie): clean up these imports    
+import signer    
 from nova import exception
-import flags
+from nova import flags
 from nova import crypto
-from nova import utils
-import datetime
-import tempfile
-import zipfile
-import shutil
+from nova import utils    
 
 FLAGS = flags.FLAGS
 
@@ -29,8 +29,6 @@ flags.DEFINE_string('ldap_password',  'changeme', 'LDAP password')
 flags.DEFINE_string('user_dn', 'cn=Manager,dc=example,dc=com', 'DN of admin user')
 flags.DEFINE_string('user_unit', 'Users', 'OID for Users')
 flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users')
-
-
 flags.DEFINE_string('credentials_template',
                     utils.abspath('auth/novarc.template'),
                     'Template for creating users rc file')

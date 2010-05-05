@@ -46,14 +46,17 @@ Instances
     [x] can launch from many different images
     [x] ignore kernel/ramdisk from user, hardcode for now
     [x] can launch different sizes
+    [ ] implement REBOOT in the cloud controller
+    [ ] add more local IPs to cloudpipe
+    [ ] unblock ping for own subnet
     [X] NAT to public internet works from instances
     [ ] access to other users instances only works on "default" protocols
     [X] terminate should send to only the approriate node
     [X] BUG: running -n N+1 instances when you have N results in only N instances launched
         - seems to be an issue with multiprocess.Process
-	the _launch call doesn't occur when two Processes are running at the same time
-	INFO:root:Done create image for: i-286573
-	DEBUG:root:Arrived in _launch, thanks to callback on deferred. <- only happens first time
+        the _launch call doesn't occur when two Processes are running at the same time
+        INFO:root:Done create image for: i-286573
+        DEBUG:root:Arrived in _launch, thanks to callback on deferred. <- only happens first time
     [X] BUG: launching multiple instances show the incorrect IP in describe-instance during while pending
     [x] describe-instances doesn't show public ips
     [ ] When instances are shutdown or terminated, clean them up (detach IP and volume)
@@ -83,7 +86,7 @@ Cleanup
     [ ] documentation/SOPs for backup, updating, ?
     [ ] add license headers - apache license
     [ ] rewrite code such as partition2disk that is too close to eucalyptus
-    [ ] review code for internal (nasa) info 
+    [ ] review code for internal (nasa) info
     [ ] init.d scripts & location for configuration files
     [ ] Logging clean-up: system should (default?) to using syslog
     [ ] verify user is allowed to execute commands - for each API method!
@@ -91,9 +94,12 @@ Cleanup
     [ ] node/node_worker is bad name for instances node as storage is a node too
     [ ] describe instances should be returned ordered by ami_launch_index
     [ ] multiprocess the cloud for x509 generation
-    [ ] users.py uses command line flags
+    [ ] bin/users.py uses command line flags
     [ ] more space for instance ids
     [ ] get Dean to update switch configuration
+    [ ] BUG: cloud using boto to communicate with OSS means that if OSS throws a
+        500 in response to the error it will lock up the cloud by doing time.sleep
+        and retrying for about a minute (5 times, the delay doubling each time)
 
 Nasa Deploy
 -----------
@@ -123,10 +129,10 @@ Future
     [ ] projects / groups
     [ ] RBAC - roles based control
     [ ] on cloud launch, it should broadcast to nodes to report their current state
-    [ ] throttling for reporting state from node/storage/... 
+    [ ] throttling for reporting state from node/storage/...
         (report back at least every minute, at most once a second, only when things change)
     [ ] support for ephemeral and swap on disk image generation
     [ ] windows support
-    [ ] out-of-band console - example for XEN: http://nostarch.com/xen.htm and 
+    [ ] out-of-band console - example for XEN: http://nostarch.com/xen.htm and
         http://book.xen.prgmr.com/mediawiki/index.php/Prgmr_menu
 

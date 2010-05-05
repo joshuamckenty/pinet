@@ -1,5 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import contrib
+import socket
 
 from gflags import *
 
@@ -21,8 +22,14 @@ from gflags import *
 # $ python node_worker.py --flagfile flagfile
 
 if not FLAGS.has_key('verbose'):
+    DEFINE_string('compute_topic', 'compute', 'the topic compute nodes listen on')
+    DEFINE_string('storage_topic', 'storage', 'the topic storage nodes listen on')
+    DEFINE_bool('fake_libvirt', False,
+                      'whether to use a fake libvirt or not')
     DEFINE_bool('verbose', False, 'show debug output')
     DEFINE_boolean('fake_rabbit', False, 'use a fake rabbit')
+    DEFINE_bool('fake_network', False, 'should we use fake network devices and addresses')
+    DEFINE_bool('fake_users', False, 'use fake users')  
     DEFINE_string('rabbit_host', 'localhost', 'rabbit host')
     DEFINE_integer('rabbit_port', 5672, 'rabbit port')
     DEFINE_string('rabbit_userid', 'guest', 'rabbit userid')
@@ -35,4 +42,26 @@ if not FLAGS.has_key('verbose'):
     DEFINE_string('s3_url',
                     'http://10.255.255.1:3333/',
                     'Url to s3 api server')
+
+                                           
+    DEFINE_string('default_image',
+                        'ubuntu-karmic-x86_64.img',
+                        'default image to use, testing only')
+    DEFINE_string('default_kernel',
+                        'vmlinuz-karmic-x86_64',
+                        'default kernel to use, testing only')
+    DEFINE_string('default_ramdisk',
+                        'initrd-karmic-x86_64',
+                        'default ramdisk to use, testing only')
+    DEFINE_string('default_instance_type',
+                        'm1.small',
+                        'default instance type to use, testing only')
+                        
+    # UNUSED                        
+    DEFINE_string('node_availability_zone',
+                        'nova',
+                        'availability zone of this node')
+    DEFINE_string('node_name',
+                        socket.gethostname(),
+                        'name of this node')
 
