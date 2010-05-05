@@ -51,6 +51,10 @@ class Image(object):
         return images
 
     @property
+    def owner_id(self):
+        return self.metadata['imageOwnerId']
+
+    @property
     def metadata(self):
         with open(os.path.join(self.path, 'info.json')) as f:
             return json.load(f)
