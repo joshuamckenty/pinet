@@ -205,10 +205,13 @@ class CloudController(object):
         if self.volumes == {}:
             return {'volumeSet': [] } 
         volumes = []
-        for storage in self.volumes.values():
-            for volume in storage.values():
+        for node_name, node in self.volumes.iteritems():
+            for volume in node.values():
                 if context.user.is_authorized(volume.get('user_id', None)):
                     v = copy.deepcopy(volume)
+                    if context.user.is_admin():
+                        v['status'] = '%s (%s, %s)' % (v.get('status', None),
+                            v['user_id'], node_name)
                     del v['user_id']
                     volumes.append(v)
         return defer.succeed({'volumeSet': volumes})
@@ -289,7 +292,7 @@ class CloudController(object):
         if self.instances == {}:
             return {'reservationSet': []}
         reservations = {}
-        for node in self.instances.values():
+        for node_name, node in self.instances.iteritems():
             for instance in node.values():
                 res_id = instance.get('reservation_id', 'Unknown')
                 if (user.is_authorized(instance.get('owner_id', None))
@@ -307,6 +310,9 @@ class CloudController(object):
                         i['public_dns_name'] = i['private_dns_name']
                     i['dns_name'] = instance.get('dns_name', None)
                     i['key_name'] = instance.get('key_name', None)
+		    if user.is_admin():
+                        i['key_name'] = '%s (%s, %s)' % (i['key_name'],
+                            instance.get('owner_id', None), node_name)
                     i['product_codes_set'] = self._convert_to_set(
                         instance.get('product_codes', None), 'product_code')
                     i['instance_type'] = instance.get('instance_type', None)
