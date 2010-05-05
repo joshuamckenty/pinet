@@ -28,7 +28,7 @@ from nova.utils import runthis
 from nova import rpc
 
 from nova import flags
-from flags import FLAGS
+from nova.flags import FLAGS
 
 flags.DEFINE_string('libvirt_xml_template',
                         utils.abspath('compute/libvirt.xml.template'), 

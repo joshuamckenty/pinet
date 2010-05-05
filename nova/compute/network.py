@@ -13,7 +13,7 @@ from nova import utils
 from nova.utils import runthis
 from nova.utils import execute
 
-import flags
+from nova import flags
 import anyjson
 import IPy
 from IPy import IP
