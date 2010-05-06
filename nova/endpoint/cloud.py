@@ -1,7 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import os
 import logging
-import random
 import copy
 
 from nova import contrib
@@ -18,7 +17,7 @@ import time
 from nova.compute import node
 from nova.compute import network
 from nova import utils, exception
-from nova.utils import runthis
+from nova.utils import runthis, generate_uid
 from nova import crypto
 import images
 import base64
@@ -394,11 +393,11 @@ class CloudController(object):
                 raise exception.ApiError('Key Pair %s not found' %
                                          kwargs['key_name'])
             kwargs['key_data'] = key_pair.public_key 
-        kwargs['reservation_id'] = 'r-%06d' % random.randint(0,1000000)
+        kwargs['reservation_id'] = generate_uid('r')
         kwargs['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         pending = {}
         for num in range(int(kwargs['max_count'])):
-            kwargs['instance_id'] = 'i-%06d' % random.randint(0,1000000)
+            kwargs['instance_id'] = generate_uid('i')
             kwargs['mac_address'] = utils.generate_mac()
             #TODO(joshua) - Allocate IP based on security group
             kwargs['ami_launch_index'] = num 

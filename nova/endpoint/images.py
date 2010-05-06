@@ -4,11 +4,12 @@ import random
 import anyjson
 import urllib
 import flags
+from nova.utils import generate_uid
 
 FLAGS = flags.FLAGS
 
 def register(user, image_location):
-    image_id = 'ami-%06d' % random.randint(0,1000000)
+    image_id = generate_uid('ami')
     
     conn(user).make_request(
             method='PUT',
