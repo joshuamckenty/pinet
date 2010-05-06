@@ -3,14 +3,15 @@ import logging
 
 import nova.contrib
 from nova.objectstore import handler
-from nova import flags
 from nova import server
 from nova.auth import users
 
 from tornado import httpserver
 from tornado import ioloop
 
-FLAGS = nova.flags.FLAGS
+from nova import flags
+FLAGS = flags.FLAGS
+import nova.objectstore # for flags
 
 # flags.DEFINE_integer('s3_port', 3333, 's3 port')
 # flags.DEFINE_integer('s3_internal_port', 3334, 's3 port')
