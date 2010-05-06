@@ -33,7 +33,8 @@ class NovaTestCase(unittest.TestCase):
         client = SSHClient()
         client.load_system_host_keys()
         client.set_missing_host_key_policy(WarningPolicy())
-        return client.connect(ip, key_filename='/tmp/%s.pem' % key_name)
+        client.connect(ip, key_filename='/tmp/%s.pem' % key_name)
+        return client
 
     def can_ping(self, ip):
         return getstatusoutput('ping -c 1 %s' % ip)[0] == 0
