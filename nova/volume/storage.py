@@ -8,7 +8,7 @@ import subprocess
 import random
 import time
 
-from nova.utils import runthis
+from nova.utils import runthis, generate_uid
 from nova import rpc, datastore, exception
 
 from nova import contrib
@@ -218,7 +218,7 @@ class Volume(object):
         
     def _create_volume(self, size):
         self.size = size
-        self.volume_id = 'vol-%s' % (''.join([random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ') for x in xrange(10)]))
+        self.volume_id = generate_uid('vol')
         self._create_lv(size)
         self._setup_export()
         self.status = "available"
