@@ -26,7 +26,7 @@ if __name__ == "__main__":
     if len(sys.argv) == 2 and sys.argv[1] == '-l':
         for user in manager.get_users():
             print user.name
-            sys.exit(0)
+        sys.exit(0)
     if len(sys.argv) > 2:
         if sys.argv[1] == '-a':
             access, secret = None, None
