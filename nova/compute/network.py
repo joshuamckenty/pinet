@@ -383,7 +383,7 @@ class VlanPool(object):
     
     def next(self, user_id):
         if self.next_vlan == self.end:
-            raise AddressNotAllocated()
+            raise AddressNotAllocated("Out of VLANs")
         self.vlans[user_id] = self.next_vlan
         self.next_vlan += 1
         return self.vlans[user_id]
@@ -434,18 +434,19 @@ class NetworkController(GenericNode):
 	    # FIXME: probably should create user manager on init
         user = self.manager.get_user(user_id)
         if not self.private_nets.has_key(user_id):
-            self.private_nets[user_id] = self.get_network_from_name("%s-default" % user_id)
-            if not self.private_nets[user_id]:
-                network_str = self.private_pool.next()
+            usernet = self.get_network_from_name("%s-default" % user_id)
+            if not usernet:
                 vlan = self.vlan_pool.next(user_id)
+                network_str = self.private_pool.next()
                 # logging.debug("Constructing network %s and %s for %s" % (network_str, vlan, user_id))
-                self.private_nets[user_id] = PrivateNetwork(
+                usernet = PrivateNetwork(
 		    external_vpn_ip = user.vpn_ip,
 		    external_vpn_port = user.vpn_port,
 		    network = network_str,
 		    vlan = self.vlan_pool.vlans[user_id],
 	            conn = self._conn)
-                KEEPER["%s-default" % user_id] = self.private_nets[user_id].to_dict()
+                KEEPER["%s-default" % user_id] = usernet.to_dict()
+            self.private_nets[user_id] = usernet
         return self.private_nets[user_id]
 
     def get_cloudpipe_address(self, user_id, mac=None):
