@@ -210,8 +210,8 @@ class CloudController(object):
                 if context.user.is_authorized(volume.get('user_id', None)):
                     v = copy.deepcopy(volume)
                     if context.user.is_admin():
-                        v['status'] = '%s (%s, %s)' % (v.get('status', None),
-                            v['user_id'], node_name)
+                        v['status'] = '%s (%s, %s, %s, %s)' % (v.get('status', None),
+                            v['user_id'], node_name, v.get('instance_id', ''), v.get('mountpoint', ''))
                     del v['user_id']
                     volumes.append(v)
         return defer.succeed({'volumeSet': volumes})
@@ -241,11 +241,11 @@ class CloudController(object):
     def attach_volume(self, context, volume_id, instance_id, device, **kwargs):
         storage_node, volume = self._get_volume(volume_id)
         # TODO: (joshua) Fix volumes to store creator id
-        # if context.user.is_authorized(volume.get('user_id', None)):
-        #    raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
+        if not context.user.is_authorized(volume.get('user_id', None)):
+           raise exception.ApiError("%s not authorized for %s" % (context.user.id, volume_id))
         compute_node, instance = self._get_instance(instance_id)
-        # if context.user.is_authorized(instance.get('owner_id', None)):
-        #    raise exception.ApiError(message="%s not authorized for %s" % (context.user.id, instance_id))
+        if not context.user.is_authorized(instance.get('owner_id', None)):
+            raise exception.ApiError(message="%s not authorized for %s" % (context.user.id, instance_id))
         aoe_device = volume['aoe_device']
         # Needs to get right node controller for attaching to
         # TODO: Maybe have another exchange that goes to everyone?
@@ -264,14 +264,17 @@ class CloudController(object):
     def detach_volume(self, context, volume_id, **kwargs):
         # TODO(joshua): Make sure the updated state has been received first
         storage_node, volume = self._get_volume(volume_id)
-        if context.user.is_authorized(volume.get('user_id', None)):
-            raise exception.ApiError("%s not authorized for %s", context.user.id, volume_id)
-        instance_id = volume['instance_id']
-        compute_node, instance = self._get_instance(instance_id)
-        if context.user.is_authorized(instance.get('owner_id', None)):
-            raise exception.ApiError("%s not authorized for %s", context.user.id, instance_id)
-        mountpoint = volume['mountpoint']
-        rpc.cast('%s.%s' % (FLAGS.compute_topic, compute_node),
+        if not context.user.is_authorized(volume.get('user_id', None)):
+            raise exception.ApiError("%s not authorized for %s" % (context.user.id, volume_id))
+        instance = None
+        if volume.has_key('instance_id'):
+            instance_id = volume['instance_id']
+            compute_node, instance = self._get_instance(instance_id)
+        if instance:
+            mountpoint = volume['mountpoint']
+            if not context.user.is_authorized(instance.get('owner_id', None)):
+                raise exception.ApiError("%s not authorized for %s" % (context.user.id, instance_id))
+            rpc.cast('%s.%s' % (FLAGS.compute_topic, compute_node),
                                 {"method": "detach_volume",
                                  "args" : {"instance_id": instance_id,
                                            "mountpoint": mountpoint}})

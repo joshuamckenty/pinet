@@ -75,6 +75,8 @@ class BlockStore(object):
                         "aoe_device" : vol.get_aoe_device(),
                         "availability_zone" : "nova", 
                         "status" : vol.get_status(), 
+                        "instance_id": vol.instance_id,
+                        "mountpoint": vol.mountpoint,
                         "create_time" : "1", 
                         "attachment_set" : []}
         return {FLAGS.storage_name : volumes}
