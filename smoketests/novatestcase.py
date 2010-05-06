@@ -34,6 +34,8 @@ class NovaTestCase(unittest.TestCase):
         client.load_system_host_keys()
         client.set_missing_host_key_policy(WarningPolicy())
         client.connect(ip, key_filename='/tmp/%s.pem' % key_name)
+        stdin, stdout, stderr = client.exec_command('uptime')
+        print 'uptime: ', stdout.read()
         return client
 
     def can_ping(self, ip):

@@ -166,18 +166,34 @@ class SecurityTests(NovaTestCase):
         self.assertEqual(len(reservation.instances), 1)
         data['my_instance_id'] = reservation.instances[0].id
 
-    def test_004_me_can_obtain_private_ip(self):
+    def test_004_me_can_obtain_private_ip_within_60_seconds(self):
         conn = self.connection_for(test_username + '_me')
         reservations = conn.get_all_instances([data['my_instance_id']])
         instance = reservations[0].instances[0]
-        while instance.state == u'pending':
+        # allow 60 seconds to exit pending with IP
+        for x in xrange(60):
             instance.update()
+            if instance.state != u'pending':
+                 break
             time.sleep(1)
+        else:
+            self.assert_(False)
+        # self.assertEqual(instance.state, u'running')
         ip = reservations[0].instances[0].private_dns_name
         self.failIf(ip == '0.0.0.0')
         data['my_private_ip'] = ip
-        print data['my_private_ip']
+        print data['my_private_ip'],
 
+    def test_005_can_ping_private_ip(self):
+        # allow 30 seconds for PING to work
+        print "ping -c1 -w1 %s" % data['my_private_ip']
+        for x in xrange(120):
+            # ping waits for 1 second
+            status, output = getstatusoutput("ping -c1 -w1 %s" % data['my_private_ip'])
+            if status == 0:
+                 break
+        else:
+            self.assert_(False)
     #def test_005_me_cannot_ssh_when_unauthorized(self):
     #    self.assertRaises(SSHException, self.connect_ssh, data['my_private_ip'], 'mykey')
 
@@ -195,9 +211,15 @@ class SecurityTests(NovaTestCase):
 
     def test_007_me_can_ssh_when_authorized(self):
         # Wait for the instance to ACTUALLY have ssh running
-        time.sleep(30)
-        conn = self.connect_ssh(data['my_private_ip'], test_key)
-        conn.close()
+        for x in xrange(120):
+            try:
+                conn = self.connect_ssh(data['my_private_ip'], test_key)
+                conn.close()
+                break
+            except:
+                time.sleep(1)
+        else:
+            self.assertTrue(False)
 
     #def test_008_me_can_revoke_ssh_authorization(self):
     #    conn = self.connection_for('me')

@@ -222,7 +222,27 @@ class DHCPNetwork(VirtNetwork):
         if FLAGS.fake_network:
             return
         super(DHCPNetwork, self).express(address=address)
-        self.start_dnsmasq()     
+        if len(self.hosts.values()) > 0:
+            self.start_dnsmasq()     
+
+    def stop_dnsmasq(self):
+        pid_file = "%s/nova-%s.pid" % (FLAGS.networks_path, self.vlan)
+        if os.path.exists(pid_file):
+            try:
+                os.kill(int(open(pid_file).read()), signal.SIGTERM)
+            except Exception, err:
+                logging.debug("Killing dnsmasq threw %s" % str(err))
+        try:
+            os.unlink("%s/nova-%s.leases" % (FLAGS.networks_path, self.vlan))
+        except:
+            pass
+
+    def deexpress(self, address=None):
+        # if this is the last address, stop dns
+        super(DHCPNetwork, self).deexpress(address=address)
+        if len(self.hosts.values()) == 0:
+            self.stop_dnsmasq()
+        
         
 
 class PrivateNetwork(DHCPNetwork):
@@ -336,17 +356,16 @@ class PublicNetwork(Network):
 class NetworkPool(object):
     # TODO - Allocations need to be system global
     
-    def __init__(self, netsize=256, network="10.128.0.0/12"):
+    def __init__(self, netsize=256, startvlan=10, network="10.128.0.0/12"):
         self.network = IP(network)
         if not netsize in [4,8,16,32,64,128,256,512,1024]:
             raise NotValidNetworkSize()
         self.netsize = netsize
-        self.allocations = []
+        self.startvlan = startvlan
     
-    def next(self):
-        start = len(self.allocations) * self.netsize
+    def get_from_vlan(self, vlan):
+        start = (vlan-self.startvlan) * self.netsize
         net_str = "%s-%s" % (self.network[start], self.network[start + self.netsize - 1])
-        self.allocations.append(net_str)
         logging.debug("Allocating %s" % net_str)
         return net_str
 
@@ -411,16 +430,16 @@ class NetworkController(GenericNode):
         self.manager = UserManager()
         self._conn = self._get_connection()
         self.netsize = kwargs.get('netsize', FLAGS.network_size)
-        self.private_pool = kwargs.get('private_pool', NetworkPool(netsize=self.netsize, network=FLAGS.private_range))
+        if not KEEPER['vlans']:
+            KEEPER['vlans'] = {'start' : FLAGS.vlan_start, 'end' : FLAGS.vlan_end}
+        vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
+        self.vlan_pool = VlanPool.from_dict(vlan_dict)
+        self.private_pool = kwargs.get('private_pool', NetworkPool(netsize=self.netsize, startvlan=KEEPER['vlans']['start'], network=FLAGS.private_range))
         self.private_nets = kwargs.get('private_nets', {})
         if not KEEPER['private']:
             KEEPER['private'] = {'networks' :[]}
         for net in KEEPER['private']['networks']:
             self.get_users_network(net['user_id'])
-        if not KEEPER['vlans']:
-            KEEPER['vlans'] = {'start' : FLAGS.vlan_start, 'end' : FLAGS.vlan_end}
-        vlan_dict = kwargs.get('vlans', KEEPER['vlans'])
-        self.vlan_pool = VlanPool.from_dict(vlan_dict)
         if not KEEPER['public']:
             KEEPER['public'] = kwargs.get('public', {'vlan': FLAGS.public_vlan, 'network' : FLAGS.public_range })
         self.public_net = PublicNetwork.from_dict(KEEPER['public'], conn=self._conn)
@@ -434,7 +453,7 @@ class NetworkController(GenericNode):
     def get_network_from_name(self, network_name):
         net_dict = KEEPER[network_name]
         if net_dict:
-            network_str = self.private_pool.next() # TODO, block allocations
+            #network_str = self.private_pool.next() # TODO, block allocations
             return PrivateNetwork.from_dict(net_dict)
         return None
         
@@ -450,7 +469,7 @@ class NetworkController(GenericNode):
         usernet = self.get_network_from_name("%s-default" % user_id)
         if not usernet:
             vlan = self.vlan_pool.next(user_id)
-            network_str = self.private_pool.next()
+            network_str = self.private_pool.get_from_vlan(vlan)
             # logging.debug("Constructing network %s and %s for %s" % (network_str, vlan, user_id))
             usernet = PrivateNetwork(
                 external_vpn_ip = user.vpn_ip,
