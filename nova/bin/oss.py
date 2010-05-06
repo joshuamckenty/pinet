@@ -18,12 +18,12 @@ import nova.objectstore # for flags
 # flags.DEFINE_string('s3_host', '172.24.226.1', 's3 host')
 
 def main(argv):
+    # FIXME: if this log statement isn't here, no logging
+    # appears from other files and app won't start daemonized
+    logging.debug('Started HTTP server on %s' % (FLAGS.s3_internal_port))
     app = handler.Application(users.UserManager())
     server = httpserver.HTTPServer(app)
     server.listen(FLAGS.s3_internal_port)
-    # FIXME: if this log statement isn't here, no logging
-    # appears from other files
-    logging.debug('Started HTTP server on %s' % (FLAGS.s3_internal_port))
     ioloop.IOLoop.instance().start()
 
 if __name__ == '__main__':
