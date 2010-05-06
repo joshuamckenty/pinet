@@ -69,6 +69,14 @@ class NetworkTestCase(unittest.TestCase):
             rv = self.network.deallocate_address(address2)
             rv = self.network.deallocate_address(address3)
         rv = self.network.deallocate_address(secondaddress)
+
+    def test_too_many_users(self):
+        for i in range(0, 30):
+            name = 'toomany-user%s' % i
+            self.manager.create_user(name, name, name)
+            (address, net_name) = self.network.allocate_address(name, "01:24:55:36:f2:a0")
+            self.manager.delete_user(name)
+        
         
     def test_associate_deassociate_address(self):
         #raise NotImplementedError

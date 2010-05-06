@@ -352,13 +352,17 @@ class NetworkPool(object):
 
 class VlanPool(object):
     def __init__(self, **kwargs):
-        self.next_vlan = kwargs.get('start', FLAGS.vlan_start)
+        self.start = kwargs.get('start', FLAGS.vlan_start)
         self.end = kwargs.get('end', FLAGS.vlan_end)
         self.vlans = kwargs.get('vlans', {})
+        self.vlanpool = {}
+        self.manager = UserManager()
+        for user_id, vlan in self.vlans.iteritems():
+            self.vlanpool[vlan] = user_id
     
     def to_dict(self):
         return {'vlans': self.vlans,
-                'start': self.next_vlan,
+                'start': self.start,
                 'end':   self.end}
         
     def __str__(self):
@@ -382,11 +386,21 @@ class VlanPool(object):
         return cls.from_dict(parsed, conn=conn)
     
     def next(self, user_id):
-        if self.next_vlan == self.end:
+        def assign_vlan(user_id, vlan):
+            self.vlans[user_id] = vlan
+            self.vlanpool[vlan] = user_id
+            return self.vlans[user_id]
+        for old_user_id, vlan in self.vlans.iteritems():
+            if not self.manager.get_user(old_user_id):
+                KEEPER["%s-default" % old_user_id] = {}
+                del KEEPER["%s-default" % old_user_id] 
+                return assign_vlan(user_id, vlan)
+        vlans = self.vlanpool.keys()
+        vlans.append(self.start)
+        nextvlan = max(vlans) + 1
+        if nextvlan == self.end:
             raise AddressNotAllocated("Out of VLANs")
-        self.vlans[user_id] = self.next_vlan
-        self.next_vlan += 1
-        return self.vlans[user_id]
+        return assign_vlan(user_id, nextvlan)
 
 class NetworkController(GenericNode):
     """ The network controller is in charge of network connections  """
@@ -431,22 +445,21 @@ class NetworkController(GenericNode):
                 return address_record[u'address']
 
     def get_users_network(self, user_id):
-            # FIXME: probably should create user manager on init
         user = self.manager.get_user(user_id)
-        if not self.private_nets.has_key(user_id):
-            usernet = self.get_network_from_name("%s-default" % user_id)
-            if not usernet:
-                vlan = self.vlan_pool.next(user_id)
-                network_str = self.private_pool.next()
-                # logging.debug("Constructing network %s and %s for %s" % (network_str, vlan, user_id))
-                usernet = PrivateNetwork(
-                    external_vpn_ip = user.vpn_ip,
-                    external_vpn_port = user.vpn_port,
-                    network = network_str,
-                    vlan = self.vlan_pool.vlans[user_id],
-                    conn = self._conn)
-                KEEPER["%s-default" % user_id] = usernet.to_dict()
-            self.private_nets[user_id] = usernet
+        #if not self.private_nets.has_key(user_id):
+        usernet = self.get_network_from_name("%s-default" % user_id)
+        if not usernet:
+            vlan = self.vlan_pool.next(user_id)
+            network_str = self.private_pool.next()
+            # logging.debug("Constructing network %s and %s for %s" % (network_str, vlan, user_id))
+            usernet = PrivateNetwork(
+                external_vpn_ip = user.vpn_ip,
+                external_vpn_port = user.vpn_port,
+                network = network_str,
+                vlan = self.vlan_pool.vlans[user_id],
+                conn = self._conn)
+            KEEPER["%s-default" % user_id] = usernet.to_dict()
+        self.private_nets[user_id] = usernet
         return self.private_nets[user_id]
 
     def get_cloudpipe_address(self, user_id, mac=None):
@@ -474,6 +487,8 @@ class NetworkController(GenericNode):
             self._save()
             return rv
         for user_id in self.private_nets.keys(): 
+            if not self.manager.get_user(user_id):
+                continue
             if address in self.get_users_network(user_id).network:
                 rv = self.get_users_network(user_id).deallocate_ip(address)
                 self._save()
@@ -503,14 +518,16 @@ class NetworkController(GenericNode):
         obj = {}
         obj['networks'] = []
         for user_id in self.private_nets.keys():
+            if not self.manager.get_user(user_id):
+                continue
             network = self.private_nets[user_id]
-            logging.debug("found private net")
+            #logging.debug("found private net")
             vlan = self.vlan_pool.vlans[user_id]
             obj['networks'].append({'user_id': user_id, 
                                     'network': str(network), 
                                     'vlan': vlan })
             KEEPER["%s-default" % user_id] = self.private_nets[user_id].to_dict()
-        logging.debug("done private net loop")
+        # logging.debug("done private net loop")
         KEEPER['private'] = obj
         KEEPER['public'] = self.public_net.to_dict()
         KEEPER['vlans'] = self.vlan_pool.to_dict()
