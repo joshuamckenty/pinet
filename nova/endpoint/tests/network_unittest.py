@@ -13,11 +13,13 @@ class NetworkTestCase(unittest.TestCase):
     def setUp(self):
         logging.getLogger().setLevel(logging.DEBUG)
         super(NetworkTestCase, self).setUp()
-        self.network = network.NetworkController(netsize=16)
         self.manager = users.UserManager()
         for i in range(0, 6):
             name = 'user%s' % i
-            self.manager.create_user(name, name, name)
+            if not self.manager.get_user(name):
+                self.manager.create_user(name, name, name)
+                print("Created user %s" % name)
+        self.network = network.NetworkController(netsize=16)
         # self.instance_id = "network-test"
         # rv = self.node.run_instance(self.instance_id)
     

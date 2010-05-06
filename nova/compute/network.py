@@ -223,7 +223,10 @@ class DHCPNetwork(VirtNetwork):
             return
         super(DHCPNetwork, self).express(address=address)
         if len(self.hosts.values()) > 0:
+            logging.debug("Starting dnsmasq server for network with vlan %s" % self.vlan)
             self.start_dnsmasq()     
+        else:
+            logging.debug("Not launching dnsmasq cause I don't think we have any hosts.")
 
     def stop_dnsmasq(self):
         pid_file = "%s/nova-%s.pid" % (FLAGS.networks_path, self.vlan)
@@ -439,7 +442,8 @@ class NetworkController(GenericNode):
         if not KEEPER['private']:
             KEEPER['private'] = {'networks' :[]}
         for net in KEEPER['private']['networks']:
-            self.get_users_network(net['user_id'])
+            if self.manager.get_user(net['user_id']):
+                self.get_users_network(net['user_id'])
         if not KEEPER['public']:
             KEEPER['public'] = kwargs.get('public', {'vlan': FLAGS.public_vlan, 'network' : FLAGS.public_range })
         self.public_net = PublicNetwork.from_dict(KEEPER['public'], conn=self._conn)
@@ -465,6 +469,8 @@ class NetworkController(GenericNode):
 
     def get_users_network(self, user_id):
         user = self.manager.get_user(user_id)
+        if not user:
+           raise Exception("User %s doesn't exist, uhoh." % user_id)
         #if not self.private_nets.has_key(user_id):
         usernet = self.get_network_from_name("%s-default" % user_id)
         if not usernet:
