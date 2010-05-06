@@ -229,15 +229,15 @@ class PrivateNetwork(DHCPNetwork):
     def __init__(self, external_vpn_ip, external_vpn_port, conn=None, **kwargs):
         self.external_vpn_ip = external_vpn_ip
         self.external_vpn_port = external_vpn_port
-	super(PrivateNetwork, self).__init__(conn=conn, **kwargs)
+        super(PrivateNetwork, self).__init__(conn=conn, **kwargs)
         self.express()
 
     def to_dict(self):
         return {'vlan': self.vlan,
                 'network': self.network_str,
                 'hosts': self.hosts,
-		'external_vpn_ip': self.external_vpn_ip,
-		'external_vpn_port': self.external_vpn_port}
+                'external_vpn_ip': self.external_vpn_ip,
+                'external_vpn_port': self.external_vpn_port}
         
     def express(self, *args, **kwargs):
         super(PrivateNetwork, self).express(*args, **kwargs)
@@ -254,7 +254,7 @@ class PrivateNetwork(DHCPNetwork):
     def cloudpipe_express(self):
         # TODO: Test and see if the rule is in place
         private_ip = self.network[2]
-	confirm_rule("FORWARD -d %s -p udp --dport 1194 -j ACCEPT" % (private_ip, ))
+        confirm_rule("FORWARD -d %s -p udp --dport 1194 -j ACCEPT" % (private_ip, ))
         confirm_rule("PREROUTING -t nat -d %s -p udp --dport %s -j DNAT --to %s:1194" % (self.external_vpn_ip, self.external_vpn_port, private_ip))
     
         
@@ -431,7 +431,7 @@ class NetworkController(GenericNode):
                 return address_record[u'address']
 
     def get_users_network(self, user_id):
-	    # FIXME: probably should create user manager on init
+            # FIXME: probably should create user manager on init
         user = self.manager.get_user(user_id)
         if not self.private_nets.has_key(user_id):
             usernet = self.get_network_from_name("%s-default" % user_id)
@@ -440,11 +440,11 @@ class NetworkController(GenericNode):
                 network_str = self.private_pool.next()
                 # logging.debug("Constructing network %s and %s for %s" % (network_str, vlan, user_id))
                 usernet = PrivateNetwork(
-		    external_vpn_ip = user.vpn_ip,
-		    external_vpn_port = user.vpn_port,
-		    network = network_str,
-		    vlan = self.vlan_pool.vlans[user_id],
-	            conn = self._conn)
+                    external_vpn_ip = user.vpn_ip,
+                    external_vpn_port = user.vpn_port,
+                    network = network_str,
+                    vlan = self.vlan_pool.vlans[user_id],
+                    conn = self._conn)
                 KEEPER["%s-default" % user_id] = usernet.to_dict()
             self.private_nets[user_id] = usernet
         return self.private_nets[user_id]
@@ -505,13 +505,13 @@ class NetworkController(GenericNode):
         for user_id in self.private_nets.keys():
             network = self.private_nets[user_id]
             logging.debug("found private net")
-	    vlan = self.vlan_pool.vlans[user_id]
+            vlan = self.vlan_pool.vlans[user_id]
             obj['networks'].append({'user_id': user_id, 
                                     'network': str(network), 
                                     'vlan': vlan })
             KEEPER["%s-default" % user_id] = self.private_nets[user_id].to_dict()
         logging.debug("done private net loop")
-	KEEPER['private'] = obj
+        KEEPER['private'] = obj
         KEEPER['public'] = self.public_net.to_dict()
         KEEPER['vlans'] = self.vlan_pool.to_dict()
 
