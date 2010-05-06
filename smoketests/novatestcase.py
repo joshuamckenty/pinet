@@ -38,6 +38,10 @@ class NovaTestCase(unittest.TestCase):
     def can_ping(self, ip):
         return getstatusoutput('ping -c 1 %s' % ip)[0] == 0
 
+    @property
+    def admin(self):
+        return admin.connection_for('admin')
+
     def connection_for(self, username):
         return admin.connection_for(username)
 

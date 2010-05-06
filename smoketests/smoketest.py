@@ -58,58 +58,79 @@ class ImageTests(NovaTestCase):
     def test_000_setUp(self):
         self.create_user(test_username)
 
-    def test_001_admin_can_bundle_kernel(self):
+    def test_001_admin_can_bundle_image(self):
+        self.assertTrue(self.bundle_image(IMAGE_FILENAME))
+
+    def test_002_admin_can_upload_image(self):
+        self.assertTrue(self.upload_image(test_bucket, IMAGE_FILENAME))
+
+    def test_003_admin_can_register_image(self):
+        id = self.register_image(test_bucket, IMAGE_FILENAME)
+        data['image_id'] = id
+
+    def test_004_admin_can_bundle_kernel(self):
         self.assertTrue(self.bundle_image(KERNEL_FILENAME, kernel=True))
 
-    def test_002_admin_can_upload_kernel(self):
+    def test_005_admin_can_upload_kernel(self):
         self.assertTrue(self.upload_image(test_bucket, KERNEL_FILENAME))
 
-    def test_003_admin_can_register_kernel(self):
+    def test_006_admin_can_register_kernel(self):
         # FIXME: registeration should verify that bucket/manifest exists before returning successfully!
         image_id = self.register_image(test_bucket, KERNEL_FILENAME)
         data['kernel_id'] = image_id
 
-    def test_004_admin_can_bundle_image(self):
-        self.assertTrue(self.bundle_image(IMAGE_FILENAME))
+    def test_007_admin_images_are_within_10_seconds(self):
+        for i in xrange(10):
+            image = self.admin.get_image(data['image_id'])
+            if image.state == 'available':
+                break
+            time.sleep(1)
+        else:
+            self.assert_(False) # wasn't available within 10 seconds
+        self.assert_(image.type == 'machine')
 
-    def test_005_admin_can_upload_image(self):
-        self.assertTrue(self.upload_image(test_bucket, IMAGE_FILENAME))
+        for i in xrange(10):
+            kernel = self.admin.get_image(data['kernel_id'])
+            if kernel.state == 'available':
+                break
+            time.sleep(1)
+        else:
+            self.assert_(False) # wasn't available within 10 seconds
+        self.assert_(kernel.type == 'kernel')
 
-    def test_006_admin_can_register_image(self):
-        id = self.register_image(test_bucket, IMAGE_FILENAME)
-        data['image_id'] = id
-
-    def test_007_me_sees_admin_public_kernel(self):
-        # FIXME: verify image is available within 1 minute
+    def test_008_images_not_public_by_default(self):
         conn = self.connection_for(test_username)
         image = conn.get_image(data['kernel_id'])
-        self.assertEqual(image.id, data['kernel_id'])
+        self.assertEqual(image, None)
+        image = conn.get_image(data['image_id'])
+        self.assertEqual(image, None)
 
-    def test_008_me_sees_admin_public_image(self):
+    def test_009_images_can_be_made_public(self):
         # FIXME: verify image is available within 1 minute
         conn = self.connection_for(test_username)
         image = conn.get_image(data['image_id'])
         self.assertEqual(image.id, data['image_id'])
 
-    def test_009_me_can_launch_admin_public_image(self):
+    def test_010_user_can_launch_admin_public_image(self):
         # TODO: Use openwrt kernel instead of default kernel
         conn = self.connection_for(test_username)
         reservation = conn.run_instances(data['image_id'])
         self.assertEqual(len(reservation.instances), 1)
         data['my_instance_id'] = reservation.instances[0].id
 
-    def test_010_me_can_terminate(self):
+    def test_011_instances_launch_within_30_seconds(self):
+        pass
+
+    def test_012_user_can_terminate(self):
         conn = self.connection_for(test_username)
         terminated = conn.terminate_instances(instance_ids=[data['my_instance_id']])
         self.assertEqual(len(terminated), 1)
 
-    def test_011_admin_can_deregister_kernel(self):
-        conn = self.connection_for('admin')
-        self.assertTrue(conn.deregister_image(data['kernel_id']))
+    def test_013_admin_can_deregister_kernel(self):
+        self.assertTrue(self.admin.deeregister_image(data['kernel_id']))
 
-    def test_012_admin_can_deregister_image(self):
-        conn = self.connection_for('admin')
-        self.assertTrue(conn.deregister_image(data['image_id']))
+    def test_014_admin_can_deregister_image(self):
+        self.assertTrue(self.admin.deregister_image(data['image_id']))
 
 #    def test_010_admin_can_delete_image(self):
 #        self.assert_(False)
