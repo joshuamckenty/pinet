@@ -66,6 +66,10 @@ def serve(name, main):
     if not FLAGS.pidfile:
         FLAGS.pidfile = '%s.pid' % name
 
+    logging.debug("Full set of FLAGS: \n\n\n" )
+    for flag in FLAGS:
+        logging.debug("%s : %s" % (flag, FLAGS.get(flag, None) ))
+
     action = 'start'
     if len(argv) > 1:
         action = argv.pop()

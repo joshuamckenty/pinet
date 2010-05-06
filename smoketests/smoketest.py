@@ -20,6 +20,7 @@ data = {}
 test_prefix = 'test%s' % int(random.random()*1000000)
 test_username = '%suser' % test_prefix
 test_bucket = '%s_bucket' % test_prefix
+test_key = '%s_key' % test_prefix
 
 # Test admin credentials and user creation
 class UserTests(NovaTestCase):
@@ -57,60 +58,79 @@ class ImageTests(NovaTestCase):
     def test_000_setUp(self):
         self.create_user(test_username)
 
-    def test_001_admin_can_bundle_kernel(self):
+    def test_001_admin_can_bundle_image(self):
+        self.assertTrue(self.bundle_image(IMAGE_FILENAME))
+
+    def test_002_admin_can_upload_image(self):
+        self.assertTrue(self.upload_image(test_bucket, IMAGE_FILENAME))
+
+    def test_003_admin_can_register_image(self):
+        id = self.register_image(test_bucket, IMAGE_FILENAME)
+        data['image_id'] = id
+
+    def test_004_admin_can_bundle_kernel(self):
         self.assertTrue(self.bundle_image(KERNEL_FILENAME, kernel=True))
 
-    def test_002_admin_can_upload_kernel(self):
+    def test_005_admin_can_upload_kernel(self):
         self.assertTrue(self.upload_image(test_bucket, KERNEL_FILENAME))
 
-    def test_003_admin_can_register_kernel(self):
+    def test_006_admin_can_register_kernel(self):
         # FIXME: registeration should verify that bucket/manifest exists before returning successfully!
         image_id = self.register_image(test_bucket, KERNEL_FILENAME)
         data['kernel_id'] = image_id
 
-    def test_004_admin_can_bundle_image(self):
-        getstatusoutput('zcat %s.gz > %s' % (IMAGE_FILENAME, IMAGE_FILENAME))
-        self.assertTrue(self.bundle_image(IMAGE_FILENAME))
-        getstatusoutput('rm %s' % IMAGE_FILENAME)
+    def test_007_admin_images_are_within_10_seconds(self):
+        for i in xrange(10):
+            image = self.admin.get_image(data['image_id'])
+            if image.state == 'available':
+                break
+            time.sleep(1)
+        else:
+            self.assert_(False) # wasn't available within 10 seconds
+        self.assert_(image.type == 'machine')
 
-    def test_005_admin_can_upload_image(self):
-        self.assertTrue(self.upload_image(test_bucket, IMAGE_FILENAME))
+        for i in xrange(10):
+            kernel = self.admin.get_image(data['kernel_id'])
+            if kernel.state == 'available':
+                break
+            time.sleep(1)
+        else:
+            self.assert_(False) # wasn't available within 10 seconds
+        self.assert_(kernel.type == 'kernel')
 
-    def test_006_admin_can_register_image(self):
-        id = self.register_image(test_bucket, IMAGE_FILENAME)
-        data['image_id'] = id
-
-    def test_007_me_sees_admin_public_kernel(self):
-        # FIXME: verify image is available within 1 minute
+    def test_008_images_not_public_by_default(self):
         conn = self.connection_for(test_username)
         image = conn.get_image(data['kernel_id'])
-        self.assertEqual(image.id, data['kernel_id'])
+        self.assertEqual(image, None)
+        image = conn.get_image(data['image_id'])
+        self.assertEqual(image, None)
 
-    def test_008_me_sees_admin_public_image(self):
+    def test_009_images_can_be_made_public(self):
         # FIXME: verify image is available within 1 minute
         conn = self.connection_for(test_username)
         image = conn.get_image(data['image_id'])
         self.assertEqual(image.id, data['image_id'])
 
-    def test_009_me_can_launch_admin_public_image(self):
+    def test_010_user_can_launch_admin_public_image(self):
         # TODO: Use openwrt kernel instead of default kernel
         conn = self.connection_for(test_username)
         reservation = conn.run_instances(data['image_id'])
         self.assertEqual(len(reservation.instances), 1)
         data['my_instance_id'] = reservation.instances[0].id
 
-    def test_010_me_can_terminate(self):
+    def test_011_instances_launch_within_30_seconds(self):
+        pass
+
+    def test_012_user_can_terminate(self):
         conn = self.connection_for(test_username)
         terminated = conn.terminate_instances(instance_ids=[data['my_instance_id']])
         self.assertEqual(len(terminated), 1)
 
-    def test_011_admin_can_deregister_kernel(self):
-        conn = self.connection_for('admin')
-        self.assertTrue(conn.deregister_image(data['kernel_id']))
+    def test_013_admin_can_deregister_kernel(self):
+        self.assertTrue(self.admin.deeregister_image(data['kernel_id']))
 
-    def test_012_admin_can_deregister_image(self):
-        conn = self.connection_for('admin')
-        self.assertTrue(conn.deregister_image(data['image_id']))
+    def test_014_admin_can_deregister_image(self):
+        self.assertTrue(self.admin.deregister_image(data['image_id']))
 
 #    def test_010_admin_can_delete_image(self):
 #        self.assert_(False)
@@ -125,74 +145,101 @@ class ImageTests(NovaTestCase):
 # Test key pairs and security groups
 class SecurityTests(NovaTestCase):
     def test_000_setUp(self):
-        self.create_user('me')
-        self.create_user('you')
-        data['kernel_id'] = self.setUp_test_image(KERNEL_FILENAME, kernel=True)
-        data['image_id'] = self.setUp_test_image(IMAGE_FILENAME)
+        self.create_user(test_username + '_me')
+        self.create_user(test_username + '_you')
+        data['kernel_id'] = 'aki-EAB510D9'
+        data['image_id'] = 'ami-A7370FE3' # A7370FE3
 
     def test_001_me_can_create_keypair(self):
-        conn = self.connection_for('me')
-        key = self.create_key_pair(conn, 'mykey')
-        self.assertEqual(key.name, 'mykey')
+        conn = self.connection_for(test_username + '_me')
+        key = self.create_key_pair(conn, test_key)
+        self.assertEqual(key.name, test_key)
 
     def test_002_you_can_create_keypair(self):
-        conn = self.connection_for('you')
-        key = self.create_key_pair(conn, 'yourkey')
-        self.assertEqual(key.name, 'yourkey')
+        conn = self.connection_for(test_username + '_you')
+        key = self.create_key_pair(conn, test_key+ 'yourkey')
+        self.assertEqual(key.name, test_key+'yourkey')
 
     def test_003_me_can_create_instance_with_keypair(self):
-        conn = self.connection_for('me')
-        reservation = conn.run_instances(data['image_id'], kernel_id=data['kernel_id'], key_name='mykey')
+        conn = self.connection_for(test_username + '_me')
+        reservation = conn.run_instances(data['image_id'], kernel_id=data['kernel_id'], key_name=test_key)
         self.assertEqual(len(reservation.instances), 1)
         data['my_instance_id'] = reservation.instances[0].id
 
-    def test_004_me_can_obtain_private_ip(self):
-        time.sleep(3) # allow time for ip to be assigned
-        conn = self.connection_for('me')
+    def test_004_me_can_obtain_private_ip_within_60_seconds(self):
+        conn = self.connection_for(test_username + '_me')
         reservations = conn.get_all_instances([data['my_instance_id']])
+        instance = reservations[0].instances[0]
+        # allow 60 seconds to exit pending with IP
+        for x in xrange(60):
+            instance.update()
+            if instance.state != u'pending':
+                 break
+            time.sleep(1)
+        else:
+            self.assert_(False)
+        # self.assertEqual(instance.state, u'running')
         ip = reservations[0].instances[0].private_dns_name
         self.failIf(ip == '0.0.0.0')
         data['my_private_ip'] = ip
-        print data['my_private_ip']
+        print data['my_private_ip'],
 
-    def test_005_me_cannot_ssh_when_unauthorized(self):
-        self.assertRaises(SSHException, self.connect_ssh, data['my_private_ip'], 'mykey')
+    def test_005_can_ping_private_ip(self):
+        # allow 30 seconds for PING to work
+        print "ping -c1 -w1 %s" % data['my_private_ip']
+        for x in xrange(120):
+            # ping waits for 1 second
+            status, output = getstatusoutput("ping -c1 -w1 %s" % data['my_private_ip'])
+            if status == 0:
+                 break
+        else:
+            self.assert_(False)
+    #def test_005_me_cannot_ssh_when_unauthorized(self):
+    #    self.assertRaises(SSHException, self.connect_ssh, data['my_private_ip'], 'mykey')
 
-    def test_006_me_can_authorize_ssh(self):
-        conn = self.connection_for('me')
-        self.assertTrue(
-            conn.authorize_security_group(
-                'default',
-                ip_protocol='tcp',
-                from_port=22,
-                to_port=22,
-                cidr_ip='0.0.0.0/0'
-            )
-        )
+    #def test_006_me_can_authorize_ssh(self):
+    #    conn = self.connection_for(test_username + '_me')
+    #    self.assertTrue(
+    #        conn.authorize_security_group(
+    #            'default',
+    #            ip_protocol='tcp',
+    #            from_port=22,
+    #            to_port=22,
+    #            cidr_ip='0.0.0.0/0'
+    #        )
+    #    )
 
     def test_007_me_can_ssh_when_authorized(self):
-        conn = self.connect_ssh(data['my_private_ip'], 'mykey')
-        conn.close()
+        # Wait for the instance to ACTUALLY have ssh running
+        for x in xrange(120):
+            try:
+                conn = self.connect_ssh(data['my_private_ip'], test_key)
+                conn.close()
+                break
+            except:
+                time.sleep(1)
+        else:
+            self.assertTrue(False)
 
-    def test_008_me_can_revoke_ssh_authorization(self):
-        conn = self.connection_for('me')
-        self.assertTrue(
-            conn.revoke_security_group(
-                'default',
-                ip_protocol='tcp',
-                from_port=22,
-                to_port=22,
-                cidr_ip='0.0.0.0/0'
-            )
-        )
+    #def test_008_me_can_revoke_ssh_authorization(self):
+    #    conn = self.connection_for('me')
+    #    self.assertTrue(
+    #        conn.revoke_security_group(
+    #            'default',
+    #            ip_protocol='tcp',
+    #            from_port=22,
+    #            to_port=22,
+    #            cidr_ip='0.0.0.0/0'
+    #        )
+    #    )
 
-    def test_009_you_cannot_ping_my_instance(self):
+    #def test_009_you_cannot_ping_my_instance(self):
         # TODO: should ping my_private_ip from with an instance started by "you"
-        self.assertFalse(self.can_ping(data['my_private_ip']))
+        #self.assertFalse(self.can_ping(data['my_private_ip']))
 
     def test_010_you_cannot_ssh_to_my_instance(self):
         try:
-            conn = self.connect_ssh(data['my_private_ip'], 'yourkey')
+            conn = self.connect_ssh(data['my_private_ip'], test_key + 'yourkey')
             conn.close()
         except SSHException:
             pass
@@ -200,19 +247,19 @@ class SecurityTests(NovaTestCase):
             fail("expected SSHException")
 
     def test_999_tearDown(self):
-        conn = self.connection_for('me')
-        self.delete_key_pair(conn, 'mykey')
+        conn = self.connection_for(test_username + '_me')
+        self.delete_key_pair(conn, test_key)
         if data.has_key('my_instance_id'):
             conn.terminate_instances([data['my_instance_id']])
 
-        conn = self.connection_for('you')
-        self.delete_key_pair(conn, 'yourkey')
+        conn = self.connection_for(test_username + '_you')
+        self.delete_key_pair(conn, test_key + 'yourkey')
 
         conn = self.connection_for('admin')
-        self.delete_user('me')
-        self.delete_user('you')
-        self.tearDown_test_image(conn, data['image_id'])
-        self.tearDown_test_image(conn, data['kernel_id'])
+        self.delete_user(test_username + '_me')
+        self.delete_user(test_username + '_you')
+        #self.tearDown_test_image(conn, data['image_id'])
+        #self.tearDown_test_image(conn, data['kernel_id'])
 
 # TODO: verify wrt image boots
 #       build python into wrt image
@@ -298,8 +345,10 @@ class ElasticIPTests(NovaTestCase):
         self.create_key_pair(conn, 'mykey')
 
         conn = self.connection_for('admin')
-        data['kernel_id'] = self.setUp_test_image(KERNEL_FILENAME, kernel=True)
-        data['image_id'] = self.setUp_test_image(IMAGE_FILENAME)
+        data['kernel_id'] = 'aki-EAB510D9'
+        data['image_id'] = 'ami-A7370FE3' # A7370FE3
+        #data['kernel_id'] = self.setUp_test_image(KERNEL_FILENAME, kernel=True)
+        #data['image_id'] = self.setUp_test_image(IMAGE_FILENAME)
 
     def test_001_me_can_launch_image_with_keypair(self):
         conn = self.connection_for('me')
@@ -330,16 +379,16 @@ class ElasticIPTests(NovaTestCase):
         self.delete_key_pair(conn, 'mykey')
 
         conn = self.connection_for('admin')
-        self.tearDown_test_image(conn, data['image_id'])
-        self.tearDown_test_image(conn, data['kernel_id'])
+        #self.tearDown_test_image(conn, data['image_id'])
+        #self.tearDown_test_image(conn, data['kernel_id'])
         data = {}
 
 # Test iscsi volumes
 class VolumeTests(NovaTestCase):
     def test_000_setUp(self):
         self.create_user('me')
-        data['kernel_id'] = self.setUp_test_image(KERNEL_FILENAME, kernel=True)
-        data['image_id'] = self.setUp_test_image(IMAGE_FILENAME)
+        data['kernel_id'] = 'aki-EAB510D9'
+        data['image_id'] = 'ami-A7370FE3' # A7370FE3
 
         conn = self.connection_for('me')
         self.create_key_pair(conn, 'mykey')
@@ -401,8 +450,8 @@ class VolumeTests(NovaTestCase):
         self.delete_key_pair(conn, 'mykey')
         self.delete_user('me')
         conn = self.connection_for('admin')
-        self.tearDown_test_image(conn, data['image_id'])
-        self.tearDown_test_image(conn, data['kernel_id'])
+        #self.tearDown_test_image(conn, data['image_id'])
+        #self.tearDown_test_image(conn, data['kernel_id'])
         data = dict()
 
 def build_suites():

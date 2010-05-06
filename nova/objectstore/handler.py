@@ -158,11 +158,13 @@ class BucketHandler(BaseRequestHandler):
 
     @catch_nova_exceptions
     def put(self, bucket_name):
+        logging.debug("Creating bucket %s" % (bucket_name))
         Bucket.create(bucket_name, self.user)
         self.finish()
 
     @catch_nova_exceptions
     def delete(self, bucket_name):
+        logging.debug("Deleting bucket %s" % (bucket_name))
         bucket = Bucket(bucket_name)
 
         if bucket.is_authorized(self.user):
@@ -175,6 +177,8 @@ class BucketHandler(BaseRequestHandler):
 class ObjectHandler(BaseRequestHandler):
     @catch_nova_exceptions
     def get(self, bucket_name, object_name):
+        logging.debug("Getting object: %s / %s" % (bucket_name, object_name))
+
         bucket = Bucket(bucket_name)
 
         if not bucket.is_authorized(self.user):
@@ -188,6 +192,7 @@ class ObjectHandler(BaseRequestHandler):
 
     @catch_nova_exceptions
     def put(self, bucket_name, object_name):
+        logging.debug("Putting object: %s / %s" % (bucket_name, object_name))
         bucket = Bucket(bucket_name)
 
         if not bucket.is_authorized(self.user):
@@ -200,6 +205,7 @@ class ObjectHandler(BaseRequestHandler):
 
     @catch_nova_exceptions
     def delete(self, bucket_name, object_name):
+        logging.debug("Deleting object: %s / %s" % (bucket_name, object_name))
         bucket = Bucket(bucket_name)
 
         if not bucket.is_authorized(self.user):

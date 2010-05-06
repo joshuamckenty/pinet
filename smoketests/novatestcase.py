@@ -3,6 +3,7 @@
 import os, re, unittest, sys
 from commands import getstatusoutput
 from paramiko import SSHClient, WarningPolicy, SSHException
+import random
 
 BUCKET_NAME = 'smoketest'
 
@@ -32,10 +33,17 @@ class NovaTestCase(unittest.TestCase):
         client = SSHClient()
         client.load_system_host_keys()
         client.set_missing_host_key_policy(WarningPolicy())
-        return client.connect(ip, key_filename='/tmp/%s.pem' % key_name)
+        client.connect(ip, key_filename='/tmp/%s.pem' % key_name)
+        stdin, stdout, stderr = client.exec_command('uptime')
+        print 'uptime: ', stdout.read()
+        return client
 
     def can_ping(self, ip):
         return getstatusoutput('ping -c 1 %s' % ip)[0] == 0
+
+    @property
+    def admin(self):
+        return admin.connection_for('admin')
 
     def connection_for(self, username):
         return admin.connection_for(username)
@@ -79,7 +87,9 @@ class NovaTestCase(unittest.TestCase):
         return True
 
     def upload_image(self, bucket_name, image):
-        status, output = getstatusoutput('euca-upload-bundle -b %s -m /tmp/%s.manifest.xml' % (bucket_name, image))
+        cmd = 'euca-upload-bundle -b %s -m /tmp/%s.manifest.xml' % (bucket_name, image)
+        status, output = getstatusoutput(cmd)
+        print '%s -> \n %s' % (cmd, output)
         if status != 0:
             print '%s -> \n %s' % (cmd, output)
             raise Exception(output)
@@ -93,8 +103,9 @@ class NovaTestCase(unittest.TestCase):
 
     def setUp_test_image(self, image, kernel=False):
         self.bundle_image(image, kernel=kernel)
-        self.upload_image(image)
-        return self.register_image(image)
+        bucket = "auto_test_%s" % int(random.random() * 1000000)
+        self.upload_image(bucket, image)
+        return self.register_image(bucket, image)
 
     def tearDown_test_image(self, conn, image_id):
         conn.deregister_image(image_id)

@@ -13,11 +13,13 @@ class NetworkTestCase(unittest.TestCase):
     def setUp(self):
         logging.getLogger().setLevel(logging.DEBUG)
         super(NetworkTestCase, self).setUp()
-        self.network = network.NetworkController(netsize=16)
         self.manager = users.UserManager()
         for i in range(0, 6):
             name = 'user%s' % i
-            self.manager.create_user(name, name, name)
+            if not self.manager.get_user(name):
+                self.manager.create_user(name, name, name)
+                print("Created user %s" % name)
+        self.network = network.NetworkController(netsize=16)
         # self.instance_id = "network-test"
         # rv = self.node.run_instance(self.instance_id)
     
@@ -69,6 +71,14 @@ class NetworkTestCase(unittest.TestCase):
             rv = self.network.deallocate_address(address2)
             rv = self.network.deallocate_address(address3)
         rv = self.network.deallocate_address(secondaddress)
+
+    def test_too_many_users(self):
+        for i in range(0, 30):
+            name = 'toomany-user%s' % i
+            self.manager.create_user(name, name, name)
+            (address, net_name) = self.network.allocate_address(name, "01:24:55:36:f2:a0")
+            self.manager.delete_user(name)
+        
         
     def test_associate_deassociate_address(self):
         #raise NotImplementedError
