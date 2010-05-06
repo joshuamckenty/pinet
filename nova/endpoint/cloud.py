@@ -129,6 +129,9 @@ class CloudController(object):
         return data
         
 
+    def describe_availability_zones(self, context, **kwargs):
+        return {'availabilityZoneInfo': [{'zoneName': 'nova', 'zoneState': 'available'}]}
+    
     def describe_key_pairs(self, context, key_name=None, **kwargs):
         key_pairs = []
         key_names = key_name and key_name or []
