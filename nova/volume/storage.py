@@ -43,9 +43,16 @@ class BlockStore(object):
 
     def create_volume(self, size, user_id):
         logging.debug("Creating volume of size: %s" % (size))
-        volume = self.volume_class(size = size, user_id = user_id)
+        vol = self.volume_class(size = size, user_id = user_id)
         self._restart_exports()
-        return volume
+        return {'volumeSet': [{
+            "user_id": vol.get_user_id(),
+            "volume_id": vol.volume_id,
+            "size" : vol.get_size(),
+            "aoe_device" : vol.get_aoe_device(),
+            "availability_zone" : "nova",
+            "status" : vol.get_status(),
+        }]}
         
     def get_volume(self, volume_id):
         return self.volume_class(volume_id = volume_id)
@@ -172,7 +179,7 @@ class Volume(object):
                                   'size' : self.size,
                                   'mountpoint' : self.mountpoint,
                                   'instance_id' : self.instance_id,
-                                  'aoe_device' : self.aoe_device}
+                                 'aoe_device' : self.aoe_device}
 
     def load(self, volume_id):
         state = KEEPER[volume_id]

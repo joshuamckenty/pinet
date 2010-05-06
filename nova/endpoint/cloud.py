@@ -220,10 +220,10 @@ class CloudController(object):
         return defer.succeed({'volumeSet': volumes})
 
     def create_volume(self, context, size, **kwargs):
-        rpc.cast(FLAGS.storage_topic, {"method": "create_volume", 
+        d = rpc.call(FLAGS.storage_topic, {"method": "create_volume", 
                                  "args" : {"size": size,
                                            "user_id": context.user.id}})
-        return defer.succeed(True)
+	return d
 
     def _get_by_id(self, nodes, id):
         if nodes == {}:
