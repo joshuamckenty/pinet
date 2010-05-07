@@ -70,7 +70,7 @@ class CloudController(object):
     def fetch_ca(self):
         return open(os.path.join(FLAGS.ca_path, 'cacert.pem')).read()
                           
-    def _get_instance_by_ip(self, ip):
+    def get_instance_by_ip(self, ip):
         if self.instances == {}:
             return None
         for node in self.instances.itervalues():
@@ -80,7 +80,7 @@ class CloudController(object):
         return None
          
     def get_metadata(self, ip):
-        i = self._get_instance_by_ip(ip)
+        i = self.get_instance_by_ip(ip)
         if i is None:
             return None
         if i['key_name']:

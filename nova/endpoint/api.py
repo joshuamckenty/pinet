@@ -216,7 +216,7 @@ class CloudPipeRequestHandler(tornado.web.RequestHandler):
         #    self.printCustomHTTPResponse(204)
         #    return
         if path[:7] == "/getca/":
-            self.send_root_ca(path[7:])
+            self.send_root_ca()
         elif path[:9] == "/getcert/":
             _log.debug( "Getting zip for %s" % (path[9:]))
             try:
@@ -226,7 +226,10 @@ class CloudPipeRequestHandler(tornado.web.RequestHandler):
                 raise tornado.web.HTTPError(404)        
         self.finish()
 
-    def send_root_ca(self, username):
+    def send_root_ca(self):
+        cc = self.application.controllers['Cloud']
+        instance = cc.get_instance_by_ip(self.request.remote_ip)
+        username = instance['owner_id']
         self.set_header("Content-Type", "text/plain")
         with open(self.ca_path(username),"r") as cafile:
             self.write(cafile.read())
