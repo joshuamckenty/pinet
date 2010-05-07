@@ -18,6 +18,9 @@ import api
 
 FLAGS = flags.FLAGS
 
+flags.DEFINE_integer('cloudpipe_interval', 20,
+                     'seconds between check for cloudpipe spawns')
+
 
 def main(argv):
     user_manager = users.UserManager()
@@ -35,7 +38,7 @@ def main(argv):
     io_inst = ioloop.IOLoop.instance()
     scheduler = ioloop.PeriodicCallback(
             lambda: controllers['Cloud'].cloudcron(),
-            FLAGS.node_report_state_interval * 1000,
+            FLAGS.cloudpipe_interval * 1000,
             io_loop=io_inst)
 
     

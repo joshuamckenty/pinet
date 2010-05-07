@@ -12,8 +12,12 @@ import nova.contrib
 import flags
 from nova import crypto
 from nova.auth import users
+from nova import utils
 FLAGS = flags.FLAGS
 
+flags.DEFINE_string('boot_script_template',
+                    utils.abspath('cloudpipe/bootscript.sh'), 
+                    'Template for script to run on cloudpipe instance boot')
 
 class CloudPipe(object):
     def __init__(self, cloud_controller):
@@ -28,7 +32,8 @@ class CloudPipe(object):
         filename = "payload.zip"
         zippath = os.path.join(tmpfolder, filename)
         z = ZipFile(zippath, "w", ZIP_DEFLATED)
-        z.write('bootscript.sh','autorun.sh')
+
+        z.write(FLAGS.boot_script_template,'autorun.sh')
         z.close()
 
         self.setup_keypair(username)

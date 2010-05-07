@@ -391,6 +391,7 @@ class CloudController(object):
         launchstate = self._create_reservation(context.user, kwargs)
         pending = {}
         for num in range(int(launchstate['max_count'])):
+            launchstate['mac_address'] = utils.generate_mac()
             (address, launchstate['network_name']) = self.network.allocate_address(str(launchstate['owner_id']), mac=str(launchstate['mac_address']))
             launchstate['private_dns_name'] = str(address)
             launchstate = self._really_run_instance(context.user, kwargs, num)
@@ -416,12 +417,14 @@ class CloudController(object):
 
     def _really_run_instance(self, user, launchstate, idx):   
         launchstate['instance_id'] = generate_uid('i')
-        launchstate['mac_address'] = utils.generate_mac()
         launchstate['ami_launch_index'] = idx 
         network = self.network.get_users_network(str(user.id))
         launchstate['network_str'] = network.to_dict()
         launchstate['bridge_name'] = network.bridge_name
-        logging.debug("Casting to node for %s's instance with IP of %s in the %s network" % (launchstate['private_dns_name'], launchstate['network_name']))
+        logging.debug("Casting to node for %s's instance with IP of %s in the %s network" %
+                      (user.name,
+                       launchstate['private_dns_name'],
+                       launchstate['network_name']))
         rpc.call(FLAGS.compute_topic, 
                               {"method": "run_instance", 
                                "args" : launchstate 
@@ -432,6 +435,7 @@ class CloudController(object):
         kwargs['image_id'] = FLAGS.vpn_image_id
         kwargs['owner_id'] = user.id
         launchstate = self._create_reservation(user, kwargs)
+        launchstate['mac_address'] = utils.generate_mac()
         (address, launchstate['network_name']) = self.network.get_cloudpipe_address(str(launchstate['owner_id']), mac=str(launchstate['mac_address']))
         launchstate['private_dns_name'] = str(address)
         launchstate = self._really_run_instance(user, kwargs, 0)
@@ -499,8 +503,8 @@ class CloudController(object):
 
     def ensure_VPN_connections(self):
         um = users.UserManager()
-        users = um.get_users()
-        for user in users:
+        user_list = um.get_users()
+        for user in user_list:
 		    logging.debug("Checking user -%s-" % (user.name))
 		    if not self.is_vpn_running(user.name):
 			    logging.debug("Not running for user -%s-" % (user.name))
