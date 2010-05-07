@@ -27,7 +27,8 @@ class FakeLDAP(object):
     def search_s(self, dn, scope, query=None, fields=None):
         logging.debug("searching for %s" % dn)
         filtered = {}
-        for cn, attrs in KEEPER['objects'].iteritems():
+        d = KEEPER['objects']
+        for cn, attrs in d.iteritems():
             if cn[-len(dn):] == dn:
                 filtered[cn] = attrs
         if query:

@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python 
 import datetime  
 import logging   
@@ -35,7 +36,7 @@ flags.DEFINE_string('credentials_template',
                     utils.abspath('auth/novarc.template'),
                     'Template for creating users rc file')
 flags.DEFINE_string('vpn_client_template',
-                    utils.abspath('auth/client.ovpn.template'),
+                    utils.abspath('cloudpipe/client.ovpn.template'),
                     'Template for creating users vpn file')                    
 flags.DEFINE_string('credential_key_file', 'pk.pem',
                     'Filename of private key in credentials zip')
@@ -109,8 +110,8 @@ class User(object):
         configfile.close()
         config = s.substitute(keyfile=FLAGS.credential_key_file,
 			      certfile=FLAGS.credential_cert_file,
-			      ip=user.vpn_ip,
-			      port=user.vpn_port)
+			      ip=self.vpn_ip,
+			      port=self.vpn_port)
         
         tmpdir = tempfile.mkdtemp()
         zf = os.path.join(tmpdir, "temp.zip")
