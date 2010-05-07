@@ -45,7 +45,7 @@ if not FLAGS.has_key('verbose'):
 
                                            
     DEFINE_string('default_image',
-                        'ami-25CB121333',
+                        'ami-25CB1213',
                         'default image to use, testing only')
     DEFINE_string('default_kernel',
                         'aki-EAB510D9',
