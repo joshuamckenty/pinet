@@ -22,9 +22,9 @@ from nova import crypto
 import images
 import base64
 import tornado
+from nova.cloudpipe.pipelib import CloudPipe 
 
 FLAGS = flags.FLAGS
-
 
 _STATE_NAMES = {
     node.Instance.NOSTATE: 'pending',
@@ -49,6 +49,7 @@ class CloudController(object):
         self.volumes = {}
         self.instances = {}
         self.network = network.NetworkController()
+        self.pipe = CloudPipe(self)
 
     def __str__(self):
         return 'CloudController'
@@ -222,7 +223,7 @@ class CloudController(object):
         d = rpc.call(FLAGS.storage_topic, {"method": "create_volume", 
                                  "args" : {"size": size,
                                            "user_id": context.user.id}})
-	return d
+        return d
 
     def _get_by_id(self, nodes, id):
         if nodes == {}:
@@ -384,48 +385,54 @@ class CloudController(object):
         # passing all of the kwargs on to node.py
         logging.debug("Going to run instances...")
         # logging.debug(kwargs)
-        # TODO: verify user has access to image
-        
-        kwargs['owner_id'] = context.user.id
-        if kwargs.has_key('key_name'):
-            key_pair = context.user.get_key_pair(kwargs['key_name'])
-            if not key_pair:
-                raise exception.ApiError('Key Pair %s not found' %
-                                         kwargs['key_name'])
-            kwargs['key_data'] = key_pair.public_key 
-        kwargs['reservation_id'] = generate_uid('r')
-        kwargs['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        # TODO: verify user has access to image 
+        launchstate = self._create_reservation(context.user, kwargs)
         pending = {}
-        for num in range(int(kwargs['max_count'])):
-            kwargs['instance_id'] = generate_uid('i')
-            kwargs['mac_address'] = utils.generate_mac()
-            #TODO(joshua) - Allocate IP based on security group
-            kwargs['ami_launch_index'] = num 
-            address = None
-            if (kwargs['image_id'] == FLAGS.cloudpipe_ami):
-                (address, kwargs['network_name']) = self.network.get_cloudpipe_address(str(kwargs['owner_id']), mac=str(kwargs['mac_address']))
-            else:
-                (address, kwargs['network_name']) = self.network.allocate_address(str(kwargs['owner_id']), mac=str(kwargs['mac_address']))
-            network = self.network.get_users_network(str(kwargs['owner_id']))
-            kwargs['network_str'] = network.to_dict()
-            kwargs['bridge_name'] = network.bridge_name
-            kwargs['private_dns_name'] = str(address)
-            logging.debug("Casting to node for an instance with IP of %s in the %s network" % (kwargs['private_dns_name'], kwargs['network_name']))
-            rpc.call(FLAGS.compute_topic, 
-                                  {"method": "run_instance", 
-                                   "args" : kwargs 
-                                            })
-            pending[kwargs['instance_id']] = kwargs
+        for num in range(int(launchstate['max_count'])):
+            (address, launchstate['network_name']) = self.network.allocate_address(str(launchstate['owner_id']), mac=str(launchstate['mac_address']))
+            launchstate['private_dns_name'] = str(address)
+            launchstate = self._really_run_instance(context.user, kwargs, num)
+            pending[kwargs['instance_id']] = dict(launchstate)
             pending[kwargs['instance_id']]['state'] = node.Instance.NOSTATE
-
-        
         # TODO(vish): pending instances will be lost on crash
         if(not self.instances.has_key('pending')):
             self.instances['pending'] = {}
-
         self.instances['pending'].update(pending)
-        return defer.succeed(self.format_instances(context.user,
-                                                   kwargs['reservation_id']))
+        return defer.succeed(self.format_instances(context.user, launchstate['reservation_id']))
+
+    def _create_reservation(self, user, launchstate):
+        launchstate['owner_id'] = user.id
+        launchstate['reservation_id'] = generate_uid('r')
+        launchstate['launch_time'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+        if launchstate.has_key('key_name'):
+            key_pair = user.get_key_pair(launchstate['key_name'])
+            if not key_pair:
+                raise exception.ApiError('Key Pair %s not found' %
+                                         launchstate['key_name'])
+            launchstate['key_data'] = key_pair.public_key 
+        return launchstate
+
+    def _really_run_instance(self, user, launchstate, idx):   
+        launchstate['instance_id'] = generate_uid('i')
+        launchstate['mac_address'] = utils.generate_mac()
+        launchstate['ami_launch_index'] = idx 
+        network = self.network.get_users_network(str(user.id))
+        launchstate['network_str'] = network.to_dict()
+        launchstate['bridge_name'] = network.bridge_name
+        logging.debug("Casting to node for %s's instance with IP of %s in the %s network" % (launchstate['private_dns_name'], launchstate['network_name']))
+        rpc.call(FLAGS.compute_topic, 
+                              {"method": "run_instance", 
+                               "args" : launchstate 
+                                        })
+        return launchstate
+
+    def run_vpn_instance(self, user, **kwargs):
+        kwargs['image_id'] = FLAGS.vpn_image_id
+        kwargs['owner_id'] = user.id
+        launchstate = self._create_reservation(user, kwargs)
+        (address, launchstate['network_name']) = self.network.get_cloudpipe_address(str(launchstate['owner_id']), mac=str(launchstate['mac_address']))
+        launchstate['private_dns_name'] = str(address)
+        launchstate = self._really_run_instance(user, kwargs, 0)
     
     def terminate_instances(self, context, instance_id, **kwargs):
         # TODO: return error if not authorized
@@ -484,6 +491,30 @@ class CloudController(object):
         logging.debug("Registered %s as %s" % (image_location, image_id))
         
         return defer.succeed({'imageId': image_id})
+
+    def cloudcron(self):
+        self.ensure_VPN_connections()
+
+    def ensure_VPN_connections(self):
+        um = users.UserManager()
+        users = um.get_users()
+        for user in users:
+		    logging.debug("Checking user -%s-" % (user.name))
+		    if not self.is_vpn_running(user.name):
+			    logging.debug("Not running for user -%s-" % (user.name))
+			    self.pipe.launch_vpn_instance(user.name)
+
+    def is_vpn_running(self, username):
+        if self.vpn_running_instance(username):
+            return True
+        return False
+
+    def vpn_running_instance(self, username):
+        for node_name, node in self.instances.iteritems():
+            for instance in node.values():
+                if (instance.image_id == FLAGS.vpn_image_id and instance.state in [u'pending', u'running']):
+                    return instance
+        return None
 
     def update_state(self, topic, value):
         """ accepts status reports from the queue and consolidates them """

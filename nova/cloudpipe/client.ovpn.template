@@ -1,0 +1,27 @@
+# Nebula user connection
+# Edit the following lines to point to your cert files:
+cert $certfile
+key $keyfile
+
+ca cacert.pem
+
+client
+dev tap
+proto udp
+
+remote $ip $port
+resolv-retry infinite
+nobind
+
+# Downgrade privileges after initialization (non-Windows only)
+user nobody
+group nogroup
+comp-lzo
+
+# Set log file verbosity.
+verb 2
+
+keepalive 10 120
+ping-timer-rem
+persist-tun
+persist-key

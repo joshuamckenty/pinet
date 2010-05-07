@@ -44,6 +44,12 @@ KEEPER = datastore.keeper(prefix="net")
 logging.getLogger().setLevel(logging.DEBUG)
 
 
+
+# TODO(joshua): Save the IPs at the top of each subnet for cloudpipe vpn clients
+
+
+
+
 def confirm_rule(cmd):
     execute("sudo iptables --delete %s" % (cmd))
     execute("sudo iptables -I %s" % (cmd))

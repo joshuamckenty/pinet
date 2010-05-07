@@ -48,21 +48,20 @@ def generate_x509_cert(subject="/C=US/ST=California/L=The Mission/O=CloudFed/OU=
     shutil.rmtree(tmpdir)
     return (private_key, csr)
 
-def sign_csr(csr_text):
+def sign_csr(csr_text, intermediate=None):
+    #TODO(joshua): Use the intermediate CA
     tmpfolder = tempfile.mkdtemp()
     csrfile = open("%s/inbound.csr" % (tmpfolder), "w")
     csrfile.write(csr_text)
     csrfile.close()
+    logging.debug("Flags path: %s" % FLAGS.ca_path)
     start = os.getcwd()
     # Change working dir to CA
     os.chdir(FLAGS.ca_path)
-    logging.debug("Flags path: %s" % FLAGS.ca_path)
     utils.runthis("Signing cert: %s", "openssl ca -batch -out %s/outbound.crt -config ./openssl.cnf -infiles %s/inbound.csr" % (tmpfolder, tmpfolder)) 
-    crtfile = open("%s/outbound.crt" % (tmpfolder), "r")
-    crttext = crtfile.read()
-    crtfile.close()
     os.chdir(start)
-    return crttext
+    with open("%s/outbound.crt" % (tmpfolder), "r") as crtfile:
+        return crtfile.read()
 
 def compute_md5(fp):
     """

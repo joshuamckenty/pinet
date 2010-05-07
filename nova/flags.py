@@ -65,3 +65,4 @@ if not FLAGS.has_key('verbose'):
                         socket.gethostname(),
                         'name of this node')
 
+    DEFINE_string('vpn_image_id', 'ami-A7370FE3', 'AMI for cloudpipe vpn server')

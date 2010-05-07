@@ -2,7 +2,9 @@
 import datetime  
 import logging   
 import os        
-import shutil   
+import shutil 
+from string import Template  
+import tarfile
 import tempfile      
 import uuid     
 import zipfile                                   
@@ -32,6 +34,9 @@ flags.DEFINE_string('ldap_subtree', 'ou=Users,dc=example,dc=com', 'OU for Users'
 flags.DEFINE_string('credentials_template',
                     utils.abspath('auth/novarc.template'),
                     'Template for creating users rc file')
+flags.DEFINE_string('vpn_client_template',
+                    utils.abspath('auth/client.ovpn.template'),
+                    'Template for creating users vpn file')                    
 flags.DEFINE_string('credential_key_file', 'pk.pem',
                     'Filename of private key in credentials zip')
 flags.DEFINE_string('credential_cert_file', 'cert.pem',
@@ -98,12 +103,22 @@ class User(object):
     def get_credentials(self):
         rc = self.generate_rc()
         private_key, signed_cert = self.generate_x509_cert()
+        
+        configfile = open(FLAGS.vpn_client_template,"r")
+        s = Template(configfile.read())
+        configfile.close()
+        config = s.substitute(keyfile=FLAGS.credential_key_file,
+			      certfile=FLAGS.credential_cert_file,
+			      ip=user.vpn_ip,
+			      port=user.vpn_port)
+        
         tmpdir = tempfile.mkdtemp()
         zf = os.path.join(tmpdir, "temp.zip")
         zippy = zipfile.ZipFile(zf, 'w')
         zippy.writestr(FLAGS.credential_rc_file, rc)
         zippy.writestr(FLAGS.credential_key_file, private_key)
         zippy.writestr(FLAGS.credential_cert_file, signed_cert)
+        zippy.writestr("nebula-client.conf", config)
         ca_file = os.path.join(FLAGS.ca_path, FLAGS.ca_file) 
         zippy.write(ca_file, FLAGS.ca_file)
         zippy.close()
@@ -255,6 +270,25 @@ class UserManager(object):
     def delete_key_pair(self, uid, key_name):
         with LDAPWrapper() as conn:
             conn.delete_key_pair(uid, key_name)
+
+    def get_signed_zip(self, username):
+        user = self.get_user(username)
+        return user.get_credentials()
+        
+        # DO I still need to return a tar file?
+        
+        # outtarpath = "%s/output.tar" % (tmpfolder)
+        # outtarfile = tarfile.open(outtarpath, "w")
+        # outtarfile.add(outzippath)
+        # outtarfile.close()
+        # 
+        # outzip = open(outzippath, "r")
+        # buffer = outzip.read()
+        # outzip.close()
+
+
+    def sign_cert(self, csr_text):
+        return crypto.sign_csr(csr_text)
 
     def generate_x509_cert(self, uid):
         (private_key, csr) = crypto.generate_x509_cert(self.cert_subject(uid))

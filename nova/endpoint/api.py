@@ -15,6 +15,11 @@ import cloud
 import flags
 import multiprocessing
 
+from cloudpipe.pipelib import CloudPipe
+import urllib
+import logging
+
+
 _log = logging.getLogger("api")
 _log.setLevel(logging.WARN)
 
@@ -203,6 +208,48 @@ class MetadataRequestHandler(tornado.web.RequestHandler):
         self.print_data(data)
         self.finish()
 
+class CloudPipeRequestHandler(tornado.web.RequestHandler):
+    def get(self, path):
+        self.manager = UserManager()
+        self.pipe = CloudPipe()
+        #if str(self.path) == u"/favicon.ico":
+        #    self.printCustomHTTPResponse(204)
+        #    return
+        if path[:7] == "/getca/":
+            self.send_root_ca(path[7:])
+        elif path[:9] == "/getcert/":
+            _log.debug( "Getting zip for %s" % (path[9:]))
+            try:
+                self.send_signed_zip(self.path[9:])
+            except Exception, err:
+                _log.debug('ERROR: %s\n' % str(err))
+                raise tornado.web.HTTPError(404)        
+        self.finish()
+
+    def send_root_ca(self, username):
+        self.set_header("Content-Type", "text/plain")
+        with open(self.ca_path(username),"r") as cafile:
+            self.write(cafile.read())
+        self.write("\n")
+        with open(self.ca_path(None),"r") as cafile:
+            self.write(cafile.read())
+    
+    def ca_path(self, username):
+        if username:
+            return "%s/INTER/%s/cacert.pem" % (FLAGS.ca_path, username) 
+        return "%s/cacert.pem" % (FLAGS.ca_path)
+
+    def send_signed_zip(self, username):
+        self.set_header("Content-Type", "application/zip")      
+        self.write(self.manager.get_signed_zip(username))
+
+    def post(self, path):
+        cert = self.get_argument('cert', '')                            
+        self.write(self.manager.sign_cert(urllib.unquote(cert)))
+        self.finish()
+
+
+
 class APIRequestHandler(tornado.web.RequestHandler):
     def get(self, controller_name):
         self.execute(controller_name)
@@ -296,6 +343,7 @@ class APIServerApplication(tornado.web.Application):
     def __init__(self, user_manager, controllers):
         tornado.web.Application.__init__(self, [
             (r'/', RootRequestHandler),
+            (r'/cloudpipe/(.*)', CloudPipeRequestHandler),
             (r'/services/([A-Za-z0-9]+)/', APIRequestHandler),
             (r'/latest/([-A-Za-z0-9/]*)', MetadataRequestHandler),
             (r'/2009-04-04/([-A-Za-z0-9/]*)', MetadataRequestHandler),
