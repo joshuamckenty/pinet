@@ -18,7 +18,7 @@ import api
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('cloudpipe_interval', 20,
+flags.DEFINE_integer('cloudpipe_interval', 30,
                      'seconds between check for cloudpipe spawns')
 
 

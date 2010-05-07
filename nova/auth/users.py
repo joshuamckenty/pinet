@@ -44,6 +44,7 @@ flags.DEFINE_string('credential_cert_file', 'cert.pem',
                     'Filename of certificate in credentials zip')
 flags.DEFINE_string('credential_rc_file', 'novarc',
                     'Filename of rc in credentials zip')
+flags.DEFINE_string('vpn_ip', '127.0.0.1', 'Public IP for the cloudpipe VPN servers')
 
 _log = logging.getLogger('auth')
 _log.setLevel(logging.WARN)
@@ -93,7 +94,7 @@ class User(object):
 
     @property
     def vpn_ip(self):
-        return "198.10.124.2"
+        return FLAGS.vpn_ip
 
     def is_admin(self):
         return self.ldap_user_object[1]['isAdmin'][0] == 'TRUE'

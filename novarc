@@ -1,8 +1,8 @@
 NOVA_KEY_DIR=$(pushd $(dirname $BASH_SOURCE)>/dev/null; pwd; popd>/dev/null)
-export EC2_ACCESS_KEY="1a6f9825-deff-4598-b3e0-fbfdad5010d8"
-export EC2_SECRET_KEY="29869fcc-d81a-4507-a763-79b0111f228d"
-export EC2_URL="http://172.24.226.1:8773/services/Cloud"
-export S3_URL="http://172.24.226.1:3333/"
+export EC2_ACCESS_KEY="admin"
+export EC2_SECRET_KEY="admin"
+export EC2_URL="http://172.24.226.3:8773/services/Cloud"
+export S3_URL="http://172.24.226.3:3333/"
 export EC2_USER_ID=42 # nova does not use user id, but bundling requires it
 export EC2_PRIVATE_KEY=${NOVA_KEY_DIR}/pk.pem
 export EC2_CERT=${NOVA_KEY_DIR}/cert.pem

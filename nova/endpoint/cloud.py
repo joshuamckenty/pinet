@@ -438,7 +438,14 @@ class CloudController(object):
         launchstate['mac_address'] = utils.generate_mac()
         (address, launchstate['network_name']) = self.network.get_cloudpipe_address(str(launchstate['owner_id']), mac=str(launchstate['mac_address']))
         launchstate['private_dns_name'] = str(address)
+        pending = {}
         launchstate = self._really_run_instance(user, kwargs, 0)
+        pending[kwargs['instance_id']] = dict(launchstate)
+        pending[kwargs['instance_id']]['state'] = node.Instance.NOSTATE
+        # TODO(vish): pending instances will be lost on crash
+        if(not self.instances.has_key('pending')):
+            self.instances['pending'] = {}
+        self.instances['pending'].update(pending)
     
     def terminate_instances(self, context, instance_id, **kwargs):
         # TODO: return error if not authorized
@@ -499,6 +506,7 @@ class CloudController(object):
         return defer.succeed({'imageId': image_id})
 
     def cloudcron(self):
+        logging.debug("Cloud Cron")
         self.ensure_VPN_connections()
 
     def ensure_VPN_connections(self):
@@ -516,9 +524,9 @@ class CloudController(object):
         return False
 
     def vpn_running_instance(self, username):
-        for node_name, node in self.instances.iteritems():
-            for instance in node.values():
-                if (instance.image_id == FLAGS.vpn_image_id and instance.state in [u'pending', u'running']):
+        for node_name, nodeobj in self.instances.iteritems():
+            for instance in nodeobj.values():
+                if (instance['image_id'] == FLAGS.vpn_image_id and instance['state'] in [node.Instance.NOSTATE, node.Instance.RUNNING]):
                     return instance
         return None
 
