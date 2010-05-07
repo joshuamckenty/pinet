@@ -168,6 +168,7 @@ class Node(GenericNode):
     def attach_volume(self, instance_id = None, aoe_device = None, mountpoint = None):
         runthis("Attached Volume: %s", "sudo virsh attach-disk %s /dev/etherd/%s %s"
                 % (instance_id, aoe_device, mountpoint.split("/")[-1]))
+        return defer.succeed(True)
 
     def _init_aoe(self):
         runthis("Doin an AoE discover, returns %s", "sudo aoe-discover")
@@ -178,6 +179,7 @@ class Node(GenericNode):
         """ detach a volume from an instance """
         runthis("Detached Volume: %s", "sudo virsh detach-disk %s %s "
                 % (instance_id, mountpoint))
+        return defer.succeed(True)
 
 class Group(object):
     def __init__(self, group_id):
