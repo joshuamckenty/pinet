@@ -2,7 +2,7 @@
 
 import os, re, unittest, sys
 from commands import getstatusoutput
-from paramiko import SSHClient, WarningPolicy, SSHException
+from paramiko import SSHClient, SSHException, RSAKey, WarningPolicy
 import random
 
 BUCKET_NAME = 'smoketest'
@@ -30,14 +30,15 @@ class NovaTestCase(unittest.TestCase):
 
     def connect_ssh(self, ip, key_name):
         # TODO: set a more reasonable connection timeout time
+        key = RSAKey.from_private_key_file('/tmp/%s.pem' % key_name)
         client = SSHClient()
         client.load_system_host_keys()
         client.set_missing_host_key_policy(WarningPolicy())
-        client.connect(ip, key_filename='/tmp/%s.pem' % key_name)
+        client.connect(ip, username='ubuntu', pkey=key)
         stdin, stdout, stderr = client.exec_command('uptime')
         print 'uptime: ', stdout.read()
         return client
-
+        
     def can_ping(self, ip):
         return getstatusoutput('ping -c 1 %s' % ip)[0] == 0
 
