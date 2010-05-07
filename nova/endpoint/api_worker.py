@@ -33,6 +33,11 @@ def main(argv):
                                        proxy=controllers['Cloud'])
 
     io_inst = ioloop.IOLoop.instance()
+    scheduler = ioloop.PeriodicCallback(
+            lambda: controllers['Cloud'].cloudcron(),
+            FLAGS.node_report_state_interval * 1000,
+            io_loop=io_inst)
+
     
     # TODO: Do we need to keep track of 'injected' ?
     injected = consumer.attach_to_tornado(io_inst)
@@ -40,7 +45,8 @@ def main(argv):
     http_server = httpserver.HTTPServer(_app)
     http_server.listen(FLAGS.cc_port)
     logging.debug('Started HTTP server on %s' % (FLAGS.cc_port))
-    ioloop.IOLoop.instance().start()
+    scheduler.start()
+    io_inst.start()
 
 
 if __name__ == '__main__':
