@@ -227,11 +227,11 @@ class CloudController(object):
 
     def _get_by_id(self, nodes, id):
         if nodes == {}:
-            raise exception.ApiError("%s not found" % id)
+            raise exception.NotFound("%s not found" % id)
         for node_name, node in nodes.iteritems():
             if node.has_key(id):
                 return node_name, node[id]
-        raise exception.ApiError("%s not found" % id)
+        raise exception.NotFound("%s not found" % id)
 
     def _get_volume(self, volume_id):
         return self._get_by_id(self.volumes, volume_id)
@@ -272,15 +272,17 @@ class CloudController(object):
         instance = None
         if volume.has_key('instance_id'):
             instance_id = volume['instance_id']
-            compute_node, instance = self._get_instance(instance_id)
-        if instance:
-            mountpoint = volume['mountpoint']
-            if not context.user.is_authorized(instance.get('owner_id', None)):
-                raise exception.ApiError("%s not authorized for %s" % (context.user.id, instance_id))
-            rpc.cast('%s.%s' % (FLAGS.compute_topic, compute_node),
+            try:
+                compute_node, instance = self._get_instance(instance_id)
+                mountpoint = volume['mountpoint']
+                if not context.user.is_authorized(instance.get('owner_id', None)):
+                    raise exception.ApiError("%s not authorized for %s" % (context.user.id, instance_id))
+                rpc.cast('%s.%s' % (FLAGS.compute_topic, compute_node),
                                 {"method": "detach_volume",
                                  "args" : {"instance_id": instance_id,
                                            "mountpoint": mountpoint}})
+            except exception.NotFound:
+                pass
         rpc.cast('%s.%s' % (FLAGS.storage_topic, storage_node),
                                 {"method": "detach_volume",
                                  "args" : {"volume_id": volume_id}})
