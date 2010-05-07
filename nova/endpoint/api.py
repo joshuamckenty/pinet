@@ -15,7 +15,7 @@ import cloud
 import flags
 import multiprocessing
 
-from cloudpipe.pipelib import CloudPipe
+from nova.cloudpipe.pipelib import CloudPipe
 import urllib
 import logging
 
@@ -59,10 +59,10 @@ class APIRequest(object):
         self.handler = handler
         self.controller = controller
         self.action = action
-        
+
     def send(self, user, **kwargs):
         context = APIRequestContext(self.handler, user)
-    
+
         try:
             method = getattr(self.controller,
                              _camelcase_to_underscore(self.action))
@@ -73,7 +73,7 @@ class APIRequest(object):
             # TODO: Raise custom exception, trap in apiserver,
             #       and reraise as 400 error.
             raise Exception(_error)
-        
+
         args = {}
         for key, value in kwargs.items():
             parts = key.split(".")
@@ -85,7 +85,7 @@ class APIRequest(object):
             else:
                 value = value[0]
             args[key] = value
-            
+
         for key in args.keys():
             if isinstance(args[key], dict):
                 if args[key] != {} and args[key].keys()[0].isdigit():
@@ -99,7 +99,7 @@ class APIRequest(object):
 
     def _render_response(self, response_data, request_id):
         xml = minidom.Document()
-    
+
         response_el = xml.createElement(self.action + 'Response')
         response_el.setAttribute('xmlns',
                                  'http://ec2.amazonaws.com/doc/2009-11-30/')
@@ -108,16 +108,16 @@ class APIRequest(object):
         response_el.appendChild(request_id_el)
         if(response_data == True):
             self._render_dict(xml, response_el, {'return': 'true'})
-        else: 
+        else:
             self._render_dict(xml, response_el, response_data)
-    
+
         xml.appendChild(response_el)
-    
+
         response = xml.toxml()
         xml.unlink()
         _log.debug(response)
         return response
-    
+
     def _render_dict(self, xml, el, data):
         try:
             for key in data.keys():
@@ -130,7 +130,7 @@ class APIRequest(object):
     def _render_data(self, xml, el_name, data):
         el_name = _underscore_to_xmlcase(el_name)
         data_el = xml.createElement(el_name)
-    
+
         if isinstance(data, list):
             for item in data:
                 data_el.appendChild(self._render_data(xml, 'item', item))
@@ -142,7 +142,7 @@ class APIRequest(object):
             data_el.appendChild(xml.createTextNode(str(data).lower()))
         elif data != None:
             data_el.appendChild(xml.createTextNode(str(data)))
-        
+
         return data_el
 
 
@@ -223,7 +223,7 @@ class CloudPipeRequestHandler(tornado.web.RequestHandler):
                 self.send_signed_zip(self.path[9:])
             except Exception, err:
                 _log.debug('ERROR: %s\n' % str(err))
-                raise tornado.web.HTTPError(404)        
+                raise tornado.web.HTTPError(404)
         self.finish()
 
     def send_root_ca(self):
@@ -236,18 +236,18 @@ class CloudPipeRequestHandler(tornado.web.RequestHandler):
         self.write("\n")
         with open(self.ca_path(None),"r") as cafile:
             self.write(cafile.read())
-    
+
     def ca_path(self, username):
         if username:
-            return "%s/INTER/%s/cacert.pem" % (FLAGS.ca_path, username) 
+            return "%s/INTER/%s/cacert.pem" % (FLAGS.ca_path, username)
         return "%s/cacert.pem" % (FLAGS.ca_path)
 
     def send_signed_zip(self, username):
-        self.set_header("Content-Type", "application/zip")      
+        self.set_header("Content-Type", "application/zip")
         self.write(self.manager.get_signed_zip(username))
 
     def post(self, path):
-        cert = self.get_argument('cert', '')                            
+        cert = self.get_argument('cert', '')
         self.write(self.manager.sign_cert(urllib.unquote(cert)))
         self.finish()
 
@@ -256,7 +256,7 @@ class CloudPipeRequestHandler(tornado.web.RequestHandler):
 class APIRequestHandler(tornado.web.RequestHandler):
     def get(self, controller_name):
         self.execute(controller_name)
-    
+
     @tornado.web.asynchronous
     def execute(self, controller_name):
         # Obtain the appropriate controller for this request.
@@ -265,17 +265,17 @@ class APIRequestHandler(tornado.web.RequestHandler):
         except KeyError:
             self._error('unhandled', 'no controller named %s' % controller_name)
             return
-        
+
         args = self.request.arguments
-        
+
         # Read request signature.
         try:
             signature = args.pop('Signature')[0]
         except:
             raise tornado.web.HTTPError(400)
-            
+
         # Make a copy of args for authentication and signature verification.
-        auth_params = {} 
+        auth_params = {}
         for key, value in args.items():
             auth_params[key] = value[0]
 
@@ -298,7 +298,7 @@ class APIRequestHandler(tornado.web.RequestHandler):
             self.request.host,
             self.request.path
         )
-        
+
         if not user:
             raise tornado.web.HTTPError(403)
 
@@ -311,10 +311,10 @@ class APIRequestHandler(tornado.web.RequestHandler):
         d = request.send(user, **args)
         # d.addCallback(utils.debug)
 
-        # TODO: Wrap response in AWS XML format  
+        # TODO: Wrap response in AWS XML format
         d.addCallbacks(self._write_callback, self._error_callback)
 
-    def _write_callback(self, data): 
+    def _write_callback(self, data):
         self.set_header('Content-Type', 'text/xml')
         self.write(data)
         self.finish()

@@ -8,7 +8,7 @@ import os
 import tempfile
 from zipfile import ZipFile, ZIP_DEFLATED
 
-import contrib
+import nova.contrib
 import flags
 from nova import crypto
 from nova.auth import users
@@ -19,7 +19,7 @@ class CloudPipe(object):
     def __init__(self, cloud_controller):
         self.controller = cloud_controller
         self.manager = users.UserManager()
-    
+
     def launch_vpn_instance(self, username):
         logging.debug( "Launching VPN for %s" % (username))
         user = self.manager.get_user(username)
@@ -30,7 +30,7 @@ class CloudPipe(object):
         z = ZipFile(zippath, "w", ZIP_DEFLATED)
         z.write('bootscript.sh','autorun.sh')
         z.close()
-    
+
         self.setup_keypair(username)
         zippy = open(zippath, "r")
         reservation = self.controller.run_vpn_instance(user, user_data = zippy.read().encode("base64"), key_name = "vpn-key", security_groups = ["vpn-secgroup"])
@@ -43,7 +43,7 @@ class CloudPipe(object):
             keypair.save(os.path.abspath("%s/%s" % (FLAGS.keys_path, username)))
         except:
             pass
-        
+
     # def setup_secgroups(self, username):
     #     conn = self.euca.connection_for(username)
     #     try:
