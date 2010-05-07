@@ -45,13 +45,13 @@ if not FLAGS.has_key('verbose'):
 
                                            
     DEFINE_string('default_image',
-                        'ubuntu-karmic-x86_64.img',
+                        'ami-25CB1213',
                         'default image to use, testing only')
     DEFINE_string('default_kernel',
-                        'vmlinuz-karmic-x86_64',
+                        'aki-EAB510D9',
                         'default kernel to use, testing only')
     DEFINE_string('default_ramdisk',
-                        'initrd-karmic-x86_64',
+                        'ari-22F211EF',
                         'default ramdisk to use, testing only')
     DEFINE_string('default_instance_type',
                         'm1.small',
