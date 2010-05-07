@@ -226,11 +226,11 @@ class CloudController(object):
 
     def _get_by_id(self, nodes, id):
         if nodes == {}:
-            raise exception.ApiError("%s not found", id)
+            raise exception.ApiError("%s not found" % id)
         for node_name, node in nodes.iteritems():
             if node.has_key(id):
                 return node_name, node[id]
-        raise exception.ApiError("%s not found", id)
+        raise exception.ApiError("%s not found" % id)
 
     def _get_volume(self, volume_id):
         return self._get_by_id(self.volumes, volume_id)
