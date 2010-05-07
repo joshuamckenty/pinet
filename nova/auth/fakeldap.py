@@ -1,4 +1,7 @@
 import logging
+from nova import datastore
+
+KEEPER = datastore.keeper('fakeldap')
 
 SCOPE_SUBTREE  = 1
 
@@ -8,7 +11,8 @@ class NO_SUCH_OBJECT(Exception):
 def initialize(uri):
     return FakeLDAP(uri)
 
-_objects = {}
+if KEEPER['objects'] is None:
+    KEEPER['objects'] = {}
 
 class FakeLDAP(object):
     def __init__(self, uri):
@@ -23,7 +27,7 @@ class FakeLDAP(object):
     def search_s(self, dn, scope, query=None, fields=None):
         logging.debug("searching for %s" % dn)
         filtered = {}
-        for cn, attrs in _objects.iteritems():
+        for cn, attrs in KEEPER['objects'].iteritems():
             if cn[-len(dn):] == dn:
                 filtered[cn] = attrs
         if query:
@@ -45,8 +49,12 @@ class FakeLDAP(object):
                 stored[k] = v
             else:
                 stored[k] = [v]
-        _objects[cn] = stored
+        d = KEEPER['objects']
+        d[cn] = stored
+        KEEPER['objects'] = d
 
     def delete_s(self, cn):
         logging.debug("creating for %s" % cn)
-        del _objects[cn]
+        d = KEEPER['objects']
+        del d[cn]
+        KEEPER['objects'] = d
