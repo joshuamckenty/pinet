@@ -225,33 +225,27 @@ class CloudPipeRequestHandler(tornado.web.RequestHandler):
                 _log.debug('ERROR: %s\n' % str(err))
                 raise tornado.web.HTTPError(404)
         self.finish()
+        
+    def get_username_from_ip(self, ip):
+        cc = self.application.controllers['Cloud']
+        instance = cc.get_instance_by_ip(ip)
+        return instance['owner_id']
 
     def send_root_ca(self):
-        cc = self.application.controllers['Cloud']
-        instance = cc.get_instance_by_ip(self.request.remote_ip)
-        username = instance['owner_id']
+        username = self.get_username_from_ip(self.request.remote_ip)
         self.set_header("Content-Type", "text/plain")
-        with open(self.ca_path(username),"r") as cafile:
-            self.write(cafile.read())
-        self.write("\n")
-        with open(self.ca_path(None),"r") as cafile:
-            self.write(cafile.read())
-
-    def ca_path(self, username):
-        if username:
-            return "%s/INTER/%s/cacert.pem" % (FLAGS.ca_path, username)
-        return "%s/cacert.pem" % (FLAGS.ca_path)
+        cc = self.application.controllers['Cloud']
+        self.write(cc.fetch_ca(username))
 
     def send_signed_zip(self, username):
         self.set_header("Content-Type", "application/zip")
         self.write(self.manager.get_signed_zip(username))
 
     def post(self, path):
+        username = self.get_username_from_ip(self.request.remote_ip)
         cert = self.get_argument('cert', '')
-        self.write(self.manager.sign_cert(urllib.unquote(cert)))
+        self.write(self.manager.sign_cert(urllib.unquote(cert), username))
         self.finish()
-
-
 
 class APIRequestHandler(tornado.web.RequestHandler):
     def get(self, controller_name):

@@ -48,16 +48,27 @@ def generate_x509_cert(subject="/C=US/ST=California/L=The Mission/O=CloudFed/OU=
     shutil.rmtree(tmpdir)
     return (private_key, csr)
 
-def sign_csr(csr_text, intermediate=None):
+def sign_csr(csr_text, intermediate=None):  
+    if not intermediate:
+        return _sign_csr(csr_text, FLAGS.ca_path)
+    user_ca = "%s/INTER/%s" % (FLAGS.ca_path, intermediate)
+    if not os.path.exists(user_ca):
+        start = os.getcwd()
+        os.chdir(FLAGS.ca_path)
+        utils.runthis("Generating intermediate CA: %s", "sh geninter.sh %s" % (intermediate))
+        os.chdir(start)
+    return _sign_csr(csr_text, user_ca)
+    
+def _sign_csr(csr_text, ca_folder):
     #TODO(joshua): Use the intermediate CA
     tmpfolder = tempfile.mkdtemp()
     csrfile = open("%s/inbound.csr" % (tmpfolder), "w")
     csrfile.write(csr_text)
     csrfile.close()
-    logging.debug("Flags path: %s" % FLAGS.ca_path)
+    logging.debug("Flags path: %s" % ca_folder)
     start = os.getcwd()
     # Change working dir to CA
-    os.chdir(FLAGS.ca_path)
+    os.chdir(ca_folder)
     utils.runthis("Signing cert: %s", "openssl ca -batch -out %s/outbound.crt -config ./openssl.cnf -infiles %s/inbound.csr" % (tmpfolder, tmpfolder)) 
     os.chdir(start)
     with open("%s/outbound.crt" % (tmpfolder), "r") as crtfile:

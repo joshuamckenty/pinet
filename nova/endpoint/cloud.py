@@ -50,6 +50,7 @@ class CloudController(object):
         self.instances = {}
         self.network = network.NetworkController()
         self.pipe = CloudPipe(self)
+        self.setup()
 
     def __str__(self):
         return 'CloudController'
@@ -67,8 +68,21 @@ class CloudController(object):
             os.chdir(start)
             # TODO: Do this with M2Crypto instead
 
-    def fetch_ca(self):
-        return open(os.path.join(FLAGS.ca_path, 'cacert.pem')).read()
+    def ca_path(self, username):
+        if username:
+            return "%s/INTER/%s/cacert.pem" % (FLAGS.ca_path, username)
+        return "%s/cacert.pem" % (FLAGS.ca_path)
+
+    def fetch_ca(self, username=None, chain=True):
+        buffer = ""
+        with open(self.ca_path(username),"r") as cafile:
+            buffer += cafile.read()
+            buffer += "\n"
+        if username and not chain:
+            return buffer
+        with open(self.ca_path(None),"r") as cafile:
+            buffer += cafile.read()
+        return buffer
                           
     def get_instance_by_ip(self, ip):
         if self.instances == {}:

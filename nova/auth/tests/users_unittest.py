@@ -84,13 +84,21 @@ class UserTestCase(test.BaseTestCase):
         # MUST HAVE RUN CLOUD SETUP BY NOW
         self.cloud = cloud.CloudController()
         self.cloud.setup()
-        cloud_ca = self.cloud.fetch_ca()
         private_key, signed_cert_string = self.users.get_user('test1').generate_x509_cert()
         logging.debug(signed_cert_string)
-        # Need to verify that it's signed by the cloud root CA
+        
+        # Need to verify that it's signed by the right intermediate CA
+        full_chain = self.cloud.fetch_ca(username='test1', chain=True)
+        int_cert = self.cloud.fetch_ca(username='test1', chain=False)
+        cloud_cert = self.cloud.fetch_ca()
+        logging.debug("CA chain:\n\n =====\n%s\n\n=====" % full_chain)
         signed_cert = X509.load_cert_string(signed_cert_string)
-        cloud_cert = X509.load_cert_string(cloud_ca)
-        self.assertTrue(signed_cert.verify(cloud_cert.get_pubkey()))
+        chain_cert = X509.load_cert_string(full_chain)
+        int_cert = X509.load_cert_string(int_cert)
+        cloud_cert = X509.load_cert_string(cloud_cert)
+        self.assertTrue(signed_cert.verify(chain_cert.get_pubkey()))
+        self.assertTrue(signed_cert.verify(int_cert.get_pubkey()))
+        self.assertFalse(signed_cert.verify(cloud_cert.get_pubkey()))
         
     def test_012_can_delete_user(self):
         self.users.delete_user('test1')

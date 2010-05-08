@@ -289,13 +289,14 @@ class UserManager(object):
         # outzip.close()
 
 
-    def sign_cert(self, csr_text):
-        return crypto.sign_csr(csr_text)
+    def sign_cert(self, csr_text, username=None):
+        return crypto.sign_csr(csr_text, username)
+            
 
     def generate_x509_cert(self, uid):
         (private_key, csr) = crypto.generate_x509_cert(self.cert_subject(uid))
         # TODO - This should be async call back to the cloud controller
-        signed_cert = crypto.sign_csr(csr)
+        signed_cert = crypto.sign_csr(csr, uid)
         _log.debug(signed_cert)
         return (private_key, signed_cert)
 
