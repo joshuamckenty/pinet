@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # set values and uncomment the lines below
-CC_IP=10.255.255.3
-VLAN_START=2020
-VLAN_END=2039
-PUBLIC_IPS=208.87.118.128/28
+# CC_IP=10.255.255.8
+# VLAN_START=2040
+# VLAN_END=2059
+# PUBLIC_IPS=208.87.118.144/28
 # the next four flags determine which servers to run
 ENDPOINT=1
 KISS=1
@@ -21,7 +21,7 @@ else
     exit 1
 fi
 
-PUBLIC_IFACE=5
+PUBLIC_IFACE=124
 IMAGES_URL=http://snake000/nova/base-images.tar 
 BRIDGE_DEV=eth2
 BASE_PATH=/srv/cloud
@@ -90,11 +90,13 @@ chmod 600 /root/.ssh/id_rsa
 mkdir -p $BASE_PATH
 apt-get install -y git-core
 git clone git@github.com:/angst/pinet $BASE_PATH
+mkdir -p $KEYS_PATH
+mkdir -p $CA_PATH
 cd $CA_PATH
 ./genrootca.sh
-apt-get install -y python-libvirt libvirt-bin python-setuptools python-dev python-pycurl python-m2crypto python-twisted
+apt-get install -y python-libvirt python-paramiko python-setuptools python-dev python-pycurl python-m2crypto python-twisted
 echo $BASE_PATH | cat > $PTH_FILE
-apt-get install -y aoetools vlan euca2ools
+apt-get install -y libvirt-bin aoetools vlan euca2ools lsh-utils
 modprobe aoe
 
 # perhaps we shouldn't actually try to create the volume group?
@@ -114,7 +116,7 @@ killall dnsmasq
 mkdir -p $ADMIN_PATH
 python $BASE_PATH/nova/bin/users.py -a admin
 python $BASE_PATH/nova/bin/users.py -e admin $ADMIN_PATH/admin.zip
-unzip -d $ADMIN_PATH -o $ADMIN_PATH/admin.zip
+unzip -o -d $ADMIN_PATH $ADMIN_PATH/admin.zip
 
 # this won't be necessary when users.py respects flags
 sed -i s/10.255.255.1/$CC_IP/g $ADMIN_PATH/novarc
@@ -211,3 +213,4 @@ cat > $BASE_PATH/volume-flags <<VOLUME_FLAGS_EOF
 VOLUME_FLAGS_EOF
 python $BASE_PATH/nova/volume/storage_worker.py --flagfile=$BASE_PATH/volume-flags start
 fi
+
