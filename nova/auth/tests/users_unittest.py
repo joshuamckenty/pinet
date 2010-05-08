@@ -1,12 +1,13 @@
-import os
 import unittest
-import flags
+from nova import flags
 import test
 from nova.endpoint import cloud
 import logging
+from nova import utils
 
 from nova.auth.users import UserManager
 from M2Crypto import RSA, BIO, X509
+from nova import crypto
 
 FLAGS = flags.FLAGS
 
@@ -53,18 +54,16 @@ class UserTestCase(test.BaseTestCase):
         self.assertEqual('fingerprint', key.fingerprint)
 
     def test_007_test_key_generation(self):
-        private_key, fingerprint = self.users.get_user('test1').generate_key_pair('public2')
+        user = self.users.get_user('test1')
+        private_key, fingerprint = user.generate_key_pair('public2')
         key = RSA.load_key_string(private_key, callback=lambda: None)
         bio = BIO.MemoryBuffer()
+        public_key = user.get_key_pair('public2').public_key
         key.save_pub_key_bio(bio)
-        # These are in two different formats right now, test is bork.
-        #self.assertEqual(self.users.get_user('test1').get_key_pair('public2').public_key,
-        #                 bio.read())
-        data = 'Some Random Text to sign!'
-        key.save_pub_key_bio(bio)
-        pubkey = RSA.load_pub_key_bio(bio)
-        sign = key.sign(data)
-        self.assertTrue(pubkey.verify(data, sign))
+        converted = crypto.ssl_pub_to_ssh_pub(bio.read())
+        # assert key fields are equal
+        self.assertEqual(public_key.split(" ")[1].strip(),
+                         converted.split(" ")[1].strip())
     
     def test_008_can_list_key_pairs(self):
         keys = self.users.get_user('test1').get_key_pairs()

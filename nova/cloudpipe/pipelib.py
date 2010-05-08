@@ -43,9 +43,9 @@ class CloudPipe(object):
 
     def setup_keypair(self, username):
         try:
-            keypair, fingerprint = self.manager.generate_key_pair(username, "vpn-key")
+            private_key, fingerprint = self.manager.generate_key_pair(username, "vpn-key")
             os.mkdir("%s/%s" % (FLAGS.keys_path, username))
-            keypair.save(os.path.abspath("%s/%s" % (FLAGS.keys_path, username)))
+            private_key.save(os.path.abspath("%s/%s" % (FLAGS.keys_path, username)))
         except:
             pass
 

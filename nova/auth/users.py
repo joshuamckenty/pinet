@@ -245,9 +245,7 @@ class UserManager(object):
                             key_name +
                             "' already exists.",
                             "Duplicate")
-        private_key, public_key = crypto.generate_keypair()
-        #TODO(vish): calculate real fingerprint frome private key
-        fingerprint = 'fixme'
+        private_key, public_key, fingerprint = crypto.generate_key_pair()
         self.create_key_pair(uid, key_name, public_key, fingerprint)
         return private_key, fingerprint
 

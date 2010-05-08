@@ -16,14 +16,17 @@ flags.DEFINE_string('ca_file', 'cacert.pem', 'Filename of root CA')
 flags.DEFINE_string('keys_path', utils.abspath('../keys'), 'Where we keep our keys')
 flags.DEFINE_string('ca_path', utils.abspath('../CA'), 'Where we keep our root CA')
 
-def generate_keypair(bits=1024):
+def generate_key_pair(bits=1024):
     # what is the magic 65537?
     
     tmpdir = tempfile.mkdtemp()
     keyfile = os.path.join(tmpdir, 'temp')
     utils.execute('ssh-keygen -q -b %d -N "" -f %s' % (bits, keyfile))
+    (out, err) = utils.execute('ssh-keygen -q -l -f %s.pub' % (keyfile))
+    fingerprint = out.split(' ')[1]
     private_key = open(keyfile).read()
     public_key = open(keyfile + '.pub').read()
+
     shutil.rmtree(tmpdir)
     # code below returns public key in pem format
     # key = M2Crypto.RSA.gen_key(bits, 65537, callback=lambda: None)
@@ -33,8 +36,15 @@ def generate_keypair(bits=1024):
     # public_key = bio.read()
     # public_key, err = execute('ssh-keygen -y -f /dev/stdin', private_key)
 
-    return (private_key, public_key)
+    return (private_key, public_key, fingerprint)
 
+def ssl_pub_to_ssh_pub(ssl_public_key, name='root', suffix='nova'):
+    """requires lsh-utils"""
+    convert="sed -e'1d' -e'$d' |  pkcs1-conv --public-key-info --base-64 |" \
+    + " sexp-conv |  sed -e'1s/(rsa-pkcs1/(rsa-pkcs1-sha1/' |  sexp-conv -s" \
+    + " transport | lsh-export-key --openssh"
+    (out, err) = utils.execute(convert, ssl_public_key)
+    return '%s %s@%s\n' %(out.strip(), name, suffix)
 
 def generate_x509_cert(subject="/C=US/ST=California/L=The Mission/O=CloudFed/OU=NOVA/CN=foo", bits=1024):
     tmpdir = tempfile.mkdtemp()
