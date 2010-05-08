@@ -102,7 +102,8 @@ class UserTestCase(test.BaseTestCase):
     def test_012_can_delete_user(self):
         self.users.delete_user('test1')
         users = self.users.get_users()
-        self.assertFalse(filter(lambda u: u.id == 'test1', users))
+        if users != None:
+            self.assertFalse(filter(lambda u: u.id == 'test1', users))
     
         
 if __name__ == "__main__":
