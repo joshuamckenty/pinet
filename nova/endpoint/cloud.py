@@ -540,7 +540,9 @@ class CloudController(object):
     def vpn_running_instance(self, username):
         for node_name, nodeobj in self.instances.iteritems():
             for instance in nodeobj.values():
-                if (instance['image_id'] == FLAGS.vpn_image_id and instance['state'] in [node.Instance.NOSTATE, node.Instance.RUNNING]):
+                if (instance['image_id'] == FLAGS.vpn_image_id
+                    and instance['state'] in [node.Instance.NOSTATE, node.Instance.RUNNING]
+                    and instance['owner_id'] == username):
                     return instance
         return None
 
