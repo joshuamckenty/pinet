@@ -1,14 +1,14 @@
 
-#!/usr/bin/env python 
-import datetime  
-import logging   
-import os        
-import shutil 
-from string import Template  
+#!/usr/bin/env python
+import datetime
+import logging
+import os
+import shutil
+from string import Template
 import tarfile
-import tempfile      
-import uuid     
-import zipfile                                   
+import tempfile
+import uuid
+import zipfile
 
 try:
     import ldap
@@ -18,16 +18,16 @@ except Exception, e:
 import fakeldap
 from nova import datastore
 
-# TODO(termie): clean up these imports    
-import signer    
+# TODO(termie): clean up these imports
+import signer
 from nova import exception
 from nova import flags
 from nova import crypto
-from nova import utils    
+from nova import utils
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('ldap_url', 'ldap://localhost', 'Point this at your ldap server') 
+flags.DEFINE_string('ldap_url', 'ldap://localhost', 'Point this at your ldap server')
 flags.DEFINE_string('ldap_password',  'changeme', 'LDAP password')
 flags.DEFINE_string('user_dn', 'cn=Manager,dc=example,dc=com', 'DN of admin user')
 flags.DEFINE_string('user_unit', 'Users', 'OID for Users')
@@ -37,7 +37,7 @@ flags.DEFINE_string('credentials_template',
                     'Template for creating users rc file')
 flags.DEFINE_string('vpn_client_template',
                     utils.abspath('cloudpipe/client.ovpn.template'),
-                    'Template for creating users vpn file')                    
+                    'Template for creating users vpn file')
 flags.DEFINE_string('credential_key_file', 'pk.pem',
                     'Filename of private key in credentials zip')
 flags.DEFINE_string('credential_cert_file', 'cert.pem',
@@ -86,23 +86,23 @@ class User(object):
         return FLAGS.vpn_ip
 
     def is_admin(self):
-        return admin
+        return self.admin
 
     def is_authorized(self, owner_id, action=None):
         return self.is_admin() or owner_id == self.id
-         
+
     def get_credentials(self):
         rc = self.generate_rc()
         private_key, signed_cert = self.generate_x509_cert()
-        
+
         configfile = open(FLAGS.vpn_client_template,"r")
         s = Template(configfile.read())
         configfile.close()
         config = s.substitute(keyfile=FLAGS.credential_key_file,
-			      certfile=FLAGS.credential_cert_file,
-			      ip=self.vpn_ip,
-			      port=self.vpn_port)
-        
+                              certfile=FLAGS.credential_cert_file,
+                              ip=self.vpn_ip,
+                              port=self.vpn_port)
+
         tmpdir = tempfile.mkdtemp()
         zf = os.path.join(tmpdir, "temp.zip")
         zippy = zipfile.ZipFile(zf, 'w')
@@ -110,12 +110,12 @@ class User(object):
         zippy.writestr(FLAGS.credential_key_file, private_key)
         zippy.writestr(FLAGS.credential_cert_file, signed_cert)
         zippy.writestr("nebula-client.conf", config)
-        ca_file = os.path.join(FLAGS.ca_path, FLAGS.ca_file) 
+        ca_file = os.path.join(FLAGS.ca_path, FLAGS.ca_file)
         zippy.write(ca_file, FLAGS.ca_file)
         zippy.close()
         with open(zf, 'rb') as f:
             buffer = f.read()
-         
+
         shutil.rmtree(tmpdir)
         return buffer
 
@@ -152,7 +152,7 @@ class User(object):
 
     def get_key_pairs(self):
         return self.manager.get_key_pairs(self.id)
-        
+
 class KeyPair(object):
     def __init__(self, name, owner, public_key, fingerprint):
         self.manager = UserManager.instance()
@@ -196,7 +196,7 @@ class UserManager(object):
     def get_user(self, uid):
         with LDAPWrapper() as conn:
             return conn.find_user(uid)
-    
+
     def get_user_from_access_key(self, access_key):
         with LDAPWrapper() as conn:
             return conn.find_user_by_access_key(access_key)
@@ -204,7 +204,7 @@ class UserManager(object):
     def get_users(self):
         with LDAPWrapper() as conn:
             return conn.find_users()
-    
+
     def create_user(self, uid, access=None, secret=None, admin=False):
         if access == None: access = str(uuid.uuid4())
         if secret == None: secret = str(uuid.uuid4())
@@ -233,7 +233,7 @@ class UserManager(object):
     def create_key_pair(self, uid, key_name, public_key, fingerprint):
         with LDAPWrapper() as conn:
             return conn.create_key_pair(uid, key_name, public_key, fingerprint)
-    
+
     def get_key_pair(self, uid, key_name):
         with LDAPWrapper() as conn:
             return conn.find_key_pair(uid, key_name)
@@ -241,7 +241,7 @@ class UserManager(object):
     def get_key_pairs(self, uid):
         with LDAPWrapper() as conn:
             return conn.find_key_pairs(uid)
-    
+
     def delete_key_pair(self, uid, key_name):
         with LDAPWrapper() as conn:
             conn.delete_key_pair(uid, key_name)
@@ -249,14 +249,14 @@ class UserManager(object):
     def get_signed_zip(self, uid):
         user = self.get_user(uid)
         return user.get_credentials()
-        
+
         # DO I still need to return a tar file?
-        
+
         # outtarpath = "%s/output.tar" % (tmpfolder)
         # outtarfile = tarfile.open(outtarpath, "w")
         # outtarfile.add(outzippath)
         # outtarfile.close()
-        # 
+        #
         # outzip = open(outzippath, "r")
         # buffer = outzip.read()
         # outzip.close()
@@ -276,11 +276,11 @@ class LDAPWrapper(object):
         self.user = FLAGS.user_dn
         self.passwd = FLAGS.ldap_password
         pass
-    
+
     def __enter__(self):
         self.connect()
         return self
-    
+
     def __exit__(self, type, value, traceback):
         self.conn.unbind_s()
 
@@ -298,7 +298,7 @@ class LDAPWrapper(object):
         if len(objects) == 0:
             return None
         return objects[0]
-    
+
     def find_objects(self, dn, query = None):
         try:
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query)
@@ -323,7 +323,7 @@ class LDAPWrapper(object):
 
     def user_exists(self, name):
         return self.find_user(name) != None
-        
+
     def find_key_pair(self, uid, key_name):
         dn = 'cn=%s,uid=%s,%s' % (key_name,
                                    uid,
@@ -339,7 +339,7 @@ class LDAPWrapper(object):
 
     def key_pair_exists(self, uid, key_name):
         return self.find_key_pair(uid, key_name) != None
-        
+
     def create_user(self, name, access_key, secret_key, is_admin):
         if self.user_exists(name):
             raise UserError("LDAP user " + name + " already exists")
@@ -375,7 +375,7 @@ class LDAPWrapper(object):
                                              FLAGS.ldap_subtree),
                                              attr)
         return self.__to_key_pair(uid, dict(attr))
-    
+
     def find_user_by_access_key(self, access):
         query = '(' + 'accessKey' + '=' + access + ')'
         dn = FLAGS.ldap_subtree

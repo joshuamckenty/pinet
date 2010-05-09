@@ -167,7 +167,7 @@ class BucketHandler(BaseRequestHandler):
         logging.debug("Deleting bucket %s" % (bucket_name))
         bucket = Bucket(bucket_name)
 
-        if bucket.is_authorized(self.user):
+        if not bucket.is_authorized(self.user):
             raise web.HTTPError(403)
 
         bucket.delete()
@@ -252,8 +252,19 @@ class ImageHandler(BaseRequestHandler):
 
     @catch_nova_exceptions
     def post(self):
-        """ update image attributes """
-        pass
+        """ update image attributes: public/private """
+
+        image_id = self.get_argument('image_id', u'')
+        operation = self.get_argument('operation', u'')
+
+        image = Image(image_id)
+
+        if image.owner_id != self.user.id:
+            raise web.HTTPError(403)
+
+        image.set_public(operation=='add')
+
+        self.finish()
 
     @catch_nova_exceptions
     def delete(self):

@@ -79,7 +79,7 @@ class Bucket(object):
     def is_authorized(self, user):
         try:
             return user.is_admin() or self.owner_id == user.id
-        except:
+        except Exception, e:
             pass
 
     def list_keys(self, prefix='', marker=None, max_keys=1000, terse=False):

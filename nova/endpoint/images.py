@@ -1,33 +1,48 @@
 import boto
 import boto.s3
 import random
-import anyjson
+import json
 import urllib
 import flags
 from nova.utils import generate_uid
 
 FLAGS = flags.FLAGS
 
+def modify(user, image_id, operation):
+    conn(user).make_request(
+        method='POST',
+        bucket='_images',
+        query_args=qs({'image_id': image_id, 'operation': operation}))
+
+    return True
+
+
 def register(user, image_location):
+    """ rpc call to register a new image based from a manifest """
+
     image_id = generate_uid('ami')
-    
     conn(user).make_request(
             method='PUT',
             bucket='_images',
             query_args=qs({'image_location': image_location,
                            'image_id': image_id}))
-    
+
     return image_id
 
-def list(user, only_images=[]):
+def list(user, filter_list=[]):
+    """ return a list of all images that a user can see
+
+    optionally filtered by a list of image_id """
+
     # FIXME: send along the list of only_images to check for
     response = conn(user).make_request(
-            method='GET', 
+            method='GET',
             bucket='_images')
 
-    return anyjson.deserialize(response.read())
+    return json.loads(response.read())
 
 def deregister(user, image_id):
+    """ unregister an image """
     conn(user).make_request(
             method='DELETE',
             bucket='_images',

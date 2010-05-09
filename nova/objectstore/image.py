@@ -39,6 +39,12 @@ class Image(object):
         except:
             return False
 
+    def set_public(self, state):
+        md = self.metadata
+        md['isPublic'] = state
+        with open(os.path.join(self.path, 'info.json'), 'w') as f:
+            json.dump(md, f)
+
     @staticmethod
     def all():
         images = []
@@ -68,13 +74,30 @@ class Image(object):
         manifest_path = image_location[len(bucket_name)+1:]
         bucket = Bucket(bucket_name)
 
+        manifest = ElementTree.fromstring(bucket[manifest_path].read())
+        image_type = 'machine'
+
+        try:
+            kernel_id = manifest.find("machine_configuration/kernel_id").text
+            if kernel_id == 'true':
+                image_type = 'kernel'
+        except:
+            pass
+
+        try:
+            ramdisk_id = manifest.find("machine_configuration/ramdisk_id").text
+            if ramdisk_id == 'true':
+                image_type = 'ramdisk'
+        except:
+            pass
+
         info = {
             'imageId': image_id,
             'imageLocation': image_location,
             'imageOwnerId': user.id,
             'isPublic': False, # FIXME: grab public from manifest
             'architecture': 'x86_64', # FIXME: grab architecture from manifest
-            'type' : 'machine',
+            'type' : image_type
         }
 
         def write_state(state):
@@ -86,7 +109,6 @@ class Image(object):
 
         encrypted_file = tempfile.NamedTemporaryFile(delete=False)
 
-        manifest = ElementTree.fromstring(bucket[manifest_path].read())
         encrypted_key = manifest.find("image/ec2_encrypted_key").text
         encrypted_iv = manifest.find("image/ec2_encrypted_iv").text
         # FIXME: grab kernelId and ramdiskId from bundle manifest
