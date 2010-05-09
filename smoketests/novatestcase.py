@@ -38,7 +38,7 @@ class NovaTestCase(unittest.TestCase):
         stdin, stdout, stderr = client.exec_command('uptime')
         print 'uptime: ', stdout.read()
         return client
-        
+
     def can_ping(self, ip):
         return getstatusoutput('ping -c 1 %s' % ip)[0] == 0
 
@@ -90,17 +90,22 @@ class NovaTestCase(unittest.TestCase):
     def upload_image(self, bucket_name, image):
         cmd = 'euca-upload-bundle -b %s -m /tmp/%s.manifest.xml' % (bucket_name, image)
         status, output = getstatusoutput(cmd)
-        print '%s -> \n %s' % (cmd, output)
         if status != 0:
             print '%s -> \n %s' % (cmd, output)
             raise Exception(output)
         return True
 
+    def delete_bundle_bucket(self, bucket_name):
+        cmd = 'euca-delete-bundle --clear -b %s' % (bucket_name)
+        status, output = getstatusoutput(cmd)
+        if status != 0:
+            print '%s -> \n%s' % (cmd, output)
+            raise Exception(output)
+        return True
+
     def register_image(self, bucket_name, manifest):
         conn = admin.connection_for('admin')
-        image_id = conn.register_image("%s/%s.manifest.xml" % (bucket_name, manifest))
-        match = re.search('a[mrk]i-\w{6}', image_id)
-        return match.group(0)
+        return conn.register_image("%s/%s.manifest.xml" % (bucket_name, manifest))
 
     def setUp_test_image(self, image, kernel=False):
         self.bundle_image(image, kernel=kernel)
