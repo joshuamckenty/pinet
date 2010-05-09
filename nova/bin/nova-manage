@@ -9,10 +9,7 @@ from nova.auth import users
 
 FLAGS = flags.FLAGS
 
-class CommandGroup(object):
-    pass
-
-class User(CommandGroup):
+class UserCommands(object):
     def __init__(self):
         self.manager = users.UserManager.instance()
     
@@ -21,14 +18,20 @@ class User(CommandGroup):
         print 'export EC2_SECRET_KEY=%s' % user.secret
     
     def admin(self, name, access=None, secret=None):
+        """creates a new admin and prints exports
+        arguments: name [access] [secret]"""
         user = self.manager.create_user(name, access, secret, True)
         self.__print_export(user)
 
     def create(self, name, access=None, secret=None):
+        """creates a new user and prints exports
+        arguments: name [access] [secret]"""
         user = self.manager.create_user(name, access, secret, True)
         self.__print_export(user)
 
     def exports(self, name):
+        """prints access and secrets for user in export format
+        arguments: name"""
         user = self.manager.get_user(name)
         if user:
             self.__print_export(user)
@@ -36,10 +39,14 @@ class User(CommandGroup):
             print "User %s doesn't exist" % name
 
     def list(self):
+        """lists all users
+        arguments: <none>"""
         for user in self.manager.get_users():
             print user.name
 
     def zip(self, name, filename='nova.zip'):
+        """exports credentials for user to a zip file
+        arguments: name [filename='nova.zip]"""
         user = self.manager.get_user(name)
         if user:
             with open(filename, 'w') as f:
@@ -47,11 +54,71 @@ class User(CommandGroup):
         else:
             print "User %s doesn't exist" % name
 
+def usage(script_name):
+    print script_name + " category action [<args>]"
+
+categories = [
+    ('user', UserCommands),
+]
+
+def lazy_match(name, t):
+    return [(k, v) for (k, v) in t if k.lower().find(name) != -1]
+
+def methods_of(obj):
+    return [(i, getattr(obj, i)) for i in dir(obj) if callable(getattr(obj, i)) and not i.startswith('_')]
+
 if __name__ == '__main__':
     utils.default_flagfile()
     argv = FLAGS(sys.argv)
     script = argv.pop(0)
-    group = argv.pop(0)
+    if len(argv) < 1:
+        usage(script)
+        print "Available categories:"
+        for k, v in categories:
+            print "\t%s" % k
+        sys.exit(2)
+    category = argv.pop(0)
+    matches = lazy_match(category, categories)
+    if len(matches) == 0:
+        print "%s does not match any categories:" % category
+        for k, v in categories:
+            print "\t%s" % k
+        sys.exit(2)
+    if len(matches) > 1:
+        print "%s matched multiple categories:" % category
+        for k, v in matches:
+            print "\t%s" % k
+        sys.exit(2)
+    # instantiate the command group object
+    category, fn = matches[0]
+    command_object = fn()
+    actions = methods_of(command_object)
+    if len(argv) < 1:
+        usage(script)
+        print "Available actions for %s category:" % category
+        for k, v in actions:
+            print "\t%s" % k
+        sys.exit(2)
     action = argv.pop(0)
-    print argv
+    matches = lazy_match(action, actions)
+    if len(matches) == 0:
+        print "%s does not match any actions" % action
+        for k, v in actions:
+            print "\t%s" % k
+        sys.exit(2)
+    if len(matches) > 1:
+        print "%s matched multiple actions:" % action
+        for k, v in matches:
+            print "\t%s" % k
+        sys.exit(2)
+    action, fn = matches[0]
+    # call the action with the remaining arguments
+    try:
+        fn(*argv)
+    except TypeError:
+        print "Wrong number of arguments supplied"
+        print "%s %s: %s" % (category, action, fn.__doc__)
+
+        
+    
 
