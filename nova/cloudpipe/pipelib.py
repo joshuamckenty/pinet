@@ -8,8 +8,7 @@ import os
 import tempfile
 from zipfile import ZipFile, ZIP_DEFLATED
 
-import nova.contrib
-import flags
+from nova import flags
 from nova import crypto
 from nova.auth import users
 from nova import utils

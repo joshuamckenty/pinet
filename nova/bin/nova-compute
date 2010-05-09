@@ -9,10 +9,10 @@ from tornado import ioloop
 
 from nova import rpc
 from nova import flags
-import network
 from nova import server
-import nova.objectstore # for s3_host flag
+from nova import utils
 
+from nova.compute import network
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('node_report_state_interval', 10, 
@@ -21,7 +21,7 @@ flags.DEFINE_integer('node_report_state_interval', 10,
 
 
 def main(argv):
-    logging.warn('HEYA')
+    logging.warn('Starting compute node')
     n = network.NetworkNode()
     d = n.adopt_instances()
     d.addCallback(lambda x: logging.info('Adopted %d instances', x))
@@ -50,4 +50,5 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    server.serve('node_worker', main)
+    utils.default_flagfile()
+    server.serve('nova-compute', main)

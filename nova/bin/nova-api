@@ -1,20 +1,21 @@
+#!/usr/bin/env python
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 import logging
 
-from nova import contrib
+import nova.contrib
 from tornado import httpserver
 from tornado import ioloop
 
 from nova import rpc
 from nova import flags
 from nova import server
+from nova import utils
 
-import admin
-import cloud
+from nova.endpoint import admin
+from nova.endpoint import cloud
+from nova.endpoint import api
 from nova.auth import users
 
-import nova.objectstore # for flags
-import api
 
 FLAGS = flags.FLAGS
 
@@ -53,4 +54,5 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    server.serve('api_worker', main)
+    utils.default_flagfile()
+    server.serve('nova-api', main)

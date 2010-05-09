@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
+import sys
+
+from nova import utils
+from nova import flags
+
+from nova.auth import users
+
+FLAGS = flags.FLAGS
+
+class CommandGroup(object):
+    pass
+
+class User(CommandGroup):
+    def __init__(self):
+        self.manager = users.UserManager.instance()
+    
+    def __print_export(self, user):
+        print 'export EC2_ACCESS_KEY=%s' % user.access
+        print 'export EC2_SECRET_KEY=%s' % user.secret
+    
+    def admin(self, name, access=None, secret=None):
+        user = self.manager.create_user(name, access, secret, True)
+        self.__print_export(user)
+
+    def create(self, name, access=None, secret=None):
+        user = self.manager.create_user(name, access, secret, True)
+        self.__print_export(user)
+
+    def exports(self, name):
+        user = self.manager.get_user(name)
+        if user:
+            self.__print_export(user)
+        else:
+            print "User %s doesn't exist" % name
+
+    def list(self):
+        for user in self.manager.get_users():
+            print user.name
+
+    def zip(self, name, filename='nova.zip'):
+        user = self.manager.get_user(name)
+        if user:
+            with open(filename, 'w') as f:
+                f.write(user.get_credentials())
+        else:
+            print "User %s doesn't exist" % name
+
+if __name__ == '__main__':
+    utils.default_flagfile()
+    argv = FLAGS(sys.argv)
