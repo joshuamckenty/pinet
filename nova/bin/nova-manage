@@ -50,3 +50,8 @@ class User(CommandGroup):
 if __name__ == '__main__':
     utils.default_flagfile()
     argv = FLAGS(sys.argv)
+    script = argv.pop(0)
+    group = argv.pop(0)
+    action = argv.pop(0)
+    print argv
+

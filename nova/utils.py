@@ -43,7 +43,7 @@ def default_flagfile(filename='nova.conf'):
             break
     else:
         if os.path.exists(filename):
-            sys.argv = sys.argv + ['--flagfile=%s' % filename]
+            sys.argv = sys.argv[:1] + ['--flagfile=%s' % filename] + sys.argv[1:]
 
 def debug(arg):
     logging.debug('debug in callback: %s', arg)
