@@ -22,7 +22,7 @@ from nova import crypto
 import images
 import base64
 import tornado
-from nova.cloudpipe.pipelib import CloudPipe 
+from nova.cloudpipe.pipelib import CloudPipe
 
 FLAGS = flags.FLAGS
 
@@ -54,7 +54,7 @@ class CloudController(object):
 
     def __str__(self):
         return 'CloudController'
-    
+
     def setup(self):
         # Create keys folder, if it doesn't exist
         if not os.path.exists(FLAGS.keys_path):
@@ -92,7 +92,7 @@ class CloudController(object):
                 if instance['private_dns_name'] == ip:
                     return instance
         return None
-         
+
     def get_metadata(self, ip):
         i = self.get_instance_by_ip(ip)
         if i is None:
@@ -116,7 +116,7 @@ class CloudController(object):
                     'ami': 'sda1',
                     'ephemeral0': 'sda2',
                     'root': '/dev/sda1',
-                    'swap': 'sda3' 
+                    'swap': 'sda3'
                 },
                 'hostname': i['private_dns_name'], # is this public sometimes?
                 'instance-action': 'none',
@@ -141,11 +141,11 @@ class CloudController(object):
         if i['product_codes']:
             data['product-codes'] = i['product_codes']
         return data
-        
+
 
     def describe_availability_zones(self, context, **kwargs):
         return {'availabilityZoneInfo': [{'zoneName': 'nova', 'zoneState': 'available'}]}
-    
+
     def describe_key_pairs(self, context, key_name=None, **kwargs):
         key_pairs = []
         key_names = key_name and key_name or []
@@ -188,28 +188,28 @@ class CloudController(object):
         context.user.delete_key_pair(key_name)
         # aws returns true even if the key doens't exist
         return True
-        
+
     def describe_security_groups(self, context, group_names, **kwargs):
         groups = { 'securityGroupSet': [] }
 
         # Stubbed for now to unblock other things.
         return groups
-        
+
     def create_security_group(self, context, group_name, **kwargs):
         return True
-        
+
     def delete_security_group(self, context, group_name, **kwargs):
         return True
 
     def get_console_output(self, context, instance_id, **kwargs):
-	# instance_id is passed in as a list of instances
-	node, instance = self._get_instance(instance_id[0])
+        # instance_id is passed in as a list of instances
+        node, instance = self._get_instance(instance_id[0])
         if node == 'pending':
             raise exception.ApiError('Cannot get output for pending instance')
         if not context.user.is_authorized(instance.get('owner_id', None)):
             raise exception.ApiError('Not authorized to view output')
         return rpc.call('%s.%s' % (FLAGS.compute_topic, node),
-	    {"method": "get_console_output",
+            {"method": "get_console_output",
              "args" : {"instance_id": instance_id[0]}})
 
     def _get_user_id(self, context):
@@ -220,7 +220,7 @@ class CloudController(object):
 
     def describe_volumes(self, context, **kwargs):
         if self.volumes == {}:
-            return {'volumeSet': [] } 
+            return {'volumeSet': [] }
         volumes = []
         for node_name, node in self.volumes.iteritems():
             for volume in node.values():
@@ -234,7 +234,7 @@ class CloudController(object):
         return defer.succeed({'volumeSet': volumes})
 
     def create_volume(self, context, size, **kwargs):
-        d = rpc.call(FLAGS.storage_topic, {"method": "create_volume", 
+        d = rpc.call(FLAGS.storage_topic, {"method": "create_volume",
                                  "args" : {"size": size,
                                            "user_id": context.user.id}})
         return d
@@ -332,7 +332,7 @@ class CloudController(object):
                         i['public_dns_name'] = i['private_dns_name']
                     i['dns_name'] = instance.get('dns_name', None)
                     i['key_name'] = instance.get('key_name', None)
-		    if user.is_admin():
+                    if user.is_admin():
                         i['key_name'] = '%s (%s, %s)' % (i['key_name'],
                             instance.get('owner_id', None), node_name)
                     i['product_codes_set'] = self._convert_to_set(
@@ -356,7 +356,7 @@ class CloudController(object):
 
     def describe_addresses(self, context, **kwargs):
         return self.format_addresses(context.user)
-        
+
     def format_addresses(self, user):
         addresses = []
         # TODO(vish): move authorization checking into network.py
@@ -376,7 +376,7 @@ class CloudController(object):
                 addresses.append(address)
         # logging.debug(addresses)
         return {'addressesSet': addresses}
-            
+
     def allocate_address(self, context, **kwargs):
         # TODO: Verify user is valid?
         kwargs['owner_id'] = context.user.id
@@ -386,12 +386,12 @@ class CloudController(object):
     def release_address(self, context, **kwargs):
         self.network.deallocate_address(kwargs.get('public_ip', None))
         return defer.succeed({'releaseResponse': ["Address released."]})
-        
+
     def associate_address(self, context, instance_id, **kwargs):
         node, instance = self._get_instance(instance_id)
         rv = self.network.associate_address(kwargs['public_ip'], instance['private_dns_name'], instance_id)
         return defer.succeed({'associateResponse': ["Address associated."]})
-        
+
     def disassociate_address(self, context, **kwargs):
         rv = self.network.disassociate_address(kwargs['public_ip'])
         # TODO - Strip the IP from the instance
@@ -401,7 +401,7 @@ class CloudController(object):
         # passing all of the kwargs on to node.py
         logging.debug("Going to run instances...")
         # logging.debug(kwargs)
-        # TODO: verify user has access to image 
+        # TODO: verify user has access to image
         launchstate = self._create_reservation(context.user, kwargs)
         pending = {}
         for num in range(int(launchstate['max_count'])):
@@ -426,10 +426,10 @@ class CloudController(object):
             if not key_pair:
                 raise exception.ApiError('Key Pair %s not found' %
                                          launchstate['key_name'])
-            launchstate['key_data'] = key_pair.public_key 
+            launchstate['key_data'] = key_pair.public_key
         return launchstate
 
-    def _really_run_instance(self, user, launchstate, idx):   
+    def _really_run_instance(self, user, launchstate, idx):
         launchstate['instance_id'] = generate_uid('i')
         launchstate['ami_launch_index'] = idx 
         network = self.network.get_users_network(str(user.id))
@@ -476,7 +476,7 @@ class CloudController(object):
             except:
                 pass
         return defer.succeed(True)
-        
+
     def reboot_instances(self, context, instance_id, **kwargs):
         # TODO: return error if not authorized
         for i in instance_id:
@@ -488,7 +488,7 @@ class CloudController(object):
                              {"method": "reboot_instance",
                               "args" : {"instance_id": i}})
         return defer.succeed(True)
-        
+
     def delete_volume(self, context, volume_id, **kwargs):
         # TODO: return error if not authorized
         storage_node, volume = self._get_volume(volume_id)
@@ -502,21 +502,21 @@ class CloudController(object):
         imageSet = images.list(context.user)
         if not image_id is None:
             imageSet = [i for i in imageSet if i['imageId'] in image_id]
-        
+
         return defer.succeed({'imagesSet': imageSet})
-    
+
     def deregister_image(self, context, image_id, **kwargs):
         images.deregister(context.user, image_id)
-                
+
         return defer.succeed({'imageId': image_id})
-            
+
     def register_image(self, context, image_location=None, **kwargs):
         if image_location is None and kwargs.has_key('name'):
             image_location = kwargs['name']
 
         image_id = images.register(context.user, image_location)
         logging.debug("Registered %s as %s" % (image_location, image_id))
-        
+
         return defer.succeed({'imageId': image_id})
 
     def cloudcron(self):
@@ -544,6 +544,18 @@ class CloudController(object):
                     return instance
         return None
 
+    def modify_image_attribute(self, context, image_id, attribute, operation_type, **kwargs):
+        if attribute != 'launchPermission':
+            raise exception.ApiError('only launchPermission is supported')
+        if len(kwargs['user_group']) != 1 and kwargs['user_group'][0] != 'all':
+            raise exception.ApiError('only group "all" is supported')
+        if not operation_type in ['add', 'delete']:
+            raise exception.ApiError('operation_type must be add or delete')
+
+        result = images.modify(context.user, image_id, operation_type)
+
+        return defer.succeed(result)
+
     def update_state(self, topic, value):
         """ accepts status reports from the queue and consolidates them """
         # TODO(jmc): if an instance has disappeared from the node, call instance_death
@@ -551,7 +563,7 @@ class CloudController(object):
         aggregate_state = getattr(self, topic)
         node_name = value.keys()[0]
         items = value[node_name]
-        
+
         logging.debug("Updating %s state for %s" % (topic, node_name))
 
         for item_id in items.keys():

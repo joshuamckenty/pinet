@@ -18,6 +18,7 @@ def print_export(user):
     print 'export EC2_SECRET_KEY=%s' % user.secret
 
 if __name__ == "__main__":
+    FLAGS.fake_users = True
     FLAGS.ca_path="/srv/cloud/CA"
     FLAGS.keys_path="/srv/cloud/keys"
     # sys.argv = FLAGS(sys.argv)

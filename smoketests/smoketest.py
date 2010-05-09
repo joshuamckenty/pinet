@@ -65,8 +65,9 @@ class ImageTests(NovaTestCase):
         self.assertTrue(self.upload_image(test_bucket, IMAGE_FILENAME))
 
     def test_003_admin_can_register_image(self):
-        id = self.register_image(test_bucket, IMAGE_FILENAME)
-        data['image_id'] = id
+        image_id = self.register_image(test_bucket, IMAGE_FILENAME)
+        self.assert_(image_id is not None)
+        data['image_id'] = image_id
 
     def test_004_admin_can_bundle_kernel(self):
         self.assertTrue(self.bundle_image(KERNEL_FILENAME, kernel=True))
@@ -76,22 +77,24 @@ class ImageTests(NovaTestCase):
 
     def test_006_admin_can_register_kernel(self):
         # FIXME: registeration should verify that bucket/manifest exists before returning successfully!
-        image_id = self.register_image(test_bucket, KERNEL_FILENAME)
-        data['kernel_id'] = image_id
+        kernel_id = self.register_image(test_bucket, KERNEL_FILENAME)
+        self.assert_(kernel_id is not None)
+        data['kernel_id'] = kernel_id
 
-    def test_007_admin_images_are_within_10_seconds(self):
+    def test_007_admin_images_are_available_within_10_seconds(self):
         for i in xrange(10):
             image = self.admin.get_image(data['image_id'])
-            if image.state == 'available':
+            if image and image.state == 'available':
                 break
             time.sleep(1)
         else:
+            print image.state
             self.assert_(False) # wasn't available within 10 seconds
         self.assert_(image.type == 'machine')
 
         for i in xrange(10):
             kernel = self.admin.get_image(data['kernel_id'])
-            if kernel.state == 'available':
+            if kernel and kernel.state == 'available':
                 break
             time.sleep(1)
         else:
@@ -100,47 +103,65 @@ class ImageTests(NovaTestCase):
 
     def test_008_images_not_public_by_default(self):
         conn = self.connection_for(test_username)
-        image = conn.get_image(data['kernel_id'])
-        self.assertEqual(image, None)
-        image = conn.get_image(data['image_id'])
-        self.assertEqual(image, None)
+        images = conn.get_all_images(image_ids=[data['image_id']])
+        self.assertEqual(len(images), 0)
+        images = conn.get_all_images(image_ids=[data['kernel_id']])
+        self.assertEqual(len(images), 0)
 
     def test_009_images_can_be_made_public(self):
+        import pdb
+        #pdb.set_trace()
         # FIXME: verify image is available within 1 minute
-        conn = self.connection_for(test_username)
-        image = conn.get_image(data['image_id'])
+        userconn = self.connection_for(test_username)
+
+        self.admin.modify_image_attribute(image_id=data['image_id'],
+                                          operation='add',
+                                          attribute='launchPermission',
+                                          groups='all')
+
+        image = userconn.get_image(data['image_id'])
         self.assertEqual(image.id, data['image_id'])
 
-    def test_010_user_can_launch_admin_public_image(self):
-        # TODO: Use openwrt kernel instead of default kernel
-        conn = self.connection_for(test_username)
-        reservation = conn.run_instances(data['image_id'])
-        self.assertEqual(len(reservation.instances), 1)
-        data['my_instance_id'] = reservation.instances[0].id
+        self.admin.modify_image_attribute(image_id=data['kernel_id'],
+                                          operation='add',
+                                          attribute='launchPermission',
+                                          groups='all')
 
-    def test_011_instances_launch_within_30_seconds(self):
-        pass
+        image = userconn.get_image(data['kernel_id'])
+        self.assertEqual(image.id, data['kernel_id'])
 
-    def test_012_user_can_terminate(self):
-        conn = self.connection_for(test_username)
-        terminated = conn.terminate_instances(instance_ids=[data['my_instance_id']])
-        self.assertEqual(len(terminated), 1)
+#     def test_010_user_can_launch_admin_public_image(self):
+#         # TODO: Use openwrt kernel instead of default kernel
+#         conn = self.connection_for(test_username)
+#         reservation = conn.run_instances(data['image_id'])
+#         self.assertEqual(len(reservation.instances), 1)
+#         data['my_instance_id'] = reservation.instances[0].id
 
-    def test_013_admin_can_deregister_kernel(self):
-        self.assertTrue(self.admin.deeregister_image(data['kernel_id']))
+#     def test_011_instances_launch_within_30_seconds(self):
+#         pass
 
-    def test_014_admin_can_deregister_image(self):
-        self.assertTrue(self.admin.deregister_image(data['image_id']))
+#     def test_012_user_can_terminate(self):
+#         conn = self.connection_for(test_username)
+#         terminated = conn.terminate_instances(instance_ids=[data['my_instance_id']])
+#         self.assertEqual(len(terminated), 1)
 
-#    def test_010_admin_can_delete_image(self):
-#        self.assert_(False)
+#     def test_013_admin_can_deregister_kernel(self):
+#         self.assertTrue(self.admin.deeregister_image(data['kernel_id']))
 
-#    def test_011_admin_can_delete_bucket(self):
-#        self.assert_(False)
+#     def test_014_admin_can_deregister_image(self):
+#         self.assertTrue(self.admin.deregister_image(data['image_id']))
 
-    def test_999_tearDown(self):
-        data = {}
-        self.delete_user(test_username)
+# #    def test_010_admin_can_delete_image(self):
+# #        self.assert_(False)
+
+# #    def test_011_admin_can_delete_bucket(self):
+# #        self.assert_(False)
+
+#     def test_999_tearDown(self):
+#         data = {}
+#         self.delete_user(test_username)
+
+        # FIXME: add test for describe images?
 
 # Test key pairs and security groups
 class SecurityTests(NovaTestCase):
@@ -389,24 +410,24 @@ vol_key = test_key + 'volumekey'
 # Test iscsi volumes
 class VolumeTests(NovaTestCase):
     def test_000_setUp(self):
-	self.create_user('me')
-	data['kernel_id'] = 'aki-EAB510D9'
-	data['image_id'] = 'ami-25CB1213' # A7370FE3
+        self.create_user('me')
+        data['kernel_id'] = 'aki-EAB510D9'
+        data['image_id'] = 'ami-25CB1213' # A7370FE3
 
-	conn = self.connection_for('me')
-	self.create_key_pair(conn, vol_key)
-	reservation = conn.run_instances(data['image_id'], key_name=vol_key)
-	data['my_instance_id'] = reservation.instances[0].id
-	data['my_private_ip'] = reservation.instances[0].private_dns_name
-	
-	# wait for instance to show up
-	for x in xrange(120):
-	    # ping waits for 1 second
-	    status, output = getstatusoutput("ping -c1 -w1 %s" % data['my_private_ip'])
-	    if status == 0:
-		 break
-	else:
-	    self.assertTrue(False)
+        conn = self.connection_for('me')
+        self.create_key_pair(conn, vol_key)
+        reservation = conn.run_instances(data['image_id'], key_name=vol_key)
+        data['my_instance_id'] = reservation.instances[0].id
+        data['my_private_ip'] = reservation.instances[0].private_dns_name
+
+        # wait for instance to show up
+        for x in xrange(120):
+            # ping waits for 1 second
+            status, output = getstatusoutput("ping -c1 -w1 %s" % data['my_private_ip'])
+            if status == 0:
+                 break
+        else:
+            self.assertTrue(False)
 
     def test_001_me_can_create_volume(self):
         conn = self.connection_for('me')
@@ -430,6 +451,8 @@ class VolumeTests(NovaTestCase):
                 time.sleep(1)
         else:
             self.assertTrue(False)
+
+    # fixme: test cannot delete attached volume!
 
     def test_003_me_can_mount_volume(self):
         # Wait for the instance to ACTUALLY have ssh running
@@ -475,7 +498,7 @@ class VolumeTests(NovaTestCase):
         self.assertTrue(conn.delete_volume(data['volume_id']))
 
     def test_999_tearDown(self):
-        global data 
+        global data
         conn = self.connection_for('me')
         self.delete_key_pair(conn, vol_key)
         if data.has_key('my_instance_id'):

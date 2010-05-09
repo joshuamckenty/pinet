@@ -39,6 +39,12 @@ class Image(object):
         except:
             return False
 
+    def set_public(self, state):
+        md = self.metadata
+        md['isPublic'] = state
+        with open(os.path.join(self.path, 'info.json'), 'w') as f:
+            json.dump(md, f)
+
     @staticmethod
     def all():
         images = []
