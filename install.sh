@@ -4,9 +4,9 @@
 # VLAN_START=2040
 # VLAN_END=2059
 # PUBLIC_IPS=208.87.118.144/28
-# the next four flags determine which servers to run
+# the next four flags determine which binaries to run
 ENDPOINT=1
-KISS=1
+OBJECTSTORE=1
 COMPUTE=1
 VOLUME=1
 
@@ -25,22 +25,23 @@ PUBLIC_IFACE=124
 IMAGES_URL=http://snake000/nova/base-images.tar 
 BRIDGE_DEV=eth2
 BASE_PATH=/srv/cloud
-INST_VOL_SIZE=1T
-KISS_VOL_SIZE=1T
+INSTANCES_VOL_SIZE=1T
+OBJECTSTORE_VOL_SIZE=1T
 CC_PORT=8773
 PRIVATE_IPS=10.128.0.0/12
-KISS_HOST=$CC_IP
+OBJECTSTORE_HOST=$CC_IP
 RABBIT_HOST=$CC_IP
 
-KISS_PATH=$BASE_PATH/kiss
+OBJECTSTORE_PATH=$BASE_PATH/objectstore
 CA_PATH=$BASE_PATH/CA
 KEYS_PATH=$BASE_PATH/keys
 DATA_PATH=$BASE_PATH/keeper
 NET_PATH=$BASE_PATH/networks
 INSTANCES_PATH=$BASE_PATH/instances
-BUCKETS_PATH=$KISS_PATH/buckets
-IMAGES_PATH=$KISS_PATH/images
+BUCKETS_PATH=$OBJECTSTORE_PATH/buckets
+IMAGES_PATH=$OBJECTSTORE_PATH/images
 ADMIN_PATH=$BASE_PATH/admin
+BIN_PATH=$BASE_PATH/nova/bin
 
 AOE_DEV=$BRIDGE_DEV
 VOLUME_GROUP=vgdata
@@ -103,6 +104,30 @@ modprobe aoe
 pvcreate $STORAGE_DEV
 vgcreate -s 32M $VOLUME_GROUP $STORAGE_DEV
 
+cat > $BASE_PATH/bin/nova.conf <<NOVA_CONF_EOF
+--rabbit_host=$RABBIT_HOST
+--datastore_path=$DATA_PATH
+--networks_path=$NET_PATH
+--instances_path=$INSTANCES_PATH
+--buckets_path=$BUCKETS_PATH
+--images_path=$IMAGES_PATH
+--ca_path=$CA_PATH
+--keys_path=$KEYS_PATH
+--vlan_start=$VLAN_START
+--vlan_end=$VLAN_END
+--private_range=$PRIVATE_IPS
+--public_range=$PUBLIC_IPS
+--s3_host=$OBJECTSTORE_HOST
+--public_vlan=$PUBLIC_IFACE
+--volume_group=$VOLUME_GROUP
+--bridge_dev=$BRIDGE_DEV
+--storage_dev=$STORAGE_DEV
+--aoe_eth_dev=$AOE_DEV
+--public_vlan=$PUBLIC_IFACE
+--daemonize
+--verbose
+NOVA_CONF_EOF
+
 cd $BASE_PATH
 
 if [ $ENDPOINT -eq 1 ]; then    
@@ -114,45 +139,19 @@ iptables --table nat --append POSTROUTING --out-interface vlan$PUBLIC_IFACE -j M
 /etc/init.d/rabbitmq-server start
 killall dnsmasq
 mkdir -p $ADMIN_PATH
-python $BASE_PATH/nova/bin/users.py -a admin
-python $BASE_PATH/nova/bin/users.py -e admin $ADMIN_PATH/admin.zip
+python $BASE_PATH/nova/bin/nova-manage user admin admin
+python $BASE_PATH/nova/bin/nova-manage user zip admin $ADMIN_PATH/admin.zip
 unzip -o -d $ADMIN_PATH $ADMIN_PATH/admin.zip
 
-# this won't be necessary when users.py respects flags
-sed -i s/10.255.255.1/$CC_IP/g $ADMIN_PATH/novarc
-
-cat > $BASE_PATH/endpoint-flags <<ENDPOINT_FLAGS_EOF
---rabbit_host=$RABBIT_HOST
---datastore_path=$DATA_PATH
---ca_path=$CA_PATH
---keys_path=$KEYS_PATH
---networks_path=$NET_PATH
---vlan_start=$VLAN_START
---vlan_end=$VLAN_END
---private_range=$PRIVATE_IPS
---public_range=$PUBLIC_IPS
---s3_host=$KISS_HOST
---public_vlan=$PUBLIC_IFACE
---bridge_dev=$BRIDGE_DEV
---daemonize
---verbose
-ENDPOINT_FLAGS_EOF
-python $BASE_PATH/nova/endpoint/api_worker.py --flagfile=$BASE_PATH/endpoint-flags start
+python $BIN_PATH/nova-api start
 fi
 
-if [ $KISS -eq 1 ]; then    
+if [ $OBJECTSTORE -eq 1 ]; then    
 apt-get install -y nginx
-cat > $BASE_PATH/kiss-flags <<KISS_FLAGS_EOF
---s3_host=$KISS_HOST
---buckets_path=$BUCKETS_PATH
---images_path=$IMAGES_PATH
---daemonize
---verbose
-KISS_FLAGS_EOF
-lvcreate -L $KISS_VOL_SIZE -n kiss $VOLUME_GROUP \
-&& mkfs.ext4 /dev/mapper/$VOLUME_GROUP-kiss
-mkdir -p $KISS_PATH
-mount /dev/mapper/$VOLUME_GROUP-kiss $KISS_PATH
+lvcreate -L $OBJECTSTORE_VOL_SIZE -n objectstore $VOLUME_GROUP \
+&& mkfs.ext4 /dev/mapper/$VOLUME_GROUP-objectstore
+mkdir -p $OBJECTSTORE_PATH
+mount /dev/mapper/$VOLUME_GROUP-objectstore $OBJECTSTORE_PATH
 mkdir -p $BUCKETS_PATH
 mkdir -p $IMAGES_PATH
 cat > /etc/nginx/sites-enabled/default <<NGINX_SITE_EOF
@@ -175,42 +174,22 @@ server {
 NGINX_SITE_EOF
 /etc/init.d/nginx restart
 curl $IMAGES_URL | tar -C $IMAGES_PATH -xf -
-python $BASE_PATH/nova/bin/oss.py --flagfile=$BASE_PATH/kiss-flags start
+python $BIN_PATH/nova-objectstore start
 fi
 
 if [ $COMPUTE -eq 1 ]; then    
 apt-get install -y kpartx kvm
-cat > $BASE_PATH/compute-flags <<COMPUTE_FLAGS_EOF
---rabbit_host=$RABBIT_HOST
---datastore_path=$DATA_PATH
---networks_path=$NET_PATH
---public_vlan=$PUBLIC_IFACE
---bridge_dev=$BRIDGE_DEV
---instances_path=$INSTANCES_PATH
---s3_host=$KISS_HOST
---daemonize
---verbose
-COMPUTE_FLAGS_EOF
-lvcreate -L $INST_VOL_SIZE -n instances $VOLUME_GROUP \
+lvcreate -L $INSTANCES_VOL_SIZE -n instances $VOLUME_GROUP \
 && mkfs.ext4 /dev/mapper/$VOLUME_GROUP-instances
 mkdir $INSTANCES_PATH
 mount /dev/mapper/$VOLUME_GROUP-instances $INSTANCES_PATH
 modprobe kvm_intel
 /etc/init.d/libvirt-bin restart
-python $BASE_PATH/nova/compute/node_worker.py --flagfile=$BASE_PATH/compute-flags start
+python $BIN_PATH/nova-compute start
 fi
 
 if [ $VOLUME -eq 1 ]; then    
 apt-get install -y vblade-persist
-cat > $BASE_PATH/volume-flags <<VOLUME_FLAGS_EOF
---rabbit_host=$RABBIT_HOST
---datastore_path=$DATA_PATH
---volume_group=$VOLUME_GROUP
---storage_dev=$STORAGE_DEV
---aoe_eth_dev=$AOE_DEV
---daemonize
---verbose
-VOLUME_FLAGS_EOF
-python $BASE_PATH/nova/volume/storage_worker.py --flagfile=$BASE_PATH/volume-flags start
+python $BIN_PATH/nova-volume start
 fi
 
