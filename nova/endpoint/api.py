@@ -7,7 +7,7 @@ import re
 # TODO(termie): replace minidom with etree
 from xml.dom import minidom
 
-from nova import contrib, exception, utils
+from nova import contrib, exception, utils, crypto
 import tornado.web
 from twisted.internet import defer
 
@@ -234,8 +234,7 @@ class CloudPipeRequestHandler(tornado.web.RequestHandler):
     def send_root_ca(self):
         username = self.get_username_from_ip(self.request.remote_ip)
         self.set_header("Content-Type", "text/plain")
-        cc = self.application.controllers['Cloud']
-        self.write(cc.fetch_ca(username))
+        self.write(crypto.fetch_ca(username))
 
     def send_signed_zip(self, username):
         self.set_header("Content-Type", "application/zip")

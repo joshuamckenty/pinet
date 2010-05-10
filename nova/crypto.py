@@ -16,6 +16,22 @@ flags.DEFINE_string('ca_file', 'cacert.pem', 'Filename of root CA')
 flags.DEFINE_string('keys_path', utils.abspath('../keys'), 'Where we keep our keys')
 flags.DEFINE_string('ca_path', utils.abspath('../CA'), 'Where we keep our root CA')
 
+def ca_path(username):
+    if username:
+        return "%s/INTER/%s/cacert.pem" % (FLAGS.ca_path, username)
+    return "%s/cacert.pem" % (FLAGS.ca_path)
+
+def fetch_ca(username=None, chain=True):
+    buffer = ""
+    with open(ca_path(username),"r") as cafile:
+        buffer += cafile.read()
+        buffer += "\n"
+    if username and not chain:
+        return buffer
+    with open(ca_path(None),"r") as cafile:
+        buffer += cafile.read()
+    return buffer
+
 def generate_key_pair(bits=1024):
     # what is the magic 65537?
     

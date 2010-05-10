@@ -67,22 +67,6 @@ class CloudController(object):
             runthis("Generating root CA: %s", "sh genrootca.sh")
             os.chdir(start)
             # TODO: Do this with M2Crypto instead
-
-    def ca_path(self, username):
-        if username:
-            return "%s/INTER/%s/cacert.pem" % (FLAGS.ca_path, username)
-        return "%s/cacert.pem" % (FLAGS.ca_path)
-
-    def fetch_ca(self, username=None, chain=True):
-        buffer = ""
-        with open(self.ca_path(username),"r") as cafile:
-            buffer += cafile.read()
-            buffer += "\n"
-        if username and not chain:
-            return buffer
-        with open(self.ca_path(None),"r") as cafile:
-            buffer += cafile.read()
-        return buffer
                           
     def get_instance_by_ip(self, ip):
         if self.instances == {}:

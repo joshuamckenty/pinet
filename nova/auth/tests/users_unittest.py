@@ -87,9 +87,9 @@ class UserTestCase(test.BaseTestCase):
         logging.debug(signed_cert_string)
         
         # Need to verify that it's signed by the right intermediate CA
-        full_chain = self.cloud.fetch_ca(username='test1', chain=True)
-        int_cert = self.cloud.fetch_ca(username='test1', chain=False)
-        cloud_cert = self.cloud.fetch_ca()
+        full_chain = crypto.fetch_ca(username='test1', chain=True)
+        int_cert = crypto.fetch_ca(username='test1', chain=False)
+        cloud_cert = crypto.fetch_ca()
         logging.debug("CA chain:\n\n =====\n%s\n\n=====" % full_chain)
         signed_cert = X509.load_cert_string(signed_cert_string)
         chain_cert = X509.load_cert_string(full_chain)

@@ -121,8 +121,7 @@ class User(object):
         zippy.writestr(FLAGS.credential_key_file, private_key)
         zippy.writestr(FLAGS.credential_cert_file, signed_cert)
         zippy.writestr("nebula-client.conf", config)
-        ca_file = os.path.join(FLAGS.ca_path, FLAGS.ca_file)
-        zippy.write(ca_file, FLAGS.ca_file)
+        zippy.writestr(FLAGS.ca_file, crypto.fetch_ca(self.id))
         zippy.close()
         with open(zf, 'rb') as f:
             buffer = f.read()
