@@ -26,8 +26,13 @@ class UserCommands(object):
     def create(self, name, access=None, secret=None):
         """creates a new user and prints exports
         arguments: name [access] [secret]"""
-        user = self.manager.create_user(name, access, secret, True)
+        user = self.manager.create_user(name, access, secret, False)
         self.__print_export(user)
+
+    def delete(self, name):
+        """deletes an existing user
+        arguments: name"""
+        self.manager.delete_user(name)
 
     def exports(self, name):
         """prints access and secrets for user in export format
