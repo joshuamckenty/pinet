@@ -26,6 +26,8 @@ from nova import crypto
 from nova import utils   
 import access as simplerbac 
 
+from nova import objectstore # for flags
+
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('ldap_url', 'ldap://localhost', 'Point this at your ldap server')
@@ -70,25 +72,14 @@ class InvalidKeyPair(exception.ApiError):
     pass
 
 class User(object):
-    def __init__(self, manager, ldap_user_object):
-        self.manager = manager
-        self.ldap_user_object = ldap_user_object
+    def __init__(self, id, name, access, secret, admin):
+        self.manager = UserManager.instance()
+        self.id = id
+        self.name = name
+        self.access = access
+        self.secret = secret
+        self.admin = admin
 
-    @property
-    def id(self):
-        return self.ldap_user_object[1]['uid'][0]
-
-    @property
-    def name(self):
-        return self.ldap_user_object[1]['uid'][0]
-
-    @property
-    def access(self):
-        return self.ldap_user_object[1]['accessKey'][0]
-
-    @property
-    def secret(self):
-        return self.ldap_user_object[1]['secretKey'][0]
 
     @property
     def vpn_port(self):
@@ -108,7 +99,7 @@ class User(object):
         return FLAGS.vpn_ip
 
     def is_admin(self):
-        return self.ldap_user_object[1]['isAdmin'][0] == 'TRUE'
+        return self.admin
 
     def has_role(self, role_type):
         return self.manager.has_role(user, role_type)
@@ -153,7 +144,7 @@ class User(object):
         rc = rc % { 'access': self.access,
                     'secret': self.secret,
                     'ec2': FLAGS.ec2_url,
-                    's3': FLAGS.s3_url,
+                    's3': '%s:%s' % (FLAGS.s3_host, FLAGS.s3_port),
                     'nova': FLAGS.ca_file,
                     'cert': FLAGS.credential_cert_file,
                     'key': FLAGS.credential_key_file,
@@ -182,20 +173,15 @@ class User(object):
         return self.manager.get_key_pairs(self.id)
 
 class KeyPair(object):
-    def __init__(self, ldap_key_object):
-        self.ldap_key_object = ldap_key_object
+    def __init__(self, name, owner, public_key, fingerprint):
+        self.manager = UserManager.instance()
+        self.owner = owner
+        self.name = name
+        self.public_key = public_key
+        self.fingerprint = fingerprint
 
-    @property
-    def name(self):
-        return self.ldap_key_object[1]['cn'][0]
-
-    @property
-    def public_key(self):
-        return self.ldap_key_object[1]['sshPublicKey'][0]
-
-    @property
-    def fingerprint(self):
-        return self.ldap_key_object[1]['keyFingerprint'][0]
+    def delete(self):
+        return self.manager.delete_key_pair(self.owner, self.name)
 
 class UserManager(object):
     def __init__(self):
@@ -206,6 +192,12 @@ class UserManager(object):
                 self.create_user('admin', 'admin', 'admin', True)
             except:
                 pass
+
+    @classmethod
+    def instance(cls):
+        if not hasattr(cls, '_instance'):
+            cls._instance = UserManager()
+        return cls._instance
 
     def authenticate(self, params, signature, verb='GET', server_string='127.0.0.1:8773', path='/'):
         # TODO: Check for valid timestamp
@@ -232,32 +224,23 @@ class UserManager(object):
         with LDAPWrapper() as conn:
             return conn.add_to_group(user, group)
         
-    def get_user(self, name):
+    def get_user(self, uid):
         with LDAPWrapper() as conn:
-            ldap_user_object = conn.find_user(name)
-        if ldap_user_object == None:
-            return None
-        return User(self, ldap_user_object)
+            return conn.find_user(uid)
 
     def get_user_from_access_key(self, access_key):
         with LDAPWrapper() as conn:
-            ldap_user_object = conn.find_user_by_access_key(access_key)
-        if ldap_user_object == None:
-            return None
-        return User(self, ldap_user_object)
+            return conn.find_user_by_access_key(access_key)
 
     def get_users(self):
         with LDAPWrapper() as conn:
-            ldap_user_objects = conn.find_users()
-        if ldap_user_objects == None or ldap_user_objects == []:
-            return []
-        return [User(self, o) for o in ldap_user_objects]
+            return conn.find_users()
 
     def create_user(self, uid, access=None, secret=None, admin=False):
         if access == None: access = str(uuid.uuid4())
         if secret == None: secret = str(uuid.uuid4())
         with LDAPWrapper() as conn:
-            conn.create_user(uid, access, secret, admin)
+            return conn.create_user(uid, access, secret, admin)
 
     def delete_user(self, uid):
         with LDAPWrapper() as conn:
@@ -280,28 +263,22 @@ class UserManager(object):
 
     def create_key_pair(self, uid, key_name, public_key, fingerprint):
         with LDAPWrapper() as conn:
-            conn.create_key_pair(uid, key_name, public_key, fingerprint)
+            return conn.create_key_pair(uid, key_name, public_key, fingerprint)
 
     def get_key_pair(self, uid, key_name):
         with LDAPWrapper() as conn:
-            ldap_key_object = conn.find_key_pair(uid, key_name)
-        if ldap_key_object == None:
-            return None
-        return KeyPair(ldap_key_object)
+            return conn.find_key_pair(uid, key_name)
 
     def get_key_pairs(self, uid):
         with LDAPWrapper() as conn:
-            ldap_key_objects = conn.find_key_pairs(uid)
-        if ldap_key_objects == None or ldap_key_objects == []:
-            return []
-        return [KeyPair(o) for o in ldap_key_objects]
+            return conn.find_key_pairs(uid)
 
     def delete_key_pair(self, uid, key_name):
         with LDAPWrapper() as conn:
             conn.delete_key_pair(uid, key_name)
 
-    def get_signed_zip(self, username):
-        user = self.get_user(username)
+    def get_signed_zip(self, uid):
+        user = self.get_user(uid)
         return user.get_credentials()
 
         # DO I still need to return a tar file?
@@ -315,20 +292,15 @@ class UserManager(object):
         # buffer = outzip.read()
         # outzip.close()
 
-
-    def sign_cert(self, csr_text, username=None):
-        return crypto.sign_csr(csr_text, username)
-
-
     def generate_x509_cert(self, uid):
-        (private_key, csr) = crypto.generate_x509_cert(self.cert_subject(uid))
+        (private_key, csr) = crypto.generate_x509_cert(self.__cert_subject(uid))
         # TODO - This should be async call back to the cloud controller
         signed_cert = crypto.sign_csr(csr, uid)
-        _log.debug(signed_cert)
         return (private_key, signed_cert)
 
-    def cert_subject(self, uid):
+    def __cert_subject(self, uid):
         return "/C=US/ST=California/L=NASA_Ames/O=NebulaDev/OU=NOVA/CN=%s-%s" % (uid, str(datetime.datetime.utcnow().isoformat()))
+
 
 class LDAPWrapper(object):
     def __init__(self):
@@ -363,18 +335,22 @@ class LDAPWrapper(object):
             res = self.conn.search_s(dn, ldap.SCOPE_SUBTREE, query)
         except Exception:
             return []
-        return res
+        # just return the attributes
+        return [x[1] for x in res]
 
     def find_users(self):
-        return self.find_objects(FLAGS.ldap_subtree, '(objectclass=novaUser)')
+        attrs = self.find_objects(FLAGS.ldap_subtree, '(objectclass=novaUser)')
+        return [self.__to_user(attr) for attr in attrs]
 
     def find_key_pairs(self, uid):
         dn = 'uid=%s,%s' % (uid, FLAGS.ldap_subtree)
-        return self.find_objects(dn, '(objectclass=novaKeyPair)')
+        attrs = self.find_objects(dn, '(objectclass=novaKeyPair)')
+        return [self.__to_key_pair(uid, attr) for attr in attrs]
 
     def find_user(self, name):
         dn = 'uid=%s,%s' % (name, FLAGS.ldap_subtree)
-        return self.find_object(dn, '(objectclass=novaUser)')
+        attr = self.find_object(dn, '(objectclass=novaUser)')
+        return self.__to_user(attr)
 
     def user_exists(self, name):
         return self.find_user(name) != None
@@ -383,14 +359,14 @@ class LDAPWrapper(object):
         dn = 'cn=%s,uid=%s,%s' % (key_name,
                                    uid,
                                    FLAGS.ldap_subtree)
-        return self.find_object(dn, '(objectclass=novaKeyPair)')
+        attr = self.find_object(dn, '(objectclass=novaKeyPair)')
+        return self.__to_key_pair(uid, attr)
 
     def delete_key_pairs(self, uid):
-        key_objects = self.find_key_pairs(uid)
-        if key_objects != None:
-            for key_object in key_objects:
-                key_name = key_object[1]['cn'][0]
-                self.delete_key_pair(uid, key_name)
+        keys = self.find_key_pairs(uid)
+        if keys != None:
+            for key in keys:
+                self.delete_key_pair(uid, key.name)
 
     def key_pair_exists(self, uid, key_name):
         return self.find_key_pair(uid, key_name) != None
@@ -403,16 +379,17 @@ class LDAPWrapper(object):
                              'organizationalPerson',
                              'inetOrgPerson',
                              'novaUser']),
-            ('ou', FLAGS.user_unit),
-            ('uid', name),
-            ('sn', name),
-            ('cn', name),
-            ('secretKey', secret_key),
-            ('accessKey', access_key),
-            ('isAdmin', str(is_admin).upper()),
+            ('ou', [FLAGS.user_unit]),
+            ('uid', [name]),
+            ('sn', [name]),
+            ('cn', [name]),
+            ('secretKey', [secret_key]),
+            ('accessKey', [access_key]),
+            ('isAdmin', [str(is_admin).upper()]),
         ]
         self.conn.add_s('uid=%s,%s' % (name, FLAGS.ldap_subtree),
                         attr)
+        return self.__to_user(dict(attr))
     
     def create_project(self, name, project_manager):
         # PM can be user object or string containing DN
@@ -433,19 +410,20 @@ class LDAPWrapper(object):
         #   and put dn reference in the user object
         attr = [
             ('objectclass', ['novaKeyPair']),
-            ('cn', key_name),
-            ('sshPublicKey', public_key),
-            ('keyFingerprint', fingerprint),
+            ('cn', [key_name]),
+            ('sshPublicKey', [public_key]),
+            ('keyFingerprint', [fingerprint]),
         ]
         self.conn.add_s('cn=%s,uid=%s,%s' % (key_name,
                                              uid,
                                              FLAGS.ldap_subtree),
                                              attr)
+        return self.__to_key_pair(uid, dict(attr))
 
     def find_user_by_access_key(self, access):
         query = '(' + 'accessKey' + '=' + access + ')'
         dn = FLAGS.ldap_subtree
-        return self.find_object(dn, query)
+        return self.__to_user(self.find_object(dn, query))
 
     def delete_key_pair(self, uid, key_name):
         if not self.key_pair_exists(uid, key_name):
@@ -456,7 +434,6 @@ class LDAPWrapper(object):
         self.conn.delete_s('cn=%s,uid=%s,%s' % (key_name, uid,
                                           FLAGS.ldap_subtree))
 
-
     def delete_user(self, name):
         if not self.user_exists(name):
             raise UserError("User " +
@@ -465,3 +442,24 @@ class LDAPWrapper(object):
         self.delete_key_pairs(name)
         self.conn.delete_s('uid=%s,%s' % (name,
                                           FLAGS.ldap_subtree))
+    
+    def __to_user(self, attr):
+        if attr == None:
+            return None
+        return User(
+            id = attr['uid'][0],
+            name = attr['uid'][0],
+            access = attr['accessKey'][0],
+            secret = attr['secretKey'][0],
+            admin = (attr['isAdmin'][0] == 'TRUE')
+        )
+
+    def __to_key_pair(self, owner, attr):
+        if attr == None:
+            return None
+        return KeyPair(
+            owner = owner,
+            name = attr['cn'][0],
+            public_key = attr['sshPublicKey'][0],
+            fingerprint = attr['keyFingerprint'][0],
+        )

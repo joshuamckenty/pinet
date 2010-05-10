@@ -39,10 +39,6 @@ if not FLAGS.has_key('verbose'):
     DEFINE_string('ec2_url',
                     'http://10.255.255.1:8773/services/Cloud',
                     'Url to ec2 api server')
-    DEFINE_string('s3_url',
-                    'http://10.255.255.1:3333/',
-                    'Url to s3 api server')
-
                                            
     DEFINE_string('default_image',
                         'ami-25CB1213',

@@ -4,6 +4,7 @@ Popen bits.
 
 """
 import logging
+import sys
 import os.path
 import subprocess
 import random
@@ -34,8 +35,15 @@ def execute(cmd, input=None):
     return result
 
 def abspath(s):
-  return os.path.join(os.path.dirname(__file__), s)
+    return os.path.join(os.path.dirname(__file__), s)
 
+def default_flagfile(filename='nova.conf'):
+    for arg in sys.argv:
+        if arg.find('flagfile') != -1:
+            break
+    else:
+        if os.path.exists(filename):
+            sys.argv = sys.argv[:1] + ['--flagfile=%s' % filename] + sys.argv[1:]
 
 def debug(arg):
     logging.debug('debug in callback: %s', arg)
