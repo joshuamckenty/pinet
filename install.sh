@@ -104,7 +104,8 @@ modprobe aoe
 pvcreate $STORAGE_DEV
 vgcreate -s 32M $VOLUME_GROUP $STORAGE_DEV
 
-cat > $BASE_PATH/bin/nova.conf <<NOVA_CONF_EOF
+cat > $BIN_PATH/nova.conf <<NOVA_CONF_EOF
+--ec2_url=$CC_IP:$CC_PORT
 --rabbit_host=$RABBIT_HOST
 --datastore_path=$DATA_PATH
 --networks_path=$NET_PATH
@@ -126,9 +127,10 @@ cat > $BASE_PATH/bin/nova.conf <<NOVA_CONF_EOF
 --public_vlan=$PUBLIC_IFACE
 --daemonize
 --verbose
+--undefok=rabbit_host,datastore_path,networks_path,instances_path,buckets_path,images_path,ca_path,keys_path,vlan_start,vlan_end,private_range,public_range,s3_host,public_vlan,volume_group,bridge_dev,storage_dev,aoe_eth_dev,public_vlan,daemonize,verbose
 NOVA_CONF_EOF
 
-cd $BASE_PATH
+cd $BIN_PATH
 
 if [ $ENDPOINT -eq 1 ]; then    
 $BASE_PATH/nova/auth/slap.sh
