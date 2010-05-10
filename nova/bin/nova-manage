@@ -99,7 +99,7 @@ if __name__ == '__main__':
     command_object = fn()
     actions = methods_of(command_object)
     if len(argv) < 1:
-        usage(script)
+        usage(script_name)
         print "Available actions for %s category:" % category
         for k, v in actions:
             print "\t%s" % k
