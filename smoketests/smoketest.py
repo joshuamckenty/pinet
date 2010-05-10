@@ -461,16 +461,16 @@ class VolumeTests(NovaTestCase):
             conn.close()
             self.assertTrue(False)
             return
-        stdin, stdout, stderr = conn.exec_command('mkdir -p /mnt/vol && mkfs.ext3 %s && mount %s /mnt/vol && echo success' % (DEVICE, DEVICE))
+        stdin, stdout, stderr = conn.exec_command('sudo mkdir -p /mnt/vol && sudo mkfs.ext3 %s && sudo mount %s /mnt/vol && echo success' % (DEVICE, DEVICE))
         out = stdout.read()
         conn.close()
         if not out.strip().endswith('success'):
-            self.fail('Unable to mount: %s' % (out))
+            self.fail('Unable to mount: %s %s' % (out, stderr.read()))
 
     def test_004_me_can_write_to_volume(self):
         conn = self.connect_ssh(data['my_private_ip'], vol_key)
         # FIXME: This doesn't fail if the volume hasn't been mounted
-        stdin, stdout, stderr = conn.exec_command('echo "hello" >> /mnt/vol/test.txt')
+        stdin, stdout, stderr = conn.exec_command('sudo echo "hello" >> /mnt/vol/test.txt')
         err = stderr.read()
         conn.close()
         if len(err) > 0:
@@ -478,7 +478,7 @@ class VolumeTests(NovaTestCase):
 
     def test_005_me_can_umount_volume(self):
         conn = self.connect_ssh(data['my_private_ip'], vol_key)
-        stdin, stdout, stderr = conn.exec_command('umount /mnt/vol')
+        stdin, stdout, stderr = conn.exec_command('sudo umount /mnt/vol')
         err = stderr.read()
         conn.close()
         if len(err) > 0:
