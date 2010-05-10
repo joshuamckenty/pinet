@@ -461,7 +461,7 @@ class VolumeTests(NovaTestCase):
             conn.close()
             self.assertTrue(False)
             return
-        stdin, stdout, stderr = conn.exec_command('sudo mkdir -p /mnt/vol && sudo mkfs.ext3 %s && sudo mount %s /mnt/vol && echo success' % (DEVICE, DEVICE))
+        stdin, stdout, stderr = conn.exec_command('sudo bash -c "mkdir -p /mnt/vol && mkfs.ext3 %s && mount %s /mnt/vol && echo success"' % (DEVICE, DEVICE))
         out = stdout.read()
         conn.close()
         if not out.strip().endswith('success'):
@@ -470,7 +470,7 @@ class VolumeTests(NovaTestCase):
     def test_004_me_can_write_to_volume(self):
         conn = self.connect_ssh(data['my_private_ip'], vol_key)
         # FIXME: This doesn't fail if the volume hasn't been mounted
-        stdin, stdout, stderr = conn.exec_command('sudo echo "hello" >> /mnt/vol/test.txt')
+        stdin, stdout, stderr = conn.exec_command('sudo bash -c "echo hello > /mnt/vol/test.txt"')
         err = stderr.read()
         conn.close()
         if len(err) > 0:
