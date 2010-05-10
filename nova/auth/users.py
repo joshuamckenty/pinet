@@ -25,6 +25,8 @@ from nova import flags
 from nova import crypto
 from nova import utils
 
+from nova import objectstore # for flags
+
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('ldap_url', 'ldap://localhost', 'Point this at your ldap server')
@@ -125,7 +127,7 @@ class User(object):
         rc = rc % { 'access': self.access,
                     'secret': self.secret,
                     'ec2': FLAGS.ec2_url,
-                    's3': FLAGS.s3_url,
+                    's3': '%s:%s' % (FLAGS.s3_host, FLAGS.s3_port),
                     'nova': FLAGS.ca_file,
                     'cert': FLAGS.credential_cert_file,
                     'key': FLAGS.credential_key_file,

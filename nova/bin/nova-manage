@@ -70,7 +70,7 @@ def lazy_match(name, key_value_tuples):
     """finds all objects that have a key that case insensitively contains [name]
     key_value_tuples is a list of tuples of the form (key, value)
     returns a list of tuples of the form (key, value)"""
-    return [(k, v) for (k, v) in key_value_tuples if k.lower().find(name.lower()) != -1]
+    return [(k, v) for (k, v) in key_value_tuples if k.lower().find(name.lower()) == 0]
 
 def methods_of(obj):
     """get all callable methods of an object that don't start with underscore
