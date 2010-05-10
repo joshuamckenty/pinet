@@ -144,7 +144,7 @@ class User(object):
         rc = rc % { 'access': self.access,
                     'secret': self.secret,
                     'ec2': FLAGS.ec2_url,
-                    's3': '%s:%s' % (FLAGS.s3_host, FLAGS.s3_port),
+                    's3': 'http://%s:%s' % (FLAGS.s3_host, FLAGS.s3_port),
                     'nova': FLAGS.ca_file,
                     'cert': FLAGS.credential_cert_file,
                     'key': FLAGS.credential_key_file,

@@ -105,7 +105,7 @@ pvcreate $STORAGE_DEV
 vgcreate -s 32M $VOLUME_GROUP $STORAGE_DEV
 
 cat > $BIN_PATH/nova.conf <<NOVA_CONF_EOF
---ec2_url=$CC_IP:$CC_PORT
+--ec2_url=http://$CC_IP:$CC_PORT/services/Cloud
 --rabbit_host=$RABBIT_HOST
 --datastore_path=$DATA_PATH
 --networks_path=$NET_PATH
