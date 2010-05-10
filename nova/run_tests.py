@@ -19,7 +19,7 @@ else:
 from endpoint.tests.api_unittest import *
 from compute.tests.node_unittest import *
 from endpoint.tests.cloud_unittest import *
-from auth.tests.users_unittest import *
+from auth.tests import *
 from volume.tests.storage_unittest import *
 from endpoint.tests.network_unittest import *
 from objectstore.tests.objectstore_unittest import *
