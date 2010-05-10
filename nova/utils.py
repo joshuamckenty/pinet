@@ -6,6 +6,7 @@ Popen bits.
 import logging
 import sys
 import os.path
+import inspect
 import subprocess
 import random
 
@@ -42,6 +43,10 @@ def default_flagfile(filename='nova.conf'):
         if arg.find('flagfile') != -1:
             break
     else:
+        if not os.path.isabs(filename):
+            # turn relative filename into an absolute path
+            script_dir = os.path.dirname(inspect.stack()[-1][1])
+            filename = os.path.abspath(os.path.join(script_dir, filename))
         if os.path.exists(filename):
             sys.argv = sys.argv[:1] + ['--flagfile=%s' % filename] + sys.argv[1:]
 
