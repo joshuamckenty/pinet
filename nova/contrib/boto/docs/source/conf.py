@@ -5,7 +5,7 @@ import sys, os
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.intersphinx', 'sphinx.ext.todo']
 templates_path = ['_templates']
 source_suffix = '.rst'
-master_doc = 'index'
+main_doc = 'index'
 project = u'boto'
 copyright = u'2009,2010, Mitch Garnaat'
 version = '1.9'
